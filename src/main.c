@@ -2,8 +2,10 @@
 
 int main(void)
 {
-    Board board;
-    board_startpos(&board);
-    board_print(&board);
+    bitboard_init();
+
+    Position pos;
+    position_startpos(&pos);
+    position_print(&pos);
     return 0;
 }

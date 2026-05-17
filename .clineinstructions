@@ -1,0 +1,41 @@
+# ChessAi2027 — Implementation Summary
+
+## Architecture
+Hybrid bitboard board representation (similar to Stockfish):
+- 12 piece bitboards: `uint64_t pieces[2][7]` (color × piece type, PAWN=1..KING=6)
+- 3 occupancy bitboards: `occ[WHITE]`, `occ[BLACK]`, `occAll`
+- Mailbox helper: `Piece board[64]` for fast `piece_on(square)` lookup
+- King square tracking: `int kingSq[2]`
+- Compact 16-bit Move type: from(6) | to(6) | promo(2) | flag(2)
+
+## Attack Generation
+- Precomputed tables: `knightAttacks[64]`, `kingAttacks[64]`, `pawnAttacks[2][64]`
+- Magic bitboards for sliding pieces: `rookAttacks(sq, occ)`, `bishopAttacks(sq, occ)`, `queenAttacks(sq, occ)`
+- `pop_lsb()` using `__builtin_ctzll`, `bit_count()` using `__builtin_popcountll`
+
+## Key Files
+- `src/boards.h` — Complete header: Square/File/Rank enums, Color, PieceType, Piece, Move, Position struct, attack table declarations, magic attack getters, bit utilities
+- `src/boards.c` — Implementation: `bitboard_init()` (knight/king/pawn + magic bitboard tables), `position_startpos()`, `position_print()`, magic lookup functions
+- `src/main.c` — Simple demo: calls `bitboard_init()`, sets up startpos, prints board
+- `test/test_boards.c` — 22 Unity tests covering piece encoding, startpos verification, bitboard occupancy, attack tables, magic bitboards (rook/bishop empty+blocked), move encoding, pop_lsb
+
+## Build
+- `make` builds `builds/hello` (main program)
+- `make test` builds and runs `builds/test_runner` (22 tests, all passing, 0 warnings)
+- Compiler: gcc, C99, flags: -Wall -Wextra -std=c99
+
+## Design Decisions
+- `pieces[color][type]` uses [2][7] (type indices PAWN=1..KING=6 match the enum values)
+- `COLOR_IDX(c)` macro: `c >> 3` maps WHITE(0)→0, BLACK(8)→1
+- Piece encoding: lower 3 bits = type, bit 3 = color (WHITE=0, BLACK=8)
+- Magic bitboards use multiplication/shift path (no PEXT/BMI2 dependency)
+- Rook magics are 11-12 bit indices, bishop magics are 5-9 bit indices
+- No game state yet (turn, castling rights, en passant, 50-move rule) — Position struct only stores the board layout for now
+
+## Next Steps (future work)
+- Add game state to Position (side to move, castling rights, en passant square, 50-move counter, fullmove number)
+- Implement FEN parsing (`position_from_fen()`)
+- Implement move generation (pseudo-legal, then legal)
+- Implement make/unmake move
+- Implement perft for validation
+- Search, evaluation, UCI protocol
