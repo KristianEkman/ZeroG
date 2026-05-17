@@ -51,6 +51,16 @@ typedef enum {
     PIECE_TYPE_NB = 7
 } PieceType;
 
+/* ── castling rights ──────────────────────────────────────────────────── */
+#define CASTLE_WK  1
+#define CASTLE_WQ  2
+#define CASTLE_BK  4
+#define CASTLE_BQ  8
+#define CASTLE_ALL 15
+
+/* ── en passant sentinel ──────────────────────────────────────────────── */
+#define SQ_NONE  (-1)
+
 /* ── piece encoding (4 bits: colour bit3 + type bits0-2) ───────────────── */
 typedef uint8_t Piece;
 
@@ -108,6 +118,11 @@ typedef struct {
     uint64_t occAll;         /* all occupied squares             */
     Piece    board[64];      /* mailbox helper                   */
     int      kingSq[2];      /* king square for each colour      */
+    Color    sideToMove;     /* side to move next                */
+    uint8_t  castlingRights; /* castling availability bitmask    */
+    int      enPassantSquare;/* en passant target square or SQ_NONE */
+    int      fiftyMoveCounter;/* halfmove clock                   */
+    int      fullmoveNumber; /* fullmove number                   */
 } Position;
 
 /* ── attack tables (initialised by bitboard_init) ──────────────────────── */

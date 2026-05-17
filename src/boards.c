@@ -352,6 +352,13 @@ void position_startpos(Position *pos)
     /* king squares */
     pos->kingSq[COLOR_IDX(WHITE)] = E1;
     pos->kingSq[COLOR_IDX(BLACK)] = E8;
+
+    /* game state */
+    pos->sideToMove = WHITE;
+    pos->castlingRights = CASTLE_ALL;
+    pos->enPassantSquare = SQ_NONE;
+    pos->fiftyMoveCounter = 0;
+    pos->fullmoveNumber = 1;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -384,4 +391,24 @@ void position_print(const Position *pos)
     }
     printf("  +---+---+---+---+---+---+---+---+\n");
     printf("    a   b   c   d   e   f   g   h\n\n");
+
+    /* game state */
+    printf("Side to move: %s\n", pos->sideToMove == WHITE ? "white" : "black");
+
+    printf("Castling: ");
+    if (pos->castlingRights & CASTLE_WK) printf("K");
+    if (pos->castlingRights & CASTLE_WQ) printf("Q");
+    if (pos->castlingRights & CASTLE_BK) printf("k");
+    if (pos->castlingRights & CASTLE_BQ) printf("q");
+    if (!pos->castlingRights) printf("-");
+    printf("\n");
+
+    printf("En passant: ");
+    if (pos->enPassantSquare == SQ_NONE)
+        printf("-\n");
+    else
+        printf("%c%c\n", 'a' + FILE_OF(pos->enPassantSquare), '1' + RANK_OF(pos->enPassantSquare));
+
+    printf("Halfmove clock: %d\n", pos->fiftyMoveCounter);
+    printf("Fullmove number: %d\n", pos->fullmoveNumber);
 }

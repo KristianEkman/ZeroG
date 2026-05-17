@@ -33,8 +33,6 @@ Hybrid bitboard board representation (similar to Stockfish):
 - No game state yet (turn, castling rights, en passant, 50-move rule) — Position struct only stores the board layout for now
 
 ## Next Steps (future work)
-- Add game state to Position (side to move, castling rights, en passant square, 50-move counter, fullmove number)
-- Implement FEN parsing (`position_from_fen()`)
 - Implement move generation (pseudo-legal, then legal)
 - Implement make/unmake move
 - Implement perft for validation

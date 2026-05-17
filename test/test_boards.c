@@ -167,6 +167,15 @@ void test_kingSq_startpos(void)
     TEST_ASSERT_EQUAL_INT(E8, pos.kingSq[COLOR_IDX(BLACK)]);
 }
 
+void test_startpos_game_state(void)
+{
+    TEST_ASSERT_EQUAL_INT(WHITE, pos.sideToMove);
+    TEST_ASSERT_EQUAL_UINT8(CASTLE_ALL, pos.castlingRights);
+    TEST_ASSERT_EQUAL_INT(SQ_NONE, pos.enPassantSquare);
+    TEST_ASSERT_EQUAL_INT(0, pos.fiftyMoveCounter);
+    TEST_ASSERT_EQUAL_INT(1, pos.fullmoveNumber);
+}
+
 /* ── attack table smoke tests ────────────────────────────────────────── */
 void test_knight_attacks_B1(void)
 {
@@ -319,6 +328,7 @@ int main(void)
     RUN_TEST(test_occupancy_bitboards_match_startpos);
     RUN_TEST(test_piece_bitboards_startpos);
     RUN_TEST(test_kingSq_startpos);
+    RUN_TEST(test_startpos_game_state);
     RUN_TEST(test_knight_attacks_B1);
     RUN_TEST(test_knight_attacks_G8);
     RUN_TEST(test_king_attacks_E1);
