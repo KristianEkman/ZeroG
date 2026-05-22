@@ -123,6 +123,12 @@ int fen_parse(const char *fen, Position *pos)
     }
 
     /* ── 5. Halfmove clock ──────────────────────────────────────────── */
+    if (*p == '\0') {
+        pos->fiftyMoveCounter = 0;
+        pos->fullmoveNumber = 1;
+        return 0;
+    }
+
     if (*p != ' ') return -1;
     p++;
     pos->fiftyMoveCounter = 0;
@@ -131,7 +137,6 @@ int fen_parse(const char *fen, Position *pos)
         p++;
     }
 
-    /* ── 6. Fullmove number ─────────────────────────────────────────── */
     if (*p != ' ') return -1;
     p++;
     pos->fullmoveNumber = 0;

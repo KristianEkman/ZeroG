@@ -288,18 +288,14 @@ void bitboard_init(void)
 
 uint64_t rookAttacks(int sq, uint64_t occ)
 {
-    uint64_t mask = rook_mask(sq);
-    occ &= mask;
-    int index = (int)((occ * rook_magics[sq]) >> (64 - rook_shift[sq]));
-    return rook_table[sq][index];
+    /* Bypass magic lookup – the current rook magics are not collision-free. */
+    return rook_attacks_raw(sq, occ);
 }
 
 uint64_t bishopAttacks(int sq, uint64_t occ)
 {
-    uint64_t mask = bishop_mask(sq);
-    occ &= mask;
-    int index = (int)((occ * bishop_magics[sq]) >> (64 - bishop_shift[sq]));
-    return bishop_table[sq][index];
+    /* Bypass magic lookup – bishop magics are not valid. */
+    return bishop_attacks_raw(sq, occ);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
