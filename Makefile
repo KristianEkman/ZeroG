@@ -19,9 +19,10 @@ MOVEGEN_TEST_SRCS = $(TEST_DIR)/movegen_tests.c $(TEST_DIR)/unity.c
 
 all: $(TARGET)
 
-test: $(TEST_TARGET)
-	@echo "Running board tests..."
-	@$(TEST_TARGET)
+test: test_all
+
+$(TEST_TARGET): $(LIB_SRCS) $(TEST_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(TEST_SRCS)
 
 test_fen: $(FEN_TEST_TARGET)
 	@echo "Running FEN tests..."
@@ -31,13 +32,16 @@ test_movegen: $(MOVEGEN_TEST_TARGET)
 	@echo "Running movegen tests..."
 	@$(MOVEGEN_TEST_TARGET)
 
-test_all: test test_fen test_movegen
+test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET)
+	@echo "Running board tests..."
+	@$(TEST_TARGET)
+	@echo "Running FEN tests..."
+	@$(FEN_TEST_TARGET)
+	@echo "Running movegen tests..."
+	@$(MOVEGEN_TEST_TARGET)
 
 $(TARGET): $(SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $^
-
-$(TEST_TARGET): $(LIB_SRCS) $(TEST_SRCS) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(TEST_SRCS)
 
 $(FEN_TEST_TARGET): $(LIB_SRCS) $(FEN_TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(FEN_TEST_SRCS)

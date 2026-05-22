@@ -10,26 +10,26 @@ void setUp(void)
     position_startpos(&pos);
 }
 
-void tearDown(void) { }
+void tearDown(void) {}
 
 /* ── piece-type extraction ───────────────────────────────────────────── */
 void test_PIECE_TYPE_returns_correct_type(void)
 {
     /* white pieces */
-    TEST_ASSERT_EQUAL_UINT8(PAWN,   PIECE_TYPE(W_PAWN));
+    TEST_ASSERT_EQUAL_UINT8(PAWN, PIECE_TYPE(W_PAWN));
     TEST_ASSERT_EQUAL_UINT8(KNIGHT, PIECE_TYPE(W_KNIGHT));
     TEST_ASSERT_EQUAL_UINT8(BISHOP, PIECE_TYPE(W_BISHOP));
-    TEST_ASSERT_EQUAL_UINT8(ROOK,   PIECE_TYPE(W_ROOK));
-    TEST_ASSERT_EQUAL_UINT8(QUEEN,  PIECE_TYPE(W_QUEEN));
-    TEST_ASSERT_EQUAL_UINT8(KING,   PIECE_TYPE(W_KING));
+    TEST_ASSERT_EQUAL_UINT8(ROOK, PIECE_TYPE(W_ROOK));
+    TEST_ASSERT_EQUAL_UINT8(QUEEN, PIECE_TYPE(W_QUEEN));
+    TEST_ASSERT_EQUAL_UINT8(KING, PIECE_TYPE(W_KING));
 
     /* black pieces — colour bit must not affect type */
-    TEST_ASSERT_EQUAL_UINT8(PAWN,   PIECE_TYPE(B_PAWN));
+    TEST_ASSERT_EQUAL_UINT8(PAWN, PIECE_TYPE(B_PAWN));
     TEST_ASSERT_EQUAL_UINT8(KNIGHT, PIECE_TYPE(B_KNIGHT));
     TEST_ASSERT_EQUAL_UINT8(BISHOP, PIECE_TYPE(B_BISHOP));
-    TEST_ASSERT_EQUAL_UINT8(ROOK,   PIECE_TYPE(B_ROOK));
-    TEST_ASSERT_EQUAL_UINT8(QUEEN,  PIECE_TYPE(B_QUEEN));
-    TEST_ASSERT_EQUAL_UINT8(KING,   PIECE_TYPE(B_KING));
+    TEST_ASSERT_EQUAL_UINT8(ROOK, PIECE_TYPE(B_ROOK));
+    TEST_ASSERT_EQUAL_UINT8(QUEEN, PIECE_TYPE(B_QUEEN));
+    TEST_ASSERT_EQUAL_UINT8(KING, PIECE_TYPE(B_KING));
 
     TEST_ASSERT_EQUAL_UINT8(NONE, PIECE_TYPE(EMPTY));
 }
@@ -58,31 +58,35 @@ void test_PIECE_COLOR_returns_correct_colour(void)
 void test_MAKE_PIECE_roundtrips(void)
 {
     /* white pieces always have colour bit 0 */
-    for (uint8_t t = PAWN; t <= KING; t++) {
+    for (uint8_t t = PAWN; t <= KING; t++)
+    {
         uint8_t p = MAKE_PIECE(WHITE, t);
         TEST_ASSERT_EQUAL_UINT8(WHITE, PIECE_COLOR(p));
-        TEST_ASSERT_EQUAL_UINT8(t,     PIECE_TYPE(p));
+        TEST_ASSERT_EQUAL_UINT8(t, PIECE_TYPE(p));
     }
 
     /* black pieces always have colour bit 3 set */
-    for (uint8_t t = PAWN; t <= KING; t++) {
+    for (uint8_t t = PAWN; t <= KING; t++)
+    {
         uint8_t p = MAKE_PIECE(BLACK, t);
         TEST_ASSERT_EQUAL_UINT8(BLACK, PIECE_COLOR(p));
-        TEST_ASSERT_EQUAL_UINT8(t,     PIECE_TYPE(p));
+        TEST_ASSERT_EQUAL_UINT8(t, PIECE_TYPE(p));
     }
 }
 
 /* ── starting position – pawns ───────────────────────────────────────── */
 void test_startpos_white_pawns_on_rank2(void)
 {
-    for (Square sq = A2; sq <= H2; sq++) {
+    for (Square sq = A2; sq <= H2; sq++)
+    {
         TEST_ASSERT_EQUAL_UINT8(W_PAWN, pos.board[sq]);
     }
 }
 
 void test_startpos_black_pawns_on_rank7(void)
 {
-    for (Square sq = A7; sq <= H7; sq++) {
+    for (Square sq = A7; sq <= H7; sq++)
+    {
         TEST_ASSERT_EQUAL_UINT8(B_PAWN, pos.board[sq]);
     }
 }
@@ -90,32 +94,33 @@ void test_startpos_black_pawns_on_rank7(void)
 /* ── starting position – pieces ──────────────────────────────────────── */
 void test_startpos_white_back_rank(void)
 {
-    TEST_ASSERT_EQUAL_UINT8(W_ROOK,   pos.board[A1]);
+    TEST_ASSERT_EQUAL_UINT8(W_ROOK, pos.board[A1]);
     TEST_ASSERT_EQUAL_UINT8(W_KNIGHT, pos.board[B1]);
     TEST_ASSERT_EQUAL_UINT8(W_BISHOP, pos.board[C1]);
-    TEST_ASSERT_EQUAL_UINT8(W_QUEEN,  pos.board[D1]);
-    TEST_ASSERT_EQUAL_UINT8(W_KING,   pos.board[E1]);
+    TEST_ASSERT_EQUAL_UINT8(W_QUEEN, pos.board[D1]);
+    TEST_ASSERT_EQUAL_UINT8(W_KING, pos.board[E1]);
     TEST_ASSERT_EQUAL_UINT8(W_BISHOP, pos.board[F1]);
     TEST_ASSERT_EQUAL_UINT8(W_KNIGHT, pos.board[G1]);
-    TEST_ASSERT_EQUAL_UINT8(W_ROOK,   pos.board[H1]);
+    TEST_ASSERT_EQUAL_UINT8(W_ROOK, pos.board[H1]);
 }
 
 void test_startpos_black_back_rank(void)
 {
-    TEST_ASSERT_EQUAL_UINT8(B_ROOK,   pos.board[A8]);
+    TEST_ASSERT_EQUAL_UINT8(B_ROOK, pos.board[A8]);
     TEST_ASSERT_EQUAL_UINT8(B_KNIGHT, pos.board[B8]);
     TEST_ASSERT_EQUAL_UINT8(B_BISHOP, pos.board[C8]);
-    TEST_ASSERT_EQUAL_UINT8(B_QUEEN,  pos.board[D8]);
-    TEST_ASSERT_EQUAL_UINT8(B_KING,   pos.board[E8]);
+    TEST_ASSERT_EQUAL_UINT8(B_QUEEN, pos.board[D8]);
+    TEST_ASSERT_EQUAL_UINT8(B_KING, pos.board[E8]);
     TEST_ASSERT_EQUAL_UINT8(B_BISHOP, pos.board[F8]);
     TEST_ASSERT_EQUAL_UINT8(B_KNIGHT, pos.board[G8]);
-    TEST_ASSERT_EQUAL_UINT8(B_ROOK,   pos.board[H8]);
+    TEST_ASSERT_EQUAL_UINT8(B_ROOK, pos.board[H8]);
 }
 
 /* ── emptiness ───────────────────────────────────────────────────────── */
 void test_startpos_ranks_3456_are_empty(void)
 {
-    for (Square sq = A3; sq <= H6; sq++) {
+    for (Square sq = A3; sq <= H6; sq++)
+    {
         TEST_ASSERT_EQUAL_UINT8(EMPTY, pos.board[sq]);
     }
 }
@@ -194,8 +199,7 @@ void test_knight_attacks_G8(void)
 void test_king_attacks_E1(void)
 {
     /* King on E1: E2, D1, D2, F1, F2 */
-    uint64_t expected = (1ULL << E2) | (1ULL << D1) | (1ULL << D2)
-                      | (1ULL << F1) | (1ULL << F2);
+    uint64_t expected = (1ULL << E2) | (1ULL << D1) | (1ULL << D2) | (1ULL << F1) | (1ULL << F2);
     TEST_ASSERT_EQUAL_HEX64(expected, kingAttacks[E1]);
 }
 
@@ -211,6 +215,80 @@ void test_pawn_attacks_black_D7(void)
     /* black pawn on D7 attacks C6 and E6 */
     uint64_t expected = (1ULL << C6) | (1ULL << E6);
     TEST_ASSERT_EQUAL_HEX64(expected, pawnAttacks[COLOR_IDX(BLACK)][D7]);
+}
+
+static uint64_t rook_attacks_ref(int sq, uint64_t occ)
+{
+    uint64_t att = 0ULL;
+    int r = RANK_OF(sq), f = FILE_OF(sq);
+
+    for (int rr = r + 1; rr <= 7; rr++)
+    {
+        uint64_t bb = 1ULL << SQUARE(f, rr);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+    for (int rr = r - 1; rr >= 0; rr--)
+    {
+        uint64_t bb = 1ULL << SQUARE(f, rr);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+    for (int ff = f + 1; ff <= 7; ff++)
+    {
+        uint64_t bb = 1ULL << SQUARE(ff, r);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+    for (int ff = f - 1; ff >= 0; ff--)
+    {
+        uint64_t bb = 1ULL << SQUARE(ff, r);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+
+    return att;
+}
+
+static uint64_t bishop_attacks_ref(int sq, uint64_t occ)
+{
+    uint64_t att = 0ULL;
+    int r = RANK_OF(sq), f = FILE_OF(sq);
+
+    for (int rr = r + 1, ff = f + 1; rr <= 7 && ff <= 7; rr++, ff++)
+    {
+        uint64_t bb = 1ULL << SQUARE(ff, rr);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+    for (int rr = r + 1, ff = f - 1; rr <= 7 && ff >= 0; rr++, ff--)
+    {
+        uint64_t bb = 1ULL << SQUARE(ff, rr);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+    for (int rr = r - 1, ff = f + 1; rr >= 0 && ff <= 7; rr--, ff++)
+    {
+        uint64_t bb = 1ULL << SQUARE(ff, rr);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+    for (int rr = r - 1, ff = f - 1; rr >= 0 && ff >= 0; rr--, ff--)
+    {
+        uint64_t bb = 1ULL << SQUARE(ff, rr);
+        att |= bb;
+        if (occ & bb)
+            break;
+    }
+
+    return att;
 }
 
 /* ── magic bitboard smoke test ───────────────────────────────────────── */
@@ -247,12 +325,35 @@ void test_rook_attacks_blocked(void)
     /* Should see A2, B1 (blocked by C1), and not beyond A3/C1 */
     TEST_ASSERT(att & (1ULL << A2));
     TEST_ASSERT(att & (1ULL << B1));
-    TEST_ASSERT(att & (1ULL << A3));  /* blocker square is attacked */
-    TEST_ASSERT(att & (1ULL << C1));  /* blocker square is attacked */
+    TEST_ASSERT(att & (1ULL << A3)); /* blocker square is attacked */
+    TEST_ASSERT(att & (1ULL << C1)); /* blocker square is attacked */
     /* Should NOT see A4 (blocked by A3) */
     TEST_ASSERT(!(att & (1ULL << A4)));
     /* Should NOT see D1 (blocked by C1) */
     TEST_ASSERT(!(att & (1ULL << D1)));
+}
+
+void test_slider_attacks_match_reference_many_occupancies(void)
+{
+    uint64_t occ_cases[8] = {
+        0ULL,
+        ~0ULL,
+        0xAA55AA55AA55AA55ULL,
+        0x55AA55AA55AA55AAULL,
+        0x00000000FFFFFFFFULL,
+        0xFFFFFFFF00000000ULL,
+        0x0F0F0F0F0F0F0F0FULL,
+        0xF0F0F0F0F0F0F0F0ULL};
+
+    for (int sq = 0; sq < 64; sq++)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            uint64_t occ = occ_cases[i] & ~(1ULL << sq);
+            TEST_ASSERT_EQUAL_HEX64(rook_attacks_ref(sq, occ), rookAttacks(sq, occ));
+            TEST_ASSERT_EQUAL_HEX64(bishop_attacks_ref(sq, occ), bishopAttacks(sq, occ));
+        }
+    }
 }
 
 /* ── Move encoding round-trip ────────────────────────────────────────────── */
@@ -266,7 +367,7 @@ void test_move_encode_decode(void)
     TEST_ASSERT_EQUAL_INT(MOVE_QUIET, MOVE_FLAG(m));
 
     /* promotion a7->a8=Q, flag=0 (promo handled via promo field) */
-    Move m2 = MOVE_BUILD(A7, A8, 3, 0);  /* 3=queen promo */
+    Move m2 = MOVE_BUILD(A7, A8, 3, 0); /* 3=queen promo */
     TEST_ASSERT_EQUAL_INT(A7, MOVE_FROM(m2));
     TEST_ASSERT_EQUAL_INT(A8, MOVE_TO(m2));
     TEST_ASSERT_EQUAL_INT(3, MOVE_PROMO(m2));
@@ -296,7 +397,8 @@ void test_pop_lsb(void)
     int count = bit_count(bb); /* 3 */
     int squares[3];
     int i = 0;
-    while (bb) {
+    while (bb)
+    {
         squares[i++] = pop_lsb(&bb);
     }
     TEST_ASSERT_EQUAL_INT(3, count);
@@ -337,6 +439,7 @@ int main(void)
     RUN_TEST(test_bishop_attacks_empty_board);
     RUN_TEST(test_rook_attacks_empty_board);
     RUN_TEST(test_rook_attacks_blocked);
+    RUN_TEST(test_slider_attacks_match_reference_many_occupancies);
     RUN_TEST(test_move_encode_decode);
     RUN_TEST(test_pop_lsb);
 
