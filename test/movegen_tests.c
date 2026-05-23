@@ -243,6 +243,28 @@ void test_castling_make_unmake(void)
     TEST_ASSERT_EQUAL_INT(saved.castlingRights, pos.castlingRights);
 }
 
+/* ── black move increments and decrements fullmove ───────────────────── */
+void test_black_move_increments_and_decrements_fullmove(void)
+{
+    Undo u1, u2;
+
+    /* 1. White moves (fullmoveNumber stays 1) */
+    apply_move(&pos, MOVE_BUILD(E2, E4, 0, MOVE_DOUBLE_PUSH), &u1);
+    TEST_ASSERT_EQUAL_INT(1, pos.fullmoveNumber);
+
+    /* 2. Black moves (fullmoveNumber increments to 2) */
+    apply_move(&pos, MOVE_BUILD(E7, E5, 0, MOVE_DOUBLE_PUSH), &u2);
+    TEST_ASSERT_EQUAL_INT(2, pos.fullmoveNumber);
+
+    /* 3. Undo Black move (fullmoveNumber decrements to 1) */
+    undo_move(&pos, &u2);
+    TEST_ASSERT_EQUAL_INT(1, pos.fullmoveNumber);
+
+    /* 4. Undo White move (fullmoveNumber stays 1) */
+    undo_move(&pos, &u1);
+    TEST_ASSERT_EQUAL_INT(1, pos.fullmoveNumber);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * movegen_pseudo_legal tests
  * ═══════════════════════════════════════════════════════════════════════════ */
@@ -586,6 +608,7 @@ int main(void)
     RUN_TEST(test_en_passant_capture_roundtrip);
     RUN_TEST(test_promotion_undo);
     RUN_TEST(test_castling_make_unmake);
+    RUN_TEST(test_black_move_increments_and_decrements_fullmove);
 
     RUN_TEST(test_startpos_white_move_count);
     RUN_TEST(test_startpos_includes_e2e4);
