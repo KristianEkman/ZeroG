@@ -1,227 +1,502 @@
 #include "fen.h"
-#include "boards.h"
+
 #include <ctype.h>
-#include <stdio.h>
-#include <string.h>
+#include <limits.h>
+#include <stddef.h>
+#include <stdlib.h>
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * FEN parsing
- * ──────────────────────────────────────────────────────────────────────────── */
+#include "move/move_gen.h"
+#include "zobrist.h"
 
-/* Map a piece character to (Color, PieceType).  Returns 0 on success. */
-static int char_to_piece(char ch, Color *color, PieceType *pt)
+static Piece piece_from_fen_char(char c)
 {
-    switch (ch) {
-        case 'P': *color = WHITE; *pt = PAWN;   return 0;
-        case 'N': *color = WHITE; *pt = KNIGHT; return 0;
-        case 'B': *color = WHITE; *pt = BISHOP; return 0;
-        case 'R': *color = WHITE; *pt = ROOK;   return 0;
-        case 'Q': *color = WHITE; *pt = QUEEN;  return 0;
-        case 'K': *color = WHITE; *pt = KING;   return 0;
-        case 'p': *color = BLACK; *pt = PAWN;   return 0;
-        case 'n': *color = BLACK; *pt = KNIGHT; return 0;
-        case 'b': *color = BLACK; *pt = BISHOP; return 0;
-        case 'r': *color = BLACK; *pt = ROOK;   return 0;
-        case 'q': *color = BLACK; *pt = QUEEN;  return 0;
-        case 'k': *color = BLACK; *pt = KING;   return 0;
-        default:  return -1;
+    Color color;
+    PieceType piece_type;
+
+    switch (c)
+    {
+    case 'P':
+    case 'N':
+    case 'B':
+    case 'R':
+    case 'Q':
+    case 'K':
+        color = WHITE;
+        break;
+    case 'p':
+    case 'n':
+    case 'b':
+    case 'r':
+    case 'q':
+    case 'k':
+        color = BLACK;
+        break;
+    default:
+        return NO_PIECE;
     }
+
+    switch (tolower((unsigned char)c))
+    {
+    case 'p':
+        piece_type = PAWN;
+        break;
+    case 'n':
+        piece_type = KNIGHT;
+        break;
+    case 'b':
+        piece_type = BISHOP;
+        break;
+    case 'r':
+        piece_type = ROOK;
+        break;
+    case 'q':
+        piece_type = QUEEN;
+        break;
+    case 'k':
+        piece_type = KING;
+        break;
+    default:
+        return NO_PIECE;
+    }
+
+    return make_piece(color, piece_type);
 }
 
-int fen_parse(const char *fen, Position *pos)
+static int parse_fen_board(Board *board, const char **cursor)
 {
-    if (!fen || !pos) return -1;
+    const char *p = *cursor;
 
-    /* Zero the position first */
-    memset(pos, 0, sizeof(Position));
+    for (int rank = 7; rank >= 0; --rank)
+    {
+        int file = 0;
 
-    const char *p = fen;
+        while (file < 8)
+        {
+            Piece piece;
+            Square square;
 
-    /* ── 1. Piece placement ─────────────────────────────────────────── */
-    int file = 0, rank = 7;
-    while (rank >= 0) {
-        if (file == 8) {
-            if (rank == 0) break;                   /* last rank done */
-            if (*p != '/') return -1;               /* missing rank separator */
-            p++;
-            rank--;
-            file = 0;
-            continue;
-        }
-        if (*p >= '1' && *p <= '8') {
-            int empty = *p - '0';
-            if (file + empty > 8) return -1;
-            for (int i = 0; i < empty; i++) {
-                int sq = SQUARE(file + i, rank);
-                pos->board[sq] = EMPTY;
+            if (*p >= '1' && *p <= '8')
+            {
+                file += *p - '0';
+                ++p;
+                continue;
             }
-            file += empty;
-            p++;
-            continue;
-        }
-        Color color;
-        PieceType pt;
-        if (char_to_piece(*p, &color, &pt) != 0)
-            return -1;
-        int sq = SQUARE(file, rank);
-        Piece piece = MAKE_PIECE(color, pt);
-        pos->board[sq] = piece;
-        pos->pieces[COLOR_IDX(color)][pt] |= (1ULL << sq);
-        pos->occ[COLOR_IDX(color)]      |= (1ULL << sq);
-        if (pt == KING)
-            pos->kingSq[COLOR_IDX(color)] = sq;
-        file++;
-        p++;
-    }
-    if (file != 8 || rank != 0) return -1;
 
-    pos->occAll = pos->occ[COLOR_IDX(WHITE)] | pos->occ[COLOR_IDX(BLACK)];
-
-    /* ── 2. Side to move ────────────────────────────────────────────── */
-    if (*p != ' ') return -1;
-    p++;
-    if (*p == 'w')
-        pos->sideToMove = WHITE;
-    else if (*p == 'b')
-        pos->sideToMove = BLACK;
-    else
-        return -1;
-    p++;
-
-    /* ── 3. Castling rights ─────────────────────────────────────────── */
-    if (*p != ' ') return -1;
-    p++;
-    pos->castlingRights = 0;
-    if (*p == '-') {
-        p++;
-    } else {
-        while (*p && *p != ' ') {
-            switch (*p) {
-                case 'K': pos->castlingRights |= CASTLE_WK; break;
-                case 'Q': pos->castlingRights |= CASTLE_WQ; break;
-                case 'k': pos->castlingRights |= CASTLE_BK; break;
-                case 'q': pos->castlingRights |= CASTLE_BQ; break;
-                default:  return -1;
+            piece = piece_from_fen_char(*p);
+            if (piece == NO_PIECE)
+            {
+                return -1;
             }
-            p++;
+
+            square = (Square)((rank * 8) + file);
+            board->squares[square] = piece;
+            board->material_score += piece_material_value(piece);
+            board->game_phase += piece_game_phase_value(piece);
+            board->material_state = board_material_state_add_piece(board->material_state,
+                                                                   piece,
+                                                                   square);
+
+            {
+                Color color = piece_get_color(piece);
+                PieceType piece_type = piece_get_type(piece);
+                uint64_t square_mask = UINT64_C(1) << square;
+
+                board->piece_bitboards[color][piece_type] |= square_mask;
+                board->occupancy_bitboards[color] |= square_mask;
+                board->occupancy_all |= square_mask;
+            }
+
+            if (piece_get_type(piece) == KING)
+            {
+                board->king_squares[piece_get_color(piece)] = square;
+            }
+
+            ++file;
+            ++p;
+        }
+
+        if (rank > 0)
+        {
+            if (*p != '/')
+            {
+                return -1;
+            }
+            ++p;
         }
     }
 
-    /* ── 4. En passant square ───────────────────────────────────────── */
-    if (*p != ' ') return -1;
-    p++;
-    if (*p == '-') {
-        pos->enPassantSquare = SQ_NONE;
-        p++;
-    } else if (*p >= 'a' && *p <= 'h' && *(p+1) >= '1' && *(p+1) <= '8') {
-        int f = *p - 'a';
-        int r = *(p+1) - '1';
-        pos->enPassantSquare = SQUARE(f, r);
-        p += 2;
-    } else {
+    if (*p != ' ')
+    {
         return -1;
     }
 
-    /* ── 5. Halfmove clock ──────────────────────────────────────────── */
-    if (*p == '\0') {
-        pos->fiftyMoveCounter = 0;
-        pos->fullmoveNumber = 1;
+    *cursor = p + 1;
+    return 0;
+}
+
+static int parse_fen_side_to_move(Board *board, const char **cursor)
+{
+    const char *p = *cursor;
+
+    if (p[0] == 'w' && p[1] == ' ')
+    {
+        board->side_to_move = WHITE;
+        *cursor = p + 2;
         return 0;
     }
 
-    if (*p != ' ') return -1;
-    p++;
-    pos->fiftyMoveCounter = 0;
-    while (*p >= '0' && *p <= '9') {
-        pos->fiftyMoveCounter = pos->fiftyMoveCounter * 10 + (int)(*p - '0');
-        p++;
+    if (p[0] == 'b' && p[1] == ' ')
+    {
+        board->side_to_move = BLACK;
+        *cursor = p + 2;
+        return 0;
     }
 
-    if (*p != ' ') return -1;
-    p++;
-    pos->fullmoveNumber = 0;
-    while (*p >= '0' && *p <= '9') {
-        pos->fullmoveNumber = pos->fullmoveNumber * 10 + (int)(*p - '0');
-        p++;
+    return -1;
+}
+
+static int parse_fen_castling(Board *board, const char **cursor)
+{
+    const char *p = *cursor;
+    unsigned rights = 0;
+
+    if (*p == '-')
+    {
+        ++p;
     }
-    if (pos->fullmoveNumber < 1) {
-        pos->fullmoveNumber = 1;
+    else
+    {
+        while (*p != ' ')
+        {
+            unsigned right;
+
+            switch (*p)
+            {
+            case 'K':
+                right = CASTLE_WHITE_KINGSIDE;
+                break;
+            case 'Q':
+                right = CASTLE_WHITE_QUEENSIDE;
+                break;
+            case 'k':
+                right = CASTLE_BLACK_KINGSIDE;
+                break;
+            case 'q':
+                right = CASTLE_BLACK_QUEENSIDE;
+                break;
+            default:
+                return -1;
+            }
+
+            if ((rights & right) != 0)
+            {
+                return -1;
+            }
+
+            rights |= right;
+            ++p;
+        }
+    }
+
+    if (*p != ' ')
+    {
+        return -1;
+    }
+
+    board->castling_rights = rights;
+    *cursor = p + 1;
+    return 0;
+}
+
+static int parse_square_token(const char *token, Square *square)
+{
+    int file;
+    int rank;
+
+    if (token[0] < 'a' || token[0] > 'h' || token[1] < '1' || token[1] > '8')
+    {
+        return -1;
+    }
+
+    file = token[0] - 'a';
+    rank = token[1] - '1';
+    *square = (Square)((rank * 8) + file);
+    return 0;
+}
+
+static int parse_fen_en_passant(Board *board, const char **cursor)
+{
+    const char *p = *cursor;
+
+    if (p[0] == '-' && p[1] == ' ')
+    {
+        board->en_passant_square = SQUARE_COUNT;
+        *cursor = p + 2;
+        return 0;
+    }
+
+    if (parse_square_token(p, &board->en_passant_square) != 0 || p[2] != ' ')
+    {
+        return -1;
+    }
+
+    *cursor = p + 3;
+    return 0;
+}
+
+static int parse_non_negative_int(const char **cursor, int *value, int require_trailing_space)
+{
+    char *end;
+    long parsed;
+    const char *p = *cursor;
+
+    if (!isdigit((unsigned char)*p))
+    {
+        return -1;
+    }
+
+    parsed = strtol(p, &end, 10);
+    if (parsed < 0 || parsed > INT_MAX)
+    {
+        return -1;
+    }
+
+    if (require_trailing_space)
+    {
+        if (*end != ' ')
+        {
+            return -1;
+        }
+        *cursor = end + 1;
+    }
+    else
+    {
+        if (*end != '\0')
+        {
+            return -1;
+        }
+        *cursor = end;
+    }
+
+    *value = (int)parsed;
+    return 0;
+}
+
+static int validate_king_positions(const Board *board)
+{
+    unsigned king_counts[COLOR_COUNT] = {0};
+
+    for (int square = 0; square < SQUARE_COUNT; ++square)
+    {
+        Piece piece = board->squares[square];
+
+        if (!piece_is_empty(piece) && piece_get_type(piece) == KING)
+        {
+            ++king_counts[piece_get_color(piece)];
+        }
+    }
+
+    for (Color color = WHITE; color < COLOR_COUNT; ++color)
+    {
+        Square king_square = board->king_squares[color];
+
+        if (king_counts[color] != 1 || king_square < A1 || king_square >= SQUARE_COUNT)
+        {
+            return -1;
+        }
+
+        if (board->squares[king_square] != make_piece(color, KING))
+        {
+            return -1;
+        }
     }
 
     return 0;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * FEN serialisation
- * ──────────────────────────────────────────────────────────────────────────── */
-
-static char piece_to_char(Piece p)
+static int validate_pawn_placement(const Board *board)
 {
-    static const char ch[] = { '?', 'P', 'N', 'B', 'R', 'Q', 'K' };
-    PieceType pt = PIECE_TYPE(p);
-    if (pt < PAWN || pt > KING) return '?';
-    char c = ch[pt];
-    return (PIECE_COLOR(p) == BLACK) ? (char)tolower((unsigned char)c) : c;
+    for (int file = 0; file < BOARD_AXIS_LENGTH; ++file)
+    {
+        if (piece_get_type(board->squares[file]) == PAWN ||
+            piece_get_type(board->squares[A8 + file]) == PAWN)
+        {
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
-int fen_serialize(const Position *pos, char *buf)
+static int validate_castling_rights(const Board *board)
 {
-    if (!pos || !buf) return -1;
-
-    char *out = buf;
-
-    /* ── 1. Piece placement ─────────────────────────────────────────── */
-    for (int rank = 7; rank >= 0; rank--) {
-        int empty = 0;
-        for (int file = 0; file < 8; file++) {
-            Piece p = pos->board[rank * 8 + file];
-            if (p == EMPTY) {
-                empty++;
-            } else {
-                if (empty > 0) {
-                    *out++ = (char)('0' + empty);
-                    empty = 0;
-                }
-                *out++ = piece_to_char(p);
-            }
-        }
-        if (empty > 0) {
-            *out++ = (char)('0' + empty);
-        }
-        if (rank > 0)
-            *out++ = '/';
+    if ((board->castling_rights & CASTLE_WHITE_KINGSIDE) != 0 &&
+        (board->squares[E1] != make_piece(WHITE, KING) ||
+         board->squares[H1] != make_piece(WHITE, ROOK)))
+    {
+        return -1;
     }
 
-    /* ── 2. Side to move ────────────────────────────────────────────── */
-    *out++ = ' ';
-    *out++ = (pos->sideToMove == WHITE) ? 'w' : 'b';
-
-    /* ── 3. Castling rights ─────────────────────────────────────────── */
-    *out++ = ' ';
-    if (pos->castlingRights == 0) {
-        *out++ = '-';
-    } else {
-        if (pos->castlingRights & CASTLE_WK) *out++ = 'K';
-        if (pos->castlingRights & CASTLE_WQ) *out++ = 'Q';
-        if (pos->castlingRights & CASTLE_BK) *out++ = 'k';
-        if (pos->castlingRights & CASTLE_BQ) *out++ = 'q';
+    if ((board->castling_rights & CASTLE_WHITE_QUEENSIDE) != 0 &&
+        (board->squares[E1] != make_piece(WHITE, KING) ||
+         board->squares[A1] != make_piece(WHITE, ROOK)))
+    {
+        return -1;
     }
 
-    /* ── 4. En passant square ───────────────────────────────────────── */
-    *out++ = ' ';
-    if (pos->enPassantSquare == SQ_NONE) {
-        *out++ = '-';
-    } else {
-        *out++ = (char)('a' + FILE_OF(pos->enPassantSquare));
-        *out++ = (char)('1' + RANK_OF(pos->enPassantSquare));
+    if ((board->castling_rights & CASTLE_BLACK_KINGSIDE) != 0 &&
+        (board->squares[E8] != make_piece(BLACK, KING) ||
+         board->squares[H8] != make_piece(BLACK, ROOK)))
+    {
+        return -1;
     }
 
-    /* ── 5. Halfmove clock ──────────────────────────────────────────── */
-    out += sprintf(out, " %d", pos->fiftyMoveCounter);
+    if ((board->castling_rights & CASTLE_BLACK_QUEENSIDE) != 0 &&
+        (board->squares[E8] != make_piece(BLACK, KING) ||
+         board->squares[A8] != make_piece(BLACK, ROOK)))
+    {
+        return -1;
+    }
 
-    /* ── 6. Fullmove number ──────────────────────────────────────────── */
-    out += sprintf(out, " %d", pos->fullmoveNumber);
+    return 0;
+}
 
-    *out = '\0';
-    return (int)(out - buf);
+static int validate_en_passant_square(const Board *board)
+{
+    Piece expected_moved_pawn;
+    Square en_passant_square;
+    Square moved_pawn_square;
+    int expected_rank;
+
+    if (board->en_passant_square == SQUARE_COUNT)
+    {
+        return 0;
+    }
+
+    en_passant_square = board->en_passant_square;
+    expected_rank = board->side_to_move == WHITE ? 5 : 2;
+    if (square_rank(en_passant_square) != expected_rank)
+    {
+        return -1;
+    }
+
+    if (!piece_is_empty(board->squares[en_passant_square]))
+    {
+        return -1;
+    }
+
+    if (board->side_to_move == WHITE)
+    {
+        moved_pawn_square = (Square)(en_passant_square - BOARD_AXIS_LENGTH);
+        expected_moved_pawn = make_piece(BLACK, PAWN);
+    }
+    else
+    {
+        moved_pawn_square = (Square)(en_passant_square + BOARD_AXIS_LENGTH);
+        expected_moved_pawn = make_piece(WHITE, PAWN);
+    }
+
+    if (board->squares[moved_pawn_square] != expected_moved_pawn)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+static int validate_check_state(const Board *board)
+{
+    Color side_not_to_move = board_opposite_color(board->side_to_move);
+    int white_in_check = move_gen_is_square_attacked(board, board->king_squares[WHITE], BLACK);
+    int black_in_check = move_gen_is_square_attacked(board, board->king_squares[BLACK], WHITE);
+
+    if (white_in_check && black_in_check)
+    {
+        return -1;
+    }
+
+    if ((side_not_to_move == WHITE && white_in_check) ||
+        (side_not_to_move == BLACK && black_in_check))
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+static int validate_fen_position(const Board *board)
+{
+    if (validate_king_positions(board) != 0)
+    {
+        return -1;
+    }
+
+    if (validate_pawn_placement(board) != 0)
+    {
+        return -1;
+    }
+
+    if (validate_castling_rights(board) != 0)
+    {
+        return -1;
+    }
+
+    if (validate_en_passant_square(board) != 0)
+    {
+        return -1;
+    }
+
+    return validate_check_state(board);
+}
+
+int board_from_fen(Board *board, const char *fen)
+{
+    const char *cursor = fen;
+
+    if (board == NULL || fen == NULL)
+    {
+        return -1;
+    }
+
+    board_clear(board);
+
+    if (parse_fen_board(board, &cursor) != 0)
+    {
+        return -1;
+    }
+
+    if (parse_fen_side_to_move(board, &cursor) != 0)
+    {
+        return -1;
+    }
+
+    if (parse_fen_castling(board, &cursor) != 0)
+    {
+        return -1;
+    }
+
+    if (parse_fen_en_passant(board, &cursor) != 0)
+    {
+        return -1;
+    }
+
+    if (parse_non_negative_int(&cursor, &board->halfmove_clock, 1) != 0)
+    {
+        return -1;
+    }
+
+    if (parse_non_negative_int(&cursor, &board->fullmove_number, 0) != 0 ||
+        board->fullmove_number == 0)
+    {
+        return -1;
+    }
+
+    if (validate_fen_position(board) != 0)
+    {
+        return -1;
+    }
+
+    board->position_key = zobrist_compute_key(board);
+
+    return 0;
 }
