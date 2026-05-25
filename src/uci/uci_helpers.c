@@ -49,7 +49,7 @@ int uci_line_starts_with(const char *line, const char *keyword, const char **arg
     return uci_starts_with_keyword(uci_skip_spaces(line), keyword, args);
 }
 
-int uci_write_bestmove(FILE *output, Move move)
+int uci_write_bestmove(const Position *board, FILE *output, Move move)
 {
     char move_text[6];
 
@@ -67,7 +67,7 @@ int uci_write_bestmove(FILE *output, Move move)
     }
     else
     {
-        if (uci_move_to_string(move, move_text, sizeof(move_text)) != 0)
+        if (uci_move_to_string(board, move, move_text, sizeof(move_text)) != 0)
         {
             return -1;
         }
@@ -82,7 +82,7 @@ int uci_write_bestmove(FILE *output, Move move)
     return 0;
 }
 
-int uci_search_with_limits(const Board *board,
+int uci_search_with_limits(const Position *board,
                            const SearchLimits *limits,
                            FILE *output,
                            SearchResult *result)
@@ -101,7 +101,7 @@ int uci_search_with_limits(const Board *board,
     return search_status;
 }
 
-int uci_search(const Board *board,
+int uci_search(const Position *board,
                unsigned depth,
                unsigned time_limit_ms,
                FILE *output,

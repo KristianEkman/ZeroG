@@ -4,7 +4,7 @@
 
 static int write_uci_handshake(FILE *output)
 {
-    if (fprintf(output, "id name ChessAI2026 1.0.0\n") < 0 ||
+    if (fprintf(output, "id name ChessAI2027 1.0.0\n") < 0 ||
         fprintf(output, "id author Kristian Ekman\n") < 0 ||
         fprintf(output, "option name Hash type spin default 16 min 1 max 1024\n") < 0 ||
         fprintf(output, "uciok\n") < 0)
@@ -77,7 +77,7 @@ int uci_handle_line(UciState *state, const char *line, FILE *output, int *should
             return -1;
         }
 
-        return uci_write_bestmove(output, result.has_legal_move ? result.best_move : 0);
+        return uci_write_bestmove(&state->board, output, result.has_legal_move ? result.best_move : 0);
     }
 
     if (uci_starts_with_keyword(line, "setoption", &args))

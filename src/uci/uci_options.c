@@ -206,7 +206,7 @@ int uci_parse_go_search_limits(const UciState *state,
         limits->hard_time_limit_ms = options.movetime_ms;
         has_time_limit = options.movetime_ms > 0u;
     }
-    else if (state->board.side_to_move == WHITE)
+    else if (state->board.sideToMove == WHITE)
     {
         remaining_ms = options.wtime_ms;
         increment_ms = options.winc_ms;

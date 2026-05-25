@@ -8,7 +8,7 @@
 
 typedef struct
 {
-    Board board;
+    Position board;
     SearchLimits limits;
     FILE *output;
     SearchResult result;
@@ -95,13 +95,13 @@ static void *uci_search_thread_main(void *context)
         best_move = task->result.best_move;
     }
 
-    (void)uci_write_bestmove(task->output, best_move);
+    (void)uci_write_bestmove(&task->board, task->output, best_move);
     atomic_store_explicit(&task->finished, 1, memory_order_release);
     return NULL;
 }
 
 static int uci_start_async_search(UciSearchRuntime *runtime,
-                                  const Board *board,
+                                  const Position *board,
                                   const SearchLimits *limits,
                                   FILE *output)
 {

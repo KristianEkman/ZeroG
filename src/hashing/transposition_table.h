@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "move.h"
+#include "boards.h"
 
 typedef enum {
     TT_BOUND_NONE = 0,

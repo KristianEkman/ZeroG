@@ -7,9 +7,9 @@ enum {
     ZOBRIST_CASTLING_COMBINATIONS = 16
 };
 
-static uint64_t zobrist_piece_square_keys[ZOBRIST_PIECE_CAPACITY][SQUARE_COUNT];
+static uint64_t zobrist_piece_square_keys[ZOBRIST_PIECE_CAPACITY][SQUARE_NB];
 static uint64_t zobrist_castling_keys[ZOBRIST_CASTLING_COMBINATIONS];
-static uint64_t zobrist_en_passant_keys[SQUARE_COUNT];
+static uint64_t zobrist_en_passant_keys[SQUARE_NB];
 static uint64_t zobrist_black_to_move_key;
 static int zobrist_initialized;
 
@@ -31,7 +31,7 @@ static void zobrist_ensure_initialized(void)
     }
 
     for (int piece = 0; piece < ZOBRIST_PIECE_CAPACITY; ++piece) {
-        for (int square = 0; square < SQUARE_COUNT; ++square) {
+        for (int square = 0; square < SQUARE_NB; ++square) {
             zobrist_piece_square_keys[piece][square] = zobrist_splitmix64(&state);
         }
     }
@@ -40,7 +40,7 @@ static void zobrist_ensure_initialized(void)
         zobrist_castling_keys[rights] = zobrist_splitmix64(&state);
     }
 
-    for (int square = 0; square < SQUARE_COUNT; ++square) {
+    for (int square = 0; square < SQUARE_NB; ++square) {
         zobrist_en_passant_keys[square] = zobrist_splitmix64(&state);
     }
 
@@ -48,7 +48,7 @@ static void zobrist_ensure_initialized(void)
     zobrist_initialized = 1;
 }
 
-uint64_t zobrist_compute_key(const Board *board)
+uint64_t zobrist_compute_key(const Position *board)
 {
     uint64_t key = 0;
 
@@ -58,21 +58,21 @@ uint64_t zobrist_compute_key(const Board *board)
 
     zobrist_ensure_initialized();
 
-    for (int square = 0; square < SQUARE_COUNT; ++square) {
-        Piece piece = board->squares[square];
+    for (int square = 0; square < SQUARE_NB; ++square) {
+        Piece piece = board->board[square];
 
-        if (!piece_is_empty(piece)) {
+        if (piece != EMPTY) {
             key ^= zobrist_piece_square_keys[piece][square];
         }
     }
 
-    key ^= zobrist_castling_keys[board->castling_rights & 0x0f];
+    key ^= zobrist_castling_keys[board->castlingRights & 0x0f];
 
-    if (board->en_passant_square >= A1 && board->en_passant_square < SQUARE_COUNT) {
-        key ^= zobrist_en_passant_keys[board->en_passant_square];
+    if (board->enPassantSquare >= A1 && board->enPassantSquare < SQUARE_NB) {
+        key ^= zobrist_en_passant_keys[board->enPassantSquare];
     }
 
-    if (board->side_to_move == BLACK) {
+    if (board->sideToMove == BLACK) {
         key ^= zobrist_black_to_move_key;
     }
 
@@ -81,8 +81,8 @@ uint64_t zobrist_compute_key(const Board *board)
 
 uint64_t zobrist_piece_key(Piece piece, Square square)
 {
-    if (piece_is_empty(piece) || piece >= ZOBRIST_PIECE_CAPACITY ||
-        square < A1 || square >= SQUARE_COUNT) {
+    if (piece == EMPTY || piece >= ZOBRIST_PIECE_CAPACITY ||
+        square < A1 || square >= SQUARE_NB) {
         return 0;
     }
 
@@ -98,7 +98,7 @@ uint64_t zobrist_castling_key(unsigned castling_rights)
 
 uint64_t zobrist_en_passant_key(Square square)
 {
-    if (square < A1 || square >= SQUARE_COUNT) {
+    if (square < A1 || square >= SQUARE_NB) {
         return 0;
     }
 

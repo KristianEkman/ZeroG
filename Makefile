@@ -11,16 +11,20 @@ else
 	$(error Unsupported BUILD='$(BUILD)'. Use BUILD=release or BUILD=debug)
 endif
 
-CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_OPT)
 SRC_DIR = src
 TEST_DIR = test
 BUILD_DIR = builds
+CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_OPT) -I$(SRC_DIR) -I$(SRC_DIR)/movegen -I$(SRC_DIR)/hashing -I$(SRC_DIR)/uci -I$(SRC_DIR)/search
 TARGET = $(BUILD_DIR)/hello
 TEST_TARGET = $(BUILD_DIR)/test_runner
 FEN_TEST_TARGET = $(BUILD_DIR)/fen_test_runner
 MOVEGEN_TEST_TARGET = $(BUILD_DIR)/movegen_test_runner
 PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
-SRCS = $(wildcard $(SRC_DIR)/*.c)
+SRCS = $(wildcard $(SRC_DIR)/*.c) \
+       $(wildcard $(SRC_DIR)/movegen/*.c) \
+       $(wildcard $(SRC_DIR)/hashing/*.c) \
+       $(wildcard $(SRC_DIR)/uci/*.c) \
+       $(wildcard $(SRC_DIR)/search/*.c)
 
 # library sources (everything except main)
 LIB_SRCS = $(filter-out $(SRC_DIR)/main.c, $(SRCS))

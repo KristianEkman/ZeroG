@@ -16,13 +16,13 @@ enum
 const char *uci_skip_spaces(const char *text);
 int uci_starts_with_keyword(const char *line, const char *keyword, const char **remainder);
 int uci_line_starts_with(const char *line, const char *keyword, const char **args);
-int uci_set_start_position(Board *board);
-int uci_write_bestmove(FILE *output, Move move);
-int uci_search_with_limits(const Board *board,
+int uci_set_start_position(Position *board);
+int uci_write_bestmove(const Position *board, FILE *output, Move move);
+int uci_search_with_limits(const Position *board,
                            const SearchLimits *limits,
                            FILE *output,
                            SearchResult *result);
-int uci_search(const Board *board,
+int uci_search(const Position *board,
                unsigned depth,
                unsigned time_limit_ms,
                FILE *output,

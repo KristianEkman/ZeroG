@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-#include "board.h"
+#include "boards.h"
 
-uint64_t zobrist_compute_key(const Board *board);
+uint64_t zobrist_compute_key(const Position *board);
 uint64_t zobrist_piece_key(Piece piece, Square square);
 uint64_t zobrist_castling_key(unsigned castling_rights);
 uint64_t zobrist_en_passant_key(Square square);
