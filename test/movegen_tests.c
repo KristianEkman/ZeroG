@@ -1,6 +1,7 @@
 #include "unity.h"
 #include "movegen.h"
 #include "fen.h"
+#include "zobrist.h"
 #include <string.h>
 
 static Position pos;
@@ -591,6 +592,55 @@ void test_perft_pos6_depth2(void)
     TEST_ASSERT_EQUAL_UINT64(2079ULL, perft(&p, 2));
 }
 
+/* ── Zobrist hash key validation tests ────────────────────────────────── */
+static void verify_hash_keys_recursive(Position *pos, int depth)
+{
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(pos), pos->hashKey);
+
+    if (depth == 0) {
+        return;
+    }
+
+    Move moves[MAX_MOVES];
+    int n = movegen_legal(pos, moves);
+
+    for (int i = 0; i < n; i++) {
+        Undo u;
+        uint64_t expected_old_hash = pos->hashKey;
+        apply_move(pos, moves[i], &u);
+        TEST_ASSERT_EQUAL_UINT64(expected_old_hash, u.old_hash);
+        TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(pos), pos->hashKey);
+
+        verify_hash_keys_recursive(pos, depth - 1);
+
+        undo_move(pos, &u);
+        TEST_ASSERT_EQUAL_UINT64(expected_old_hash, pos->hashKey);
+        TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(pos), pos->hashKey);
+    }
+}
+
+void test_zobrist_hash_keys_startpos(void)
+{
+    position_startpos(&pos);
+    verify_hash_keys_recursive(&pos, 3);
+}
+
+void test_zobrist_hash_keys_kiwipete(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -", &p));
+    verify_hash_keys_recursive(&p, 2);
+}
+
+void test_zobrist_hash_keys_pos4(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1", &p));
+    verify_hash_keys_recursive(&p, 2);
+}
+
 
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
@@ -644,6 +694,10 @@ int main(void)
     RUN_TEST(test_perft_pos5_depth2);
     RUN_TEST(test_perft_pos6_depth1);
     RUN_TEST(test_perft_pos6_depth2);
+
+    RUN_TEST(test_zobrist_hash_keys_startpos);
+    RUN_TEST(test_zobrist_hash_keys_kiwipete);
+    RUN_TEST(test_zobrist_hash_keys_pos4);
 
     return UNITY_END();
 }

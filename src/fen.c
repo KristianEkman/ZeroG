@@ -1,5 +1,6 @@
 #include "fen.h"
 #include "boards.h"
+#include "zobrist.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -126,6 +127,7 @@ int fen_parse(const char *fen, Position *pos)
     if (*p == '\0') {
         pos->fiftyMoveCounter = 0;
         pos->fullmoveNumber = 1;
+        pos->hashKey = zobrist_compute_key(pos);
         return 0;
     }
 
@@ -148,6 +150,7 @@ int fen_parse(const char *fen, Position *pos)
         pos->fullmoveNumber = 1;
     }
 
+    pos->hashKey = zobrist_compute_key(pos);
     return 0;
 }
 

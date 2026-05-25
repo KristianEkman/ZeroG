@@ -16,6 +16,7 @@ typedef struct {
     int      old_ep;        /* en passant square before the move              */
     uint8_t  old_castling;  /* castling rights before the move                */
     int      old_fifty;     /* halfmove clock before the move                 */
+    uint64_t old_hash;      /* Zobrist hash key before the move               */
 } Undo;
 
 /* ── make / unmake a move on a position ──────────────────────────────────── */

@@ -1,4 +1,5 @@
 #include "movegen.h"
+#include "zobrist.h"
 #include <string.h>
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ void apply_move(Position *pos, Move m, Undo *u)
     u->old_ep       = pos->enPassantSquare;
     u->old_castling = pos->castlingRights;
     u->old_fifty    = pos->fiftyMoveCounter;
+    u->old_hash     = pos->hashKey;
 
     /* Captured piece (handle EP capture separately) */
     if (pt == PAWN && to == pos->enPassantSquare) {
@@ -70,12 +72,14 @@ void apply_move(Position *pos, Move m, Undo *u)
     pos->pieces[us_idx][pt] ^= from_bb;
     pos->occ[us_idx]        ^= from_bb;
     pos->board[from]         = EMPTY;
+    pos->hashKey            ^= zobrist_piece_key(moving_piece, from);
 
     /* ── 2. Remove captured piece (non-EP) ────────────────────────────── */
     if (u->captured != EMPTY && !(pt == PAWN && to == pos->enPassantSquare)) {
         PieceType cpt = PIECE_TYPE(u->captured);
         pos->pieces[them_idx][cpt] ^= to_bb;
         pos->occ[them_idx]        ^= to_bb;
+        pos->hashKey              ^= zobrist_piece_key(u->captured, to);
     }
 
     /* ── 3. Castling rook relocation ──────────────────────────────────── */
@@ -88,6 +92,8 @@ void apply_move(Position *pos, Move m, Undo *u)
         pos->occ[us_idx]          ^= rfrom_bb | rto_bb;
         pos->board[rook_from]      = EMPTY;
         pos->board[rook_to]        = MAKE_PIECE(us, ROOK);
+        pos->hashKey              ^= zobrist_piece_key(MAKE_PIECE(us, ROOK), rook_from);
+        pos->hashKey              ^= zobrist_piece_key(MAKE_PIECE(us, ROOK), rook_to);
     } else if (flag == MOVE_CASTLE_QS) {
         int rook_from = (us == WHITE) ? A1 : A8;
         int rook_to   = (us == WHITE) ? D1 : D8;
@@ -97,6 +103,8 @@ void apply_move(Position *pos, Move m, Undo *u)
         pos->occ[us_idx]          ^= rfrom_bb | rto_bb;
         pos->board[rook_from]      = EMPTY;
         pos->board[rook_to]        = MAKE_PIECE(us, ROOK);
+        pos->hashKey              ^= zobrist_piece_key(MAKE_PIECE(us, ROOK), rook_from);
+        pos->hashKey              ^= zobrist_piece_key(MAKE_PIECE(us, ROOK), rook_to);
     }
 
     /* ── 4. En passant – remove captured pawn behind destination ──────── */
@@ -106,6 +114,7 @@ void apply_move(Position *pos, Move m, Undo *u)
         pos->pieces[them_idx][PAWN] ^= cap_bb;
         pos->occ[them_idx]          ^= cap_bb;
         pos->board[cap_sq]           = EMPTY;
+        pos->hashKey                ^= zobrist_piece_key(MAKE_PIECE(them, PAWN), cap_sq);
     }
 
     /* ── 5. Place piece on destination (handle promotion) ─────────────── */
@@ -116,10 +125,12 @@ void apply_move(Position *pos, Move m, Undo *u)
         pos->pieces[us_idx][promo_pt] ^= to_bb;
         pos->occ[us_idx]              ^= to_bb;
         pos->board[to]                 = MAKE_PIECE(us, promo_pt);
+        pos->hashKey                  ^= zobrist_piece_key(MAKE_PIECE(us, promo_pt), to);
     } else {
         pos->pieces[us_idx][pt] ^= to_bb;
         pos->occ[us_idx]        ^= to_bb;
         pos->board[to]           = MAKE_PIECE(us, pt);
+        pos->hashKey            ^= zobrist_piece_key(moving_piece, to);
     }
 
     /* ── 6. Update king square ────────────────────────────────────────── */
@@ -130,14 +141,20 @@ void apply_move(Position *pos, Move m, Undo *u)
     pos->occAll = pos->occ[COLOR_IDX(WHITE)] | pos->occ[COLOR_IDX(BLACK)];
 
     /* ── 8. Update en passant square ──────────────────────────────────── */
+    if (u->old_ep != SQ_NONE) {
+        pos->hashKey ^= zobrist_en_passant_key(u->old_ep);
+    }
     pos->enPassantSquare = SQ_NONE;
     if (pt == PAWN && (to - from == 16 || from - to == 16)) {
         /* Double push – set ep square to the passed-over square */
         pos->enPassantSquare = (us == WHITE) ? to - 8 : to + 8;
+        pos->hashKey         ^= zobrist_en_passant_key(pos->enPassantSquare);
     }
 
     /* ── 9. Update castling rights ────────────────────────────────────── */
-    pos->castlingRights = castling_after_move(u->old_castling, from, to, us);
+    pos->hashKey        ^= zobrist_castling_key(u->old_castling);
+    pos->castlingRights  = castling_after_move(u->old_castling, from, to, us);
+    pos->hashKey        ^= zobrist_castling_key(pos->castlingRights);
 
     /* ── 10. Update fifty-move counter ────────────────────────────────── */
     if (pt == PAWN || u->captured != EMPTY)
@@ -151,6 +168,7 @@ void apply_move(Position *pos, Move m, Undo *u)
 
     /* ── 12. Switch side to move ──────────────────────────────────────── */
     pos->sideToMove = them;
+    pos->hashKey   ^= zobrist_side_to_move_key();
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -240,6 +258,7 @@ void undo_move(Position *pos, const Undo *u)
     pos->enPassantSquare = u->old_ep;
     pos->castlingRights  = u->old_castling;
     pos->fiftyMoveCounter = u->old_fifty;
+    pos->hashKey         = u->old_hash;
 
     /* ── 8. Restore fullmove number ───────────────────────────────────── */
     if (us == BLACK)

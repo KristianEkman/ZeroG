@@ -123,6 +123,7 @@ typedef struct {
     int      enPassantSquare;/* en passant target square or SQ_NONE */
     int      fiftyMoveCounter;/* halfmove clock                   */
     int      fullmoveNumber; /* fullmove number                   */
+    uint64_t hashKey;        /* zobrist hash of the position      */
 } Position;
 
 /* ── attack tables (initialised by bitboard_init) ──────────────────────── */

@@ -1,4 +1,5 @@
 #include "boards.h"
+#include "zobrist.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -556,6 +557,8 @@ void position_startpos(Position *pos)
     pos->enPassantSquare = SQ_NONE;
     pos->fiftyMoveCounter = 0;
     pos->fullmoveNumber = 1;
+
+    pos->hashKey = zobrist_compute_key(pos);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
