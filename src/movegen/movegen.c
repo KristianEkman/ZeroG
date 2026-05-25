@@ -278,16 +278,8 @@ int is_square_attacked(const Position *pos, int sq, Color attacker)
     uint64_t occ = pos->occAll;
 
     /* Pawn attacks: a pawn of `attacker` would attack `sq` */
-    uint64_t pawns = pos->pieces[a_idx][PAWN];
-    if (attacker == WHITE) {
-        /* White pawns attack north-west / north-east, so they sit south-east / south-west of sq */
-        if (sq >= 8 && FILE_OF(sq) > 0 && (pawns & (1ULL << (sq - 9))))  return 1;
-        if (sq >= 8 && FILE_OF(sq) < 7 && (pawns & (1ULL << (sq - 7))))  return 1;
-    } else {
-        /* Black pawns attack south-west / south-east, so they sit north-east / north-west of sq */
-        if (sq < 56 && FILE_OF(sq) > 0 && (pawns & (1ULL << (sq + 7)))) return 1;
-        if (sq < 56 && FILE_OF(sq) < 7 && (pawns & (1ULL << (sq + 9)))) return 1;
-    }
+    if (pawnAttacks[COLOR_IDX(OPPOSITE(attacker))][sq] & pos->pieces[a_idx][PAWN])
+        return 1;
 
     /* Knight */
     if (knightAttacks[sq] & pos->pieces[a_idx][KNIGHT]) return 1;

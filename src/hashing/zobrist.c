@@ -7,11 +7,10 @@ enum {
     ZOBRIST_CASTLING_COMBINATIONS = 16
 };
 
-static uint64_t zobrist_piece_square_keys[ZOBRIST_PIECE_CAPACITY][SQUARE_NB];
-static uint64_t zobrist_castling_keys[ZOBRIST_CASTLING_COMBINATIONS];
-static uint64_t zobrist_en_passant_keys[SQUARE_NB];
-static uint64_t zobrist_black_to_move_key;
-static int zobrist_initialized;
+uint64_t zobrist_piece_square_keys[ZOBRIST_PIECE_CAPACITY][SQUARE_NB];
+uint64_t zobrist_castling_keys[ZOBRIST_CASTLING_COMBINATIONS];
+uint64_t zobrist_en_passant_keys[SQUARE_NB];
+uint64_t zobrist_black_to_move_key;
 
 static uint64_t zobrist_splitmix64(uint64_t *state)
 {
@@ -22,13 +21,9 @@ static uint64_t zobrist_splitmix64(uint64_t *state)
     return value ^ (value >> 31);
 }
 
-static void zobrist_ensure_initialized(void)
+void zobrist_init(void)
 {
     uint64_t state = UINT64_C(0x6a09e667f3bcc909);
-
-    if (zobrist_initialized) {
-        return;
-    }
 
     for (int piece = 0; piece < ZOBRIST_PIECE_CAPACITY; ++piece) {
         for (int square = 0; square < SQUARE_NB; ++square) {
@@ -45,7 +40,6 @@ static void zobrist_ensure_initialized(void)
     }
 
     zobrist_black_to_move_key = zobrist_splitmix64(&state);
-    zobrist_initialized = 1;
 }
 
 uint64_t zobrist_compute_key(const Position *board)
@@ -55,8 +49,6 @@ uint64_t zobrist_compute_key(const Position *board)
     if (board == NULL) {
         return 0;
     }
-
-    zobrist_ensure_initialized();
 
     for (int square = 0; square < SQUARE_NB; ++square) {
         Piece piece = board->board[square];
@@ -77,37 +69,4 @@ uint64_t zobrist_compute_key(const Position *board)
     }
 
     return key;
-}
-
-uint64_t zobrist_piece_key(Piece piece, Square square)
-{
-    if (piece == EMPTY || piece >= ZOBRIST_PIECE_CAPACITY ||
-        square < A1 || square >= SQUARE_NB) {
-        return 0;
-    }
-
-    zobrist_ensure_initialized();
-    return zobrist_piece_square_keys[piece][square];
-}
-
-uint64_t zobrist_castling_key(unsigned castling_rights)
-{
-    zobrist_ensure_initialized();
-    return zobrist_castling_keys[castling_rights & 0x0f];
-}
-
-uint64_t zobrist_en_passant_key(Square square)
-{
-    if (square < A1 || square >= SQUARE_NB) {
-        return 0;
-    }
-
-    zobrist_ensure_initialized();
-    return zobrist_en_passant_keys[square];
-}
-
-uint64_t zobrist_side_to_move_key(void)
-{
-    zobrist_ensure_initialized();
-    return zobrist_black_to_move_key;
 }

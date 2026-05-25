@@ -474,6 +474,9 @@ void bitboard_init(void)
             bishop_table[sq][index] = attacks;
         }
     }
+
+    /* Initialize Zobrist hashing keys */
+    zobrist_init();
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

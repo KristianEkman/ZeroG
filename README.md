@@ -65,6 +65,20 @@ The engine uses standard `gcc` and `make` pipelines.
   make clean
   ```
 
+### Benchmarking and Profiling
+The engine includes benchmarking and profiling tools to measure and optimize move generation speed.
+
+- **Run Performance Benchmark**:
+  ```bash
+  make bench_perft
+  ```
+
+- **Run CPU Profiler**:
+  ```bash
+  make profile
+  ```
+  This builds the benchmark target with optimizations and debug symbols enabled (`-O3 -g`), then profiles the run using `valgrind/callgrind` (on Linux) or macOS `sample` (on macOS).
+
 ### Running Tests
 The engine includes exhaustive tests built using the Unity C test framework.
 
