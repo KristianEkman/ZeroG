@@ -1,29 +1,42 @@
-Make the engine impossible to break.
-Add more tests for,
-make_move + undo_move restores exact board
-to be sure everything inlcuding edge cases is covered for move_gen.
+benchmark, profile, sts,selfplay averything below
 
+Evaluation
+ material
+ piece-square tables
+bishop pair
+mobility
+king safety
+passed pawns
+isolated/doubled pawns
+rook on open file
+tempo bonus
+pawn shield
 
-Zobrist key restores exactly after undo
-FEN serialize(parse(fen)) == normalized fen
-legal movegen never leaves own king in check
-castling edge cases
-en passant discovered-check edge cases
-promotion captures
-fifty-move and repetition state
+Search
+ iterative deepening
+ principal variation search, PVS
+ quiescence search
 
-search
- - simple alpha beta
- - iterative deepening
- - more pruning
- plan with gpt 5.5
+transposition-table move ordering
+capture ordering with MVV-LVA and SEE
+killer moves
+history heuristic
+countermove/history continuation heuristics
+aspiration windows
+null-move pruning
+late move reductions, LMR
+futility pruning
+reverse futility pruning
+mate distance penalty
+singular extensions
+probcut
 
 Time control
  - game phase
 
 Evaluation
  - piece square tables?
- - 
+ - draw detection
 
 Move ordering/ move-ordering for quite search /movepicker
 
