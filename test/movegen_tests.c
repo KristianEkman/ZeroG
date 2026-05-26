@@ -24,6 +24,29 @@ static int contains_move(const Move *moves, int n, Move m) {
  * apply_move + undo_move roundtrip tests
  * ═══════════════════════════════════════════════════════════════════════════ */
 
+static void assert_positions_equal(const Position *saved, const Position *pos)
+{
+    TEST_ASSERT_EQUAL_INT(saved->sideToMove, pos->sideToMove);
+    TEST_ASSERT_EQUAL_INT(saved->castlingRights, pos->castlingRights);
+    TEST_ASSERT_EQUAL_INT(saved->enPassantSquare, pos->enPassantSquare);
+    TEST_ASSERT_EQUAL_INT(saved->fiftyMoveCounter, pos->fiftyMoveCounter);
+    TEST_ASSERT_EQUAL_INT(saved->fullmoveNumber, pos->fullmoveNumber);
+    TEST_ASSERT_EQUAL_INT(saved->kingSq[0], pos->kingSq[0]);
+    TEST_ASSERT_EQUAL_INT(saved->kingSq[1], pos->kingSq[1]);
+    TEST_ASSERT_EQUAL_UINT64(saved->occAll, pos->occAll);
+    TEST_ASSERT_EQUAL_UINT64(saved->occ[0], pos->occ[0]);
+    TEST_ASSERT_EQUAL_UINT64(saved->occ[1], pos->occ[1]);
+    TEST_ASSERT_EQUAL_UINT64(saved->hashKey, pos->hashKey);
+    for (int col = 0; col < 2; col++) {
+        for (int pt = 0; pt < 7; pt++) {
+            TEST_ASSERT_EQUAL_UINT64(saved->pieces[col][pt], pos->pieces[col][pt]);
+        }
+    }
+    for (int sq = 0; sq < 64; sq++) {
+        TEST_ASSERT_EQUAL_UINT8(saved->board[sq], pos->board[sq]);
+    }
+}
+
 /* ── quiet knight move ───────────────────────────────────────────────── */
 void test_apply_undo_knight_roundtrip(void)
 {
@@ -36,22 +59,7 @@ void test_apply_undo_knight_roundtrip(void)
 
     undo_move(&pos, &u);
 
-    TEST_ASSERT_EQUAL_INT(saved.sideToMove, pos.sideToMove);
-    TEST_ASSERT_EQUAL_INT(saved.castlingRights, pos.castlingRights);
-    TEST_ASSERT_EQUAL_INT(saved.enPassantSquare, pos.enPassantSquare);
-    TEST_ASSERT_EQUAL_INT(saved.fiftyMoveCounter, pos.fiftyMoveCounter);
-    TEST_ASSERT_EQUAL_INT(saved.fullmoveNumber, pos.fullmoveNumber);
-    TEST_ASSERT_EQUAL_INT(saved.kingSq[0], pos.kingSq[0]);
-    TEST_ASSERT_EQUAL_INT(saved.kingSq[1], pos.kingSq[1]);
-    TEST_ASSERT_EQUAL_UINT64(saved.occAll, pos.occAll);
-    TEST_ASSERT_EQUAL_UINT64(saved.occ[0], pos.occ[0]);
-    TEST_ASSERT_EQUAL_UINT64(saved.occ[1], pos.occ[1]);
-    for (int pt = PAWN; pt <= KING; pt++) {
-        TEST_ASSERT_EQUAL_UINT64(saved.pieces[0][pt], pos.pieces[0][pt]);
-        TEST_ASSERT_EQUAL_UINT64(saved.pieces[1][pt], pos.pieces[1][pt]);
-    }
-    for (int sq = 0; sq < 64; sq++)
-        TEST_ASSERT_EQUAL_UINT8(saved.board[sq], pos.board[sq]);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── e2-e4 double push sets en passant ──────────────────────────────── */
@@ -641,6 +649,188 @@ void test_zobrist_hash_keys_pos4(void)
     verify_hash_keys_recursive(&p, 2);
 }
 
+void test_apply_undo_all_moves_in_standard_positions(void)
+{
+    const char *fens[] = {
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
+    };
+    int num_fens = sizeof(fens) / sizeof(fens[0]);
+
+    for (int f = 0; f < num_fens; f++) {
+        Position original;
+        memset(&original, 0, sizeof(original));
+        int res = fen_parse(fens[f], &original);
+        TEST_ASSERT_EQUAL_INT(0, res);
+
+        Move moves[MAX_MOVES];
+        int n = movegen_pseudo_legal(&original, moves);
+        TEST_ASSERT(n > 0);
+
+        for (int i = 0; i < n; i++) {
+            Position current = original;
+            Undo u;
+
+            apply_move(&current, moves[i], &u);
+
+            /* Assert sideToMove flipped */
+            TEST_ASSERT_EQUAL_INT(OPPOSITE(original.sideToMove), current.sideToMove);
+
+            /* Assert position has changed (hashKey should differ) */
+            TEST_ASSERT_NOT_EQUAL(original.hashKey, current.hashKey);
+
+            undo_move(&current, &u);
+
+            /* Verify exact restoration */
+            assert_positions_equal(&original, &current);
+        }
+    }
+}
+
+void test_castling_rights_lost_by_rook_capture(void)
+{
+    Position p;
+    int res;
+    Undo u;
+    Move cap;
+
+    /* 1. White captures Black Rook on H8 */
+    memset(&p, 0, sizeof(p));
+    res = fen_parse("r3k2r/6B1/8/8/8/8/8/R3K2R w KQkq - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    Position saved1 = p;
+    cap = MOVE_BUILD(G7, H8, 0, MOVE_QUIET);
+    apply_move(&p, cap, &u);
+    TEST_ASSERT_EQUAL_INT(CASTLE_WK | CASTLE_WQ | CASTLE_BQ, p.castlingRights);
+    undo_move(&p, &u);
+    assert_positions_equal(&saved1, &p);
+
+    /* 2. White captures Black Rook on A8 */
+    memset(&p, 0, sizeof(p));
+    res = fen_parse("r3k2r/1B6/8/8/8/8/8/R3K2R w KQkq - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    Position saved2 = p;
+    cap = MOVE_BUILD(B7, A8, 0, MOVE_QUIET);
+    apply_move(&p, cap, &u);
+    TEST_ASSERT_EQUAL_INT(CASTLE_WK | CASTLE_WQ | CASTLE_BK, p.castlingRights);
+    undo_move(&p, &u);
+    assert_positions_equal(&saved2, &p);
+
+    /* 3. Black captures White Rook on H1 */
+    memset(&p, 0, sizeof(p));
+    res = fen_parse("r3k2r/8/8/8/8/8/6b1/R3K2R b KQkq - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    Position saved3 = p;
+    cap = MOVE_BUILD(G2, H1, 0, MOVE_QUIET);
+    apply_move(&p, cap, &u);
+    TEST_ASSERT_EQUAL_INT(CASTLE_WQ | CASTLE_BK | CASTLE_BQ, p.castlingRights);
+    undo_move(&p, &u);
+    assert_positions_equal(&saved3, &p);
+
+    /* 4. Black captures White Rook on A1 */
+    memset(&p, 0, sizeof(p));
+    res = fen_parse("r3k2r/8/8/8/8/8/1b6/R3K2R b KQkq - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    Position saved4 = p;
+    cap = MOVE_BUILD(B2, A1, 0, MOVE_QUIET);
+    apply_move(&p, cap, &u);
+    TEST_ASSERT_EQUAL_INT(CASTLE_WK | CASTLE_BK | CASTLE_BQ, p.castlingRights);
+    undo_move(&p, &u);
+    assert_positions_equal(&saved4, &p);
+}
+
+void test_all_promotion_types_roundtrip(void)
+{
+    Position p;
+    int res;
+    Undo u;
+    Move promo;
+
+    /* ── White Promotions ── */
+    for (int capture = 0; capture <= 1; capture++) {
+        for (int promo_type = 0; promo_type < 4; promo_type++) {
+            memset(&p, 0, sizeof(p));
+            res = fen_parse("1r6/P7/8/8/8/8/8/4K3 w - - 0 1", &p);
+            TEST_ASSERT_EQUAL_INT(0, res);
+
+            Position saved = p;
+            int to_sq = capture ? B8 : A8;
+            promo = MOVE_BUILD(A7, to_sq, promo_type, MOVE_QUIET);
+
+            apply_move(&p, promo, &u);
+
+            PieceType expected_pt = (promo_type == 0) ? KNIGHT :
+                                    (promo_type == 1) ? BISHOP :
+                                    (promo_type == 2) ? ROOK : QUEEN;
+            TEST_ASSERT_EQUAL_UINT8(MAKE_PIECE(WHITE, expected_pt), p.board[to_sq]);
+            TEST_ASSERT_EQUAL_UINT8(EMPTY, p.board[A7]);
+
+            undo_move(&p, &u);
+            assert_positions_equal(&saved, &p);
+        }
+    }
+
+    /* ── Black Promotions ── */
+    for (int capture = 0; capture <= 1; capture++) {
+        for (int promo_type = 0; promo_type < 4; promo_type++) {
+            memset(&p, 0, sizeof(p));
+            res = fen_parse("4K3/8/8/8/8/8/p7/1R6 b - - 0 1", &p);
+            TEST_ASSERT_EQUAL_INT(0, res);
+
+            Position saved = p;
+            int to_sq = capture ? B1 : A1;
+            promo = MOVE_BUILD(A2, to_sq, promo_type, MOVE_QUIET);
+
+            apply_move(&p, promo, &u);
+
+            PieceType expected_pt = (promo_type == 0) ? KNIGHT :
+                                    (promo_type == 1) ? BISHOP :
+                                    (promo_type == 2) ? ROOK : QUEEN;
+            TEST_ASSERT_EQUAL_UINT8(MAKE_PIECE(BLACK, expected_pt), p.board[to_sq]);
+            TEST_ASSERT_EQUAL_UINT8(EMPTY, p.board[A2]);
+
+            undo_move(&p, &u);
+            assert_positions_equal(&saved, &p);
+        }
+    }
+}
+
+void test_en_passant_restores_previous_ep_square(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_INT(D6, p.enPassantSquare);
+
+    Position saved1 = p;
+    Undo u1;
+
+    /* Move White Knight b1-c3 (quiet move, clears ep square d6) */
+    Move quiet = MOVE_BUILD(B1, C3, 0, MOVE_QUIET);
+    apply_move(&p, quiet, &u1);
+    TEST_ASSERT_EQUAL_INT(SQ_NONE, p.enPassantSquare);
+
+    undo_move(&p, &u1);
+    TEST_ASSERT_EQUAL_INT(D6, p.enPassantSquare);
+    assert_positions_equal(&saved1, &p);
+
+    /* Move White Pawn g2-g4 (double push, changes ep square from d6 to g3) */
+    Position saved2 = p;
+    Undo u2;
+    Move dp = MOVE_BUILD(G2, G4, 0, MOVE_DOUBLE_PUSH);
+    apply_move(&p, dp, &u2);
+    TEST_ASSERT_EQUAL_INT(G3, p.enPassantSquare);
+
+    undo_move(&p, &u2);
+    TEST_ASSERT_EQUAL_INT(D6, p.enPassantSquare);
+    assert_positions_equal(&saved2, &p);
+}
+
 
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
@@ -659,6 +849,11 @@ int main(void)
     RUN_TEST(test_promotion_undo);
     RUN_TEST(test_castling_make_unmake);
     RUN_TEST(test_black_move_increments_and_decrements_fullmove);
+
+    RUN_TEST(test_apply_undo_all_moves_in_standard_positions);
+    RUN_TEST(test_castling_rights_lost_by_rook_capture);
+    RUN_TEST(test_all_promotion_types_roundtrip);
+    RUN_TEST(test_en_passant_restores_previous_ep_square);
 
     RUN_TEST(test_startpos_white_move_count);
     RUN_TEST(test_startpos_includes_e2e4);
