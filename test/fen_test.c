@@ -238,6 +238,74 @@ void test_fen_serialize_nul_terminated(void)
     TEST_ASSERT_EQUAL_CHAR('\0', buf[len]);
 }
 
+/* ── FEN normalization: castling rights ordering and duplicates ──────────── */
+void test_fen_normalize_castling_rights(void)
+{
+    const char *out_of_order =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKkq - 0 1";
+    Position pos;
+    TEST_ASSERT_EQUAL_INT(0, fen_parse(out_of_order, &pos));
+
+    char buf[128];
+    fen_serialize(&pos, buf);
+    TEST_ASSERT_EQUAL_STRING("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", buf);
+
+    const char *duplicates =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqkQ - 0 1";
+    TEST_ASSERT_EQUAL_INT(0, fen_parse(duplicates, &pos));
+    fen_serialize(&pos, buf);
+    TEST_ASSERT_EQUAL_STRING("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", buf);
+
+    const char *subset_out_of_order =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w qQ - 0 1";
+    TEST_ASSERT_EQUAL_INT(0, fen_parse(subset_out_of_order, &pos));
+    fen_serialize(&pos, buf);
+    TEST_ASSERT_EQUAL_STRING("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w Qq - 0 1", buf);
+}
+
+/* ── FEN normalization: missing fields (4-field FEN) ─────────────────────── */
+void test_fen_normalize_missing_clocks(void)
+{
+    const char *four_fields =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+    Position pos;
+    TEST_ASSERT_EQUAL_INT(0, fen_parse(four_fields, &pos));
+    TEST_ASSERT_EQUAL_INT(0, pos.fiftyMoveCounter);
+    TEST_ASSERT_EQUAL_INT(1, pos.fullmoveNumber);
+
+    char buf[128];
+    fen_serialize(&pos, buf);
+    TEST_ASSERT_EQUAL_STRING("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", buf);
+}
+
+/* ── FEN normalization: fullmove number zero/negative ───────────────────── */
+void test_fen_normalize_invalid_fullmove(void)
+{
+    const char *zero_fullmove =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0";
+    Position pos;
+    TEST_ASSERT_EQUAL_INT(0, fen_parse(zero_fullmove, &pos));
+    TEST_ASSERT_EQUAL_INT(1, pos.fullmoveNumber);
+
+    char buf[128];
+    fen_serialize(&pos, buf);
+    TEST_ASSERT_EQUAL_STRING("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", buf);
+}
+
+/* ── FEN normalization: consecutive digit empty squares ──────────────────── */
+void test_fen_normalize_consecutive_empty_digits(void)
+{
+    const char *consecutive_digits =
+        "rnbqkbnr/pppppppp/314/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    Position pos;
+    TEST_ASSERT_EQUAL_INT(0, fen_parse(consecutive_digits, &pos));
+
+    char buf[128];
+    fen_serialize(&pos, buf);
+    TEST_ASSERT_EQUAL_STRING("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", buf);
+}
+
+
 /* ── main ────────────────────────────────────────────────────────────────── */
 int main(void)
 {
@@ -263,6 +331,10 @@ int main(void)
     RUN_TEST(test_fen_roundtrip_complex);
     RUN_TEST(test_fen_roundtrip_no_ep_no_castle);
     RUN_TEST(test_fen_serialize_nul_terminated);
+    RUN_TEST(test_fen_normalize_castling_rights);
+    RUN_TEST(test_fen_normalize_missing_clocks);
+    RUN_TEST(test_fen_normalize_invalid_fullmove);
+    RUN_TEST(test_fen_normalize_consecutive_empty_digits);
 
     return UNITY_END();
 }
