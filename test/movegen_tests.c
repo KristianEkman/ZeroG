@@ -37,6 +37,7 @@ static void assert_positions_equal(const Position *saved, const Position *pos)
     TEST_ASSERT_EQUAL_UINT64(saved->occ[0], pos->occ[0]);
     TEST_ASSERT_EQUAL_UINT64(saved->occ[1], pos->occ[1]);
     TEST_ASSERT_EQUAL_UINT64(saved->hashKey, pos->hashKey);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(pos), pos->hashKey);
     for (int col = 0; col < 2; col++) {
         for (int pt = 0; pt < 7; pt++) {
             TEST_ASSERT_EQUAL_UINT64(saved->pieces[col][pt], pos->pieces[col][pt]);
@@ -65,6 +66,7 @@ void test_apply_undo_knight_roundtrip(void)
 /* ── e2-e4 double push sets en passant ──────────────────────────────── */
 void test_apply_double_push_sets_ep(void)
 {
+    Position saved = pos;
     Undo u;
     Move mv = MOVE_BUILD(E2, E4, 0, MOVE_DOUBLE_PUSH);
     apply_move(&pos, mv, &u);
@@ -73,19 +75,22 @@ void test_apply_double_push_sets_ep(void)
     TEST_ASSERT_EQUAL_INT(BLACK, pos.sideToMove);
 
     undo_move(&pos, &u);
-    TEST_ASSERT_EQUAL_INT(WHITE, pos.sideToMove);
-    TEST_ASSERT_EQUAL_INT(SQ_NONE, pos.enPassantSquare);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── capture resets fifty-move counter ──────────────────────────────── */
 void test_capture_resets_fifty(void)
 {
+    Position saved = pos;
     Undo u1, u2, u3;
 
     /* Move white knight b1-c3, black d7-d5, knight c3xd5 */
     apply_move(&pos, MOVE_BUILD(B1, C3, 0, MOVE_QUIET), &u1);
     apply_move(&pos, MOVE_BUILD(D7, D5, 0, MOVE_DOUBLE_PUSH), &u2);
     pos.fiftyMoveCounter = 7;
+    pos.hashKey = zobrist_compute_key(&pos);
+
+    Position saved_before_cap = pos;
 
     Undo u_cap;
     Move cap = MOVE_BUILD(C3, D5, 0, MOVE_QUIET);
@@ -94,26 +99,29 @@ void test_capture_resets_fifty(void)
     TEST_ASSERT_EQUAL_INT(0, pos.fiftyMoveCounter);
 
     undo_move(&pos, &u_cap);
-    TEST_ASSERT_EQUAL_INT(7, pos.fiftyMoveCounter);
+    assert_positions_equal(&saved_before_cap, &pos);
 
     undo_move(&pos, &u2);
     undo_move(&pos, &u1);
-    /* variable u3 not used, remove */
+    assert_positions_equal(&saved, &pos);
     (void)u3;
 }
 
 /* ── pawn push resets fifty-move counter ───────────────────────────── */
 void test_pawn_push_resets_fifty(void)
 {
-    Undo u;
     pos.fiftyMoveCounter = 10;
+    pos.hashKey = zobrist_compute_key(&pos);
+    Position saved = pos;
+
+    Undo u;
     Move mv = MOVE_BUILD(E2, E4, 0, MOVE_DOUBLE_PUSH);
     apply_move(&pos, mv, &u);
 
     TEST_ASSERT_EQUAL_INT(0, pos.fiftyMoveCounter);
 
     undo_move(&pos, &u);
-    TEST_ASSERT_EQUAL_INT(10, pos.fiftyMoveCounter);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── castling rights are lost when king moves ──────────────────────── */
@@ -125,6 +133,7 @@ void test_castling_rights_king_move(void)
     pos.pieces[0][KNIGHT] &= ~(1ULL << G1);
     pos.occ[0] &= ~(1ULL << G1);
     pos.occAll = pos.occ[0] | pos.occ[1];
+    pos.hashKey = zobrist_compute_key(&pos);
 
     Position saved = pos;
 
@@ -135,8 +144,7 @@ void test_castling_rights_king_move(void)
     TEST_ASSERT_EQUAL_INT(0, pos.castlingRights & (CASTLE_WK | CASTLE_WQ));
 
     undo_move(&pos, &u);
-    TEST_ASSERT_EQUAL_INT(saved.castlingRights, pos.castlingRights);
-    TEST_ASSERT_NOT_EQUAL(0, saved.castlingRights & CASTLE_WK);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── castling rights lost when rook moves ──────────────────────────── */
@@ -147,6 +155,7 @@ void test_castling_rights_rook_moves(void)
     pos.pieces[0][KNIGHT] &= ~(1ULL << B1);
     pos.occ[0] &= ~(1ULL << B1);
     pos.occAll = pos.occ[0] | pos.occ[1];
+    pos.hashKey = zobrist_compute_key(&pos);
 
     Position saved = pos;
 
@@ -158,17 +167,20 @@ void test_castling_rights_rook_moves(void)
     TEST_ASSERT_NOT_EQUAL(0, pos.castlingRights & CASTLE_WK);
 
     undo_move(&pos, &u);
-    TEST_ASSERT_EQUAL_INT(saved.castlingRights, pos.castlingRights);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── en passant capture roundtrip ───────────────────────────────────── */
 void test_en_passant_capture_roundtrip(void)
 {
+    Position saved = pos;
     Undo u1, u2, u3;
     /* 1. e2-e4 */
     apply_move(&pos, MOVE_BUILD(E2, E4, 0, MOVE_DOUBLE_PUSH), &u1);
     /* 2. d7-d5 (black) */
     apply_move(&pos, MOVE_BUILD(D7, D5, 0, MOVE_DOUBLE_PUSH), &u2);
+    
+    Position saved_before_ep = pos;
     /* 3. e4-d5 en passant */
     Move ep = MOVE_BUILD(E4, D5, 0, MOVE_QUIET);
     apply_move(&pos, ep, &u3);
@@ -176,13 +188,11 @@ void test_en_passant_capture_roundtrip(void)
     /* After ep: white pawn on d5, black pawn on d5 captured */
 
     undo_move(&pos, &u3);
-    /* Verify black pawn is back on d5 */
-    TEST_ASSERT_EQUAL_UINT8(B_PAWN, pos.board[D5]);
-    /* White pawn back on e4 */
-    TEST_ASSERT_EQUAL_UINT8(W_PAWN, pos.board[E4]);
+    assert_positions_equal(&saved_before_ep, &pos);
 
     undo_move(&pos, &u2);
     undo_move(&pos, &u1);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── promotion undo ─────────────────────────────────────────────────── */
@@ -203,6 +213,7 @@ void test_promotion_undo(void)
     pos.occ[0] &= ~(1ULL << A2);
     pos.occAll = pos.occ[0] | pos.occ[1];
     pos.sideToMove = WHITE;
+    pos.hashKey = zobrist_compute_key(&pos);
 
     Position saved = pos;
 
@@ -214,11 +225,7 @@ void test_promotion_undo(void)
     TEST_ASSERT_EQUAL_UINT8(EMPTY, pos.board[A7]);
 
     undo_move(&pos, &u);
-
-    TEST_ASSERT_EQUAL_UINT8(W_PAWN, pos.board[A7]);
-    TEST_ASSERT_EQUAL_UINT8(EMPTY, pos.board[A8]);
-    for (int sq = 0; sq < 64; sq++)
-        TEST_ASSERT_EQUAL_UINT8(saved.board[sq], pos.board[sq]);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── castling make/unmake ───────────────────────────────────────────── */
@@ -231,6 +238,7 @@ void test_castling_make_unmake(void)
     pos.pieces[0][KNIGHT] &= ~(1ULL << G1);
     pos.occ[0] &= ~((1ULL << F1) | (1ULL << G1));
     pos.occAll = pos.occ[0] | pos.occ[1];
+    pos.hashKey = zobrist_compute_key(&pos);
 
     Position saved = pos;
 
@@ -245,16 +253,13 @@ void test_castling_make_unmake(void)
     TEST_ASSERT_EQUAL_INT(G1, pos.kingSq[0]);
 
     undo_move(&pos, &u);
-
-    TEST_ASSERT_EQUAL_UINT8(W_KING, pos.board[E1]);
-    TEST_ASSERT_EQUAL_UINT8(W_ROOK, pos.board[H1]);
-    TEST_ASSERT_EQUAL_INT(E1, pos.kingSq[0]);
-    TEST_ASSERT_EQUAL_INT(saved.castlingRights, pos.castlingRights);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ── black move increments and decrements fullmove ───────────────────── */
 void test_black_move_increments_and_decrements_fullmove(void)
 {
+    Position saved = pos;
     Undo u1, u2;
 
     /* 1. White moves (fullmoveNumber stays 1) */
@@ -271,7 +276,7 @@ void test_black_move_increments_and_decrements_fullmove(void)
 
     /* 4. Undo White move (fullmoveNumber stays 1) */
     undo_move(&pos, &u1);
-    TEST_ASSERT_EQUAL_INT(1, pos.fullmoveNumber);
+    assert_positions_equal(&saved, &pos);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -831,6 +836,256 @@ void test_en_passant_restores_previous_ep_square(void)
     assert_positions_equal(&saved2, &p);
 }
 
+void test_zobrist_castling_white_ks(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("4k3/8/8/8/8/8/8/4K2R w K - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E1, G1, 0, MOVE_CASTLE_KS);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+    TEST_ASSERT_EQUAL_INT(0, p.castlingRights);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_castling_white_qs(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("4k3/8/8/8/8/8/8/R3K3 w Q - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E1, C1, 0, MOVE_CASTLE_QS);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+    TEST_ASSERT_EQUAL_INT(0, p.castlingRights);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_castling_black_ks(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("4k2r/8/8/8/8/8/8/4K3 b k - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E8, G8, 0, MOVE_CASTLE_KS);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+    TEST_ASSERT_EQUAL_INT(0, p.castlingRights);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_castling_black_qs(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("r3k3/8/8/8/8/8/8/4K3 b q - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E8, C8, 0, MOVE_CASTLE_QS);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+    TEST_ASSERT_EQUAL_INT(0, p.castlingRights);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_en_passant_capture_white(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("8/8/8/3pP3/8/8/8/4K3 w - d6 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_INT(D6, p.enPassantSquare);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E5, D6, 0, MOVE_QUIET);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+    TEST_ASSERT_EQUAL_INT(SQ_NONE, p.enPassantSquare);
+    TEST_ASSERT_EQUAL_UINT8(EMPTY, p.board[D5]);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_en_passant_capture_black(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("4K3/8/8/8/3Pp3/8/8/8 b - d3 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_INT(D3, p.enPassantSquare);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E4, D3, 0, MOVE_QUIET);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+    TEST_ASSERT_EQUAL_INT(SQ_NONE, p.enPassantSquare);
+    TEST_ASSERT_EQUAL_UINT8(EMPTY, p.board[D4]);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_en_passant_ignored_cleared(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("8/8/8/3pP3/8/8/8/4K3 w - d6 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_INT(D6, p.enPassantSquare);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E1, D1, 0, MOVE_QUIET);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_INT(SQ_NONE, p.enPassantSquare);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_promotions_and_promo_captures(void)
+{
+    Position p;
+    int res;
+    Undo u;
+    Move promo;
+
+    for (int capture = 0; capture <= 1; capture++) {
+        for (int promo_type = 0; promo_type < 4; promo_type++) {
+            memset(&p, 0, sizeof(p));
+            if (capture) {
+                res = fen_parse("1r6/P7/8/8/8/8/8/4K3 w - - 0 1", &p);
+            } else {
+                res = fen_parse("8/P7/8/8/8/8/8/4K3 w - - 0 1", &p);
+            }
+            TEST_ASSERT_EQUAL_INT(0, res);
+            TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+            Position saved = p;
+            int to_sq = capture ? B8 : A8;
+            promo = MOVE_BUILD(A7, to_sq, promo_type, MOVE_QUIET);
+
+            apply_move(&p, promo, &u);
+            TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+            undo_move(&p, &u);
+            assert_positions_equal(&saved, &p);
+        }
+    }
+}
+
+void test_zobrist_castling_rights_loss_king_move(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(E1, E2, 0, MOVE_QUIET);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_INT(CASTLE_BK | CASTLE_BQ, p.castlingRights);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_castling_rights_loss_rook_move(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(A1, A2, 0, MOVE_QUIET);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_INT(CASTLE_WK | CASTLE_BK | CASTLE_BQ, p.castlingRights);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_castling_rights_loss_rook_captured(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    int res = fen_parse("r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1", &p);
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    Position saved = p;
+    Undo u;
+    Move mv = MOVE_BUILD(A8, A1, 0, MOVE_QUIET);
+    apply_move(&p, mv, &u);
+    TEST_ASSERT_EQUAL_INT(CASTLE_WK | CASTLE_BK, p.castlingRights);
+    TEST_ASSERT_EQUAL_UINT64(zobrist_compute_key(&p), p.hashKey);
+
+    undo_move(&p, &u);
+    assert_positions_equal(&saved, &p);
+}
+
+void test_zobrist_hash_keys_pos3(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -", &p));
+    verify_hash_keys_recursive(&p, 3);
+}
+
+void test_zobrist_hash_keys_pos5(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8", &p));
+    verify_hash_keys_recursive(&p, 2);
+}
+
+void test_zobrist_hash_keys_pos6(void)
+{
+    Position p;
+    memset(&p, 0, sizeof(p));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", &p));
+    verify_hash_keys_recursive(&p, 2);
+}
+
 
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
@@ -893,6 +1148,24 @@ int main(void)
     RUN_TEST(test_zobrist_hash_keys_startpos);
     RUN_TEST(test_zobrist_hash_keys_kiwipete);
     RUN_TEST(test_zobrist_hash_keys_pos4);
+    RUN_TEST(test_zobrist_hash_keys_pos3);
+    RUN_TEST(test_zobrist_hash_keys_pos5);
+    RUN_TEST(test_zobrist_hash_keys_pos6);
+
+    RUN_TEST(test_zobrist_castling_white_ks);
+    RUN_TEST(test_zobrist_castling_white_qs);
+    RUN_TEST(test_zobrist_castling_black_ks);
+    RUN_TEST(test_zobrist_castling_black_qs);
+    
+    RUN_TEST(test_zobrist_en_passant_capture_white);
+    RUN_TEST(test_zobrist_en_passant_capture_black);
+    RUN_TEST(test_zobrist_en_passant_ignored_cleared);
+    
+    RUN_TEST(test_zobrist_promotions_and_promo_captures);
+    
+    RUN_TEST(test_zobrist_castling_rights_loss_king_move);
+    RUN_TEST(test_zobrist_castling_rights_loss_rook_move);
+    RUN_TEST(test_zobrist_castling_rights_loss_rook_captured);
 
     return UNITY_END();
 }

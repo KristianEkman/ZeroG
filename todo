@@ -1,0 +1,31 @@
+Make the engine impossible to break.
+Add more tests for,
+make_move + undo_move restores exact board
+to be sure everything inlcuding edge cases is covered for move_gen.
+
+
+Zobrist key restores exactly after undo
+FEN serialize(parse(fen)) == normalized fen
+legal movegen never leaves own king in check
+castling edge cases
+en passant discovered-check edge cases
+promotion captures
+fifty-move and repetition state
+
+search
+ - simple alpha beta
+ - iterative deepening
+ - more pruning
+ plan with gpt 5.5
+
+Time control
+ - game phase
+
+Evaluation
+ - piece square tables?
+ - 
+
+Move ordering/ move-ordering for quite search /movepicker
+
+Skills
+ - sts tests
