@@ -185,6 +185,73 @@ void test_search_mate_in_5(void)
     TEST_ASSERT_TRUE(result.score > MATE_SCORE - 100);
 }
 
+void test_search_no_illegal_castle_in_check(void)
+{
+    Position test_pos;
+    memset(&test_pos, 0, sizeof(Position));
+    // FEN: White to move. White is in checkmate, but has pseudo-legal castling e1g1.
+    // G1 is safe, but e1 (current king square) and f1 (intermediate square) are attacked by the Black queen on e2.
+    // The queen on e2 is protected by the pawn on d3, so Kxe2 is illegal.
+    // Search must recognize this is checkmate and has no legal moves.
+    int parse_res = fen_parse("3rkr2/8/8/8/8/3p4/4q3/R3K2R w KQ - 0 1", &test_pos);
+    TEST_ASSERT_EQUAL_INT(0, parse_res);
+
+    SearchLimits limits = {
+        .depth = 3,
+        .soft_time_limit_ms = 0,
+        .hard_time_limit_ms = 0
+    };
+    SearchResult result;
+    memset(&result, 0, sizeof(SearchResult));
+
+    int search_res = search_best_move_with_limits(&test_pos, &limits, &result);
+    TEST_ASSERT_EQUAL_INT(0, search_res);
+    
+    // The engine should detect that White is checkmated and has no legal moves.
+    TEST_ASSERT_FALSE(result.has_legal_move);
+}
+
+void test_search_pv_promotion_suffix(void)
+{
+    Position test_pos;
+    memset(&test_pos, 0, sizeof(Position));
+    // FEN: White pawn on a6, Black king on h8.
+    // White wants to promote pawn: a6a7 -> ... -> a7a8q.
+    int parse_res = fen_parse("7k/8/P7/8/8/8/8/K7 w - - 0 1", &test_pos);
+    TEST_ASSERT_EQUAL_INT(0, parse_res);
+
+    // Open a temporary log file
+    FILE *log_file = fopen("builds/test_pv.txt", "w+");
+    TEST_ASSERT_NOT_NULL(log_file);
+    FILE *prev_log = search_set_log_output(log_file);
+
+    SearchLimits limits = {
+        .depth = 3,
+        .soft_time_limit_ms = 0,
+        .hard_time_limit_ms = 0
+    };
+    SearchResult result;
+    memset(&result, 0, sizeof(SearchResult));
+
+    int search_res = search_best_move_with_limits(&test_pos, &limits, &result);
+    TEST_ASSERT_EQUAL_INT(0, search_res);
+
+    search_set_log_output(prev_log);
+    
+    // Rewind and read the file
+    fseek(log_file, 0, SEEK_SET);
+    char buf[1024];
+    size_t n = fread(buf, 1, sizeof(buf) - 1, log_file);
+    buf[n] = '\0';
+    fclose(log_file);
+
+    // Check if the output contains the illegal move "a7a8" without suffix
+    // and make sure it has the correct "a7a8q" suffix.
+    TEST_ASSERT_NOT_NULL(strstr(buf, "a7a8q"));
+    TEST_ASSERT_NULL(strstr(buf, "a7a8 "));
+    TEST_ASSERT_NULL(strstr(buf, "a7a8\n"));
+}
+
 int main(void)
 {
     bitboard_init();
@@ -199,6 +266,8 @@ int main(void)
     RUN_TEST(test_search_repetition);
     RUN_TEST(test_search_mate_in_4);
     RUN_TEST(test_search_mate_in_5);
+    RUN_TEST(test_search_no_illegal_castle_in_check);
+    RUN_TEST(test_search_pv_promotion_suffix);
 
     return UNITY_END();
 }

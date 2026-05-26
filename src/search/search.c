@@ -256,6 +256,21 @@ static int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t star
     int legal_moves_searched = 0;
 
     for (int i = 0; i < count; i++) {
+        int flag = MOVE_FLAG(moves[i]);
+        if (flag == MOVE_CASTLE_KS || flag == MOVE_CASTLE_QS) {
+            Color us = pos->sideToMove;
+            int king_sq = pos->kingSq[COLOR_IDX(us)];
+            if (is_square_attacked(pos, king_sq, OPPOSITE(us))) {
+                continue;
+            }
+            int step_sq = (flag == MOVE_CASTLE_KS) ?
+                ((us == WHITE) ? F1 : F8) :
+                ((us == WHITE) ? D1 : D8);
+            if (is_square_attacked(pos, step_sq, OPPOSITE(us))) {
+                continue;
+            }
+        }
+
         Undo u;
         apply_move(pos, moves[i], &u);
 
@@ -357,15 +372,30 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
     sort_moves(pos, moves, count, hash_move, ply);
 
-    PVLine child_pv;
-    child_pv.length = 0;
-
     int best_score = -INFINITY_SCORE;
     Move best_move = 0;
     int search_pv = 1;
     int legal_moves_searched = 0;
 
     for (int i = 0; i < count; i++) {
+        PVLine child_pv;
+        child_pv.length = 0;
+
+        int flag = MOVE_FLAG(moves[i]);
+        if (flag == MOVE_CASTLE_KS || flag == MOVE_CASTLE_QS) {
+            Color us = pos->sideToMove;
+            int king_sq = pos->kingSq[COLOR_IDX(us)];
+            if (is_square_attacked(pos, king_sq, OPPOSITE(us))) {
+                continue;
+            }
+            int step_sq = (flag == MOVE_CASTLE_KS) ?
+                ((us == WHITE) ? F1 : F8) :
+                ((us == WHITE) ? D1 : D8);
+            if (is_square_attacked(pos, step_sq, OPPOSITE(us))) {
+                continue;
+            }
+        }
+
         Undo u;
         apply_move(pos, moves[i], &u);
 
@@ -529,11 +559,14 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
                 fprintf(search_log_output, "cp %d ", score);
             }
             fprintf(search_log_output, "nodes %llu pv", (unsigned long long)node_count);
+            Position temp_pos = *board;
             for (int i = 0; i < pv.length; i++) {
                 char move_str[6];
-                if (uci_move_to_string(board, pv.moves[i], move_str, sizeof(move_str)) == 0) {
+                if (uci_move_to_string(&temp_pos, pv.moves[i], move_str, sizeof(move_str)) == 0) {
                     fprintf(search_log_output, " %s", move_str);
                 }
+                Undo u;
+                apply_move(&temp_pos, pv.moves[i], &u);
             }
             fprintf(search_log_output, "\n");
             fflush(search_log_output);
