@@ -21,6 +21,8 @@ static int stop_requested = 0;
 static unsigned hash_size = 16; /* default 16MB */
 static uint64_t node_count = 0;
 
+static Move killer_moves[2][MAX_DEPTH];
+
 FILE *search_set_log_output(FILE *output) {
     FILE *prev = search_log_output;
     search_log_output = output;
@@ -81,8 +83,26 @@ static int get_piece_value(PieceType pt) {
     }
 }
 
+/* Check if move is capture or promotion */
+static int move_is_capture_or_promo(const Position *pos, Move m) {
+    int to = MOVE_TO(m);
+    if (pos->board[to] != EMPTY) {
+        return 1;
+    }
+    int from = MOVE_FROM(m);
+    Piece moving_piece = pos->board[from];
+    PieceType pt = PIECE_TYPE(moving_piece);
+    if (pt == PAWN && to == pos->enPassantSquare) {
+        return 1;
+    }
+    if (pt == PAWN && (RANK_OF(to) == 0 || RANK_OF(to) == 7)) {
+        return 1;
+    }
+    return 0;
+}
+
 /* Scopes a move for ordering */
-static int score_move(const Position *pos, Move m, Move pv_move) {
+static int score_move(const Position *pos, Move m, Move pv_move, int ply) {
     if (m == pv_move) {
         return 1000000;
     }
@@ -111,6 +131,14 @@ static int score_move(const Position *pos, Move m, Move pv_move) {
         return 50000 + MOVE_PROMO(m);
     }
 
+    // Killer moves
+    if (m == killer_moves[0][ply]) {
+        return 90000;
+    }
+    if (m == killer_moves[1][ply]) {
+        return 80000;
+    }
+
     // Castling moves
     int flag = MOVE_FLAG(m);
     if (flag == MOVE_CASTLE_KS || flag == MOVE_CASTLE_QS) {
@@ -121,10 +149,10 @@ static int score_move(const Position *pos, Move m, Move pv_move) {
 }
 
 /* Sorts moves in-place */
-static void sort_moves(const Position *pos, Move *moves, int count, Move pv_move) {
+static void sort_moves(const Position *pos, Move *moves, int count, Move pv_move, int ply) {
     int scores[MAX_MOVES];
     for (int i = 0; i < count; i++) {
-        scores[i] = score_move(pos, moves[i], pv_move);
+        scores[i] = score_move(pos, moves[i], pv_move, ply);
     }
 
     for (int i = 0; i < count - 1; i++) {
@@ -144,24 +172,6 @@ static void sort_moves(const Position *pos, Move *moves, int count, Move pv_move
             scores[best_idx] = temp_score;
         }
     }
-}
-
-/* Check if move is capture or promotion */
-static int move_is_capture_or_promo(const Position *pos, Move m) {
-    int to = MOVE_TO(m);
-    if (pos->board[to] != EMPTY) {
-        return 1;
-    }
-    int from = MOVE_FROM(m);
-    Piece moving_piece = pos->board[from];
-    PieceType pt = PIECE_TYPE(moving_piece);
-    if (pt == PAWN && to == pos->enPassantSquare) {
-        return 1;
-    }
-    if (pt == PAWN && (RANK_OF(to) == 0 || RANK_OF(to) == 7)) {
-        return 1;
-    }
-    return 0;
 }
 
 /* Quiescence Search */
@@ -198,10 +208,10 @@ static int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t star
     int in_check = is_square_attacked(pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
 
     if (in_check) {
-        count = movegen_legal(pos, moves);
+        count = movegen_pseudo_legal(pos, moves);
     } else {
         Move all_moves[MAX_MOVES];
-        int all_count = movegen_legal(pos, all_moves);
+        int all_count = movegen_pseudo_legal(pos, all_moves);
         for (int i = 0; i < all_count; i++) {
             if (move_is_capture_or_promo(pos, all_moves[i])) {
                 moves[count++] = all_moves[i];
@@ -209,18 +219,22 @@ static int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t star
         }
     }
 
-    if (count == 0) {
-        if (in_check) {
-            return -MATE_SCORE + ply;
-        }
-        return stand_pat;
-    }
+    sort_moves(pos, moves, count, 0, ply);
 
-    sort_moves(pos, moves, count, 0);
+    int legal_moves_searched = 0;
 
     for (int i = 0; i < count; i++) {
         Undo u;
         apply_move(pos, moves[i], &u);
+
+        Color us = OPPOSITE(pos->sideToMove);
+        int king_sq = pos->kingSq[COLOR_IDX(us)];
+        if (is_square_attacked(pos, king_sq, pos->sideToMove)) {
+            undo_move(pos, &u);
+            continue;
+        }
+
+        legal_moves_searched++;
         int score = -quiescence(pos, ply + 1, -beta, -alpha, start_time, limits);
         undo_move(pos, &u);
 
@@ -234,6 +248,10 @@ static int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t star
         if (score > alpha) {
             alpha = score;
         }
+    }
+
+    if (in_check && legal_moves_searched == 0) {
+        return -MATE_SCORE + ply;
     }
 
     return alpha;
@@ -273,30 +291,32 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         return quiescence(pos, ply, alpha, beta, start_time, limits);
     }
 
+    int in_check = is_square_attacked(pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
+
     Move moves[MAX_MOVES];
-    int count = movegen_legal(pos, moves);
+    int count = movegen_pseudo_legal(pos, moves);
 
-    if (count == 0) {
-        pv->length = 0;
-        int in_check = is_square_attacked(pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
-        if (in_check) {
-            return -MATE_SCORE + ply;
-        } else {
-            return 0; // Stalemate
-        }
-    }
-
-    sort_moves(pos, moves, count, pv_move);
+    sort_moves(pos, moves, count, pv_move, ply);
 
     PVLine child_pv;
     child_pv.length = 0;
 
     int best_score = -INFINITY_SCORE;
     int search_pv = 1;
+    int legal_moves_searched = 0;
 
     for (int i = 0; i < count; i++) {
         Undo u;
         apply_move(pos, moves[i], &u);
+
+        Color us = OPPOSITE(pos->sideToMove);
+        int king_sq = pos->kingSq[COLOR_IDX(us)];
+        if (is_square_attacked(pos, king_sq, pos->sideToMove)) {
+            undo_move(pos, &u);
+            continue;
+        }
+
+        legal_moves_searched++;
 
         int score;
         if (search_pv) {
@@ -328,7 +348,23 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         }
 
         if (alpha >= beta) {
+            // Save killer move if it is a quiet move
+            if (!move_is_capture_or_promo(pos, moves[i])) {
+                if (killer_moves[0][ply] != moves[i]) {
+                    killer_moves[1][ply] = killer_moves[0][ply];
+                    killer_moves[0][ply] = moves[i];
+                }
+            }
             break;
+        }
+    }
+
+    if (legal_moves_searched == 0) {
+        pv->length = 0;
+        if (in_check) {
+            return -MATE_SCORE + ply;
+        } else {
+            return 0; // Stalemate
         }
     }
 
@@ -339,6 +375,8 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
     search_reset_stop_request();
     node_count = 0;
     uint64_t start_time = get_time_ms();
+
+    memset(killer_moves, 0, sizeof(killer_moves));
 
     Position pos = *board;
     Move moves[MAX_MOVES];
