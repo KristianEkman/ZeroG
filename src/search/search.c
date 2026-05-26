@@ -2,6 +2,7 @@
 #include "movegen/movegen.h"
 #include "eval/eval.h"
 #include "uci/uci.h"
+#include "transposition_table.h"
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -23,6 +24,9 @@ static uint64_t node_count = 0;
 
 static Move killer_moves[2][MAX_DEPTH];
 
+static TranspositionTable tt;
+static int tt_initialized = 0;
+
 FILE *search_set_log_output(FILE *output) {
     FILE *prev = search_log_output;
     search_log_output = output;
@@ -39,7 +43,13 @@ void search_request_stop(void) {
 
 int search_set_hash_size_mb(unsigned size_mb) {
     hash_size = size_mb;
-    (void)hash_size;
+    if (tt_initialized) {
+        transposition_table_free(&tt);
+        tt_initialized = 0;
+    }
+    if (transposition_table_init(&tt, (size_t)hash_size * 1024 * 1024) == 0) {
+        tt_initialized = 1;
+    }
     return 0;
 }
 
@@ -62,10 +72,32 @@ static uint64_t get_time_ms(void) {
     return (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
 }
 
+typedef struct UndoNode {
+    const Undo *undo;
+    const struct UndoNode *parent;
+} UndoNode;
+
 /* Helper to check for basic draw states */
 static int is_draw(const Position *pos) {
     if (pos->fiftyMoveCounter >= 100) {
         return 1;
+    }
+    return 0;
+}
+
+/* Helper to check for repetition within the current search path */
+static int is_repetition(const Position *pos, const UndoNode *history) {
+    uint64_t current_hash = pos->hashKey;
+    const UndoNode *curr = history;
+    while (curr != NULL) {
+        if (curr->undo->old_hash == current_hash) {
+            return 1;
+        }
+        PieceType pt = PIECE_TYPE(curr->undo->moving);
+        if (pt == PAWN || curr->undo->captured != EMPTY) {
+            break;
+        }
+        curr = curr->parent;
     }
     return 0;
 }
@@ -258,7 +290,7 @@ static int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t star
 }
 
 /* Principal Variation Search */
-static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move) {
+static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move, const UndoNode *history) {
     if (stop_requested) {
         return 0;
     }
@@ -274,7 +306,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         }
     }
 
-    if (ply > 0 && is_draw(pos)) {
+    if (ply > 0 && (is_draw(pos) || is_repetition(pos, history))) {
         pv->length = 0;
         return 0;
     }
@@ -286,6 +318,26 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
     if (beta > mate_score) beta = mate_score;
     if (alpha >= beta) return alpha;
 
+    int old_alpha = alpha;
+    TranspositionEntry tt_entry;
+    int tt_hit = transposition_table_lookup(&tt, pos->hashKey, ply, &tt_entry);
+    if (tt_hit == 1) {
+        if (tt_entry.depth >= (unsigned)depth) {
+            if (tt_entry.bound == TT_BOUND_EXACT) {
+                pv->length = 0;
+                if (tt_entry.best_move != 0) {
+                    pv->moves[0] = tt_entry.best_move;
+                    pv->length = 1;
+                }
+                return tt_entry.score;
+            } else if (tt_entry.bound == TT_BOUND_LOWER && tt_entry.score >= beta) {
+                return tt_entry.score;
+            } else if (tt_entry.bound == TT_BOUND_UPPER && tt_entry.score <= alpha) {
+                return tt_entry.score;
+            }
+        }
+    }
+
     if (depth <= 0) {
         pv->length = 0;
         return quiescence(pos, ply, alpha, beta, start_time, limits);
@@ -296,12 +348,20 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
     Move moves[MAX_MOVES];
     int count = movegen_pseudo_legal(pos, moves);
 
-    sort_moves(pos, moves, count, pv_move, ply);
+    Move hash_move = 0;
+    if (tt_hit == 1 && tt_entry.best_move != 0) {
+        hash_move = tt_entry.best_move;
+    } else if (ply == 0) {
+        hash_move = pv_move;
+    }
+
+    sort_moves(pos, moves, count, hash_move, ply);
 
     PVLine child_pv;
     child_pv.length = 0;
 
     int best_score = -INFINITY_SCORE;
+    Move best_move = 0;
     int search_pv = 1;
     int legal_moves_searched = 0;
 
@@ -318,14 +378,18 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
         legal_moves_searched++;
 
+        UndoNode next_node;
+        next_node.undo = &u;
+        next_node.parent = history;
+
         int score;
         if (search_pv) {
-            score = -pvs(pos, depth - 1, ply + 1, -beta, -alpha, &child_pv, start_time, limits, 0);
+            score = -pvs(pos, depth - 1, ply + 1, -beta, -alpha, &child_pv, start_time, limits, 0, &next_node);
             search_pv = 0;
         } else {
-            score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0);
+            score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node);
             if (score > alpha && score < beta && !stop_requested) {
-                score = -pvs(pos, depth - 1, ply + 1, -beta, -score, &child_pv, start_time, limits, 0);
+                score = -pvs(pos, depth - 1, ply + 1, -beta, -score, &child_pv, start_time, limits, 0, &next_node);
             }
         }
 
@@ -337,6 +401,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
         if (score > best_score) {
             best_score = score;
+            best_move = moves[i];
         }
 
         if (score > alpha) {
@@ -362,10 +427,20 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
     if (legal_moves_searched == 0) {
         pv->length = 0;
         if (in_check) {
-            return -MATE_SCORE + ply;
+            best_score = -MATE_SCORE + ply;
         } else {
-            return 0; // Stalemate
+            best_score = 0; // Stalemate
         }
+    }
+
+    if (!stop_requested) {
+        TranspositionBound bound = TT_BOUND_EXACT;
+        if (best_score <= old_alpha) {
+            bound = TT_BOUND_UPPER;
+        } else if (best_score >= beta) {
+            bound = TT_BOUND_LOWER;
+        }
+        transposition_table_store(&tt, pos->hashKey, depth, ply, best_score, bound, best_move);
     }
 
     return best_score;
@@ -375,6 +450,15 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
     search_reset_stop_request();
     node_count = 0;
     uint64_t start_time = get_time_ms();
+
+    if (!tt_initialized) {
+        if (transposition_table_init(&tt, (size_t)hash_size * 1024 * 1024) == 0) {
+            tt_initialized = 1;
+        }
+    }
+    if (tt_initialized) {
+        transposition_table_next_generation(&tt);
+    }
 
     memset(killer_moves, 0, sizeof(killer_moves));
 
@@ -416,7 +500,7 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
         PVLine pv;
         pv.length = 0;
 
-        int score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, limits, best_move_so_far);
+        int score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, limits, best_move_so_far, NULL);
 
         if (stop_requested) {
             break;
