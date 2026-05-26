@@ -15,8 +15,8 @@ Search
  -principal variation search, PVS-
  -quiescence search-
  transposition-table move ordering
-capture ordering with MVV-LVA and SEE
-killer moves
+ capture ordering with MVV-LVA and SEE
+-killer moves-
 history heuristic
 countermove/history continuation heuristics
 aspiration windows

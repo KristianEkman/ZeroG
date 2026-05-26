@@ -1,0 +1,1 @@
+python3 ../STS-Rating/sts_rating.py -f "../STS-Rating/STS1-STS15_LAN_v3.epd" -e ./builds/ChessAI2027 -t 1 --getrating

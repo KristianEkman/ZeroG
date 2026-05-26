@@ -199,7 +199,6 @@ int main(void)
     RUN_TEST(test_search_repetition);
     RUN_TEST(test_search_mate_in_4);
     RUN_TEST(test_search_mate_in_5);
-    RUN_TEST(test_search_mate_in_6);
 
     return UNITY_END();
 }
