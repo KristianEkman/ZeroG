@@ -35,7 +35,7 @@ SRCS = $(wildcard $(SRC_DIR)/*.c) \
 LIB_SRCS = $(filter-out $(SRC_DIR)/main.c, $(SRCS))
 TEST_SRCS = $(TEST_DIR)/test_boards.c $(TEST_DIR)/unity.c
 FEN_TEST_SRCS = $(TEST_DIR)/fen_test.c $(TEST_DIR)/unity.c
-MOVEGEN_TEST_SRCS = $(TEST_DIR)/movegen_tests.c $(TEST_DIR)/unity.c
+MOVEGEN_TEST_SRCS = $(wildcard $(TEST_DIR)/movegen_tests/*.c) $(TEST_DIR)/unity.c
 PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
 
 .PHONY: all clean test test_fen test_movegen test_all bench_perft release debug profile
@@ -101,7 +101,7 @@ $(FEN_TEST_TARGET): $(LIB_SRCS) $(FEN_TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(FEN_TEST_SRCS)
 
 $(MOVEGEN_TEST_TARGET): $(LIB_SRCS) $(MOVEGEN_TEST_SRCS) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(MOVEGEN_TEST_SRCS)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -I$(TEST_DIR)/movegen_tests -o $@ $(LIB_SRCS) $(MOVEGEN_TEST_SRCS)
 
 $(PERFT_BENCH_TARGET): $(LIB_SRCS) $(PERFT_BENCH_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(PERFT_BENCH_SRCS)
