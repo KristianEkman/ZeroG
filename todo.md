@@ -1,8 +1,6 @@
 benchmark, profile, sts,selfplay averything below
 
 Evaluation
- material
- piece-square tables
 bishop pair
 mobility
 king safety
@@ -13,11 +11,10 @@ tempo bonus
 pawn shield
 
 Search
- iterative deepening
- principal variation search, PVS
- quiescence search
-
-transposition-table move ordering
+ -iterative deepening-
+ -principal variation search, PVS-
+ -quiescence search-
+ transposition-table move ordering
 capture ordering with MVV-LVA and SEE
 killer moves
 history heuristic

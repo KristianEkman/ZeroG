@@ -20,6 +20,7 @@ TEST_TARGET = $(BUILD_DIR)/test_runner
 FEN_TEST_TARGET = $(BUILD_DIR)/fen_test_runner
 MOVEGEN_TEST_TARGET = $(BUILD_DIR)/movegen_test_runner
 EVAL_TEST_TARGET = $(BUILD_DIR)/eval_test_runner
+SEARCH_TEST_TARGET = $(BUILD_DIR)/search_test_runner
 PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
 
 PROFILE_BUILD_DIR ?= builds/profile
@@ -39,9 +40,10 @@ TEST_SRCS = $(TEST_DIR)/test_boards.c $(TEST_DIR)/unity.c
 FEN_TEST_SRCS = $(TEST_DIR)/fen_test.c $(TEST_DIR)/unity.c
 MOVEGEN_TEST_SRCS = $(wildcard $(TEST_DIR)/movegen_tests/*.c) $(TEST_DIR)/unity.c
 EVAL_TEST_SRCS = $(TEST_DIR)/eval_test.c $(TEST_DIR)/unity.c
+SEARCH_TEST_SRCS = $(TEST_DIR)/search_test.c $(TEST_DIR)/unity.c
 PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
 
-.PHONY: all clean test test_fen test_movegen test_eval test_all bench_perft release debug profile
+.PHONY: all clean test test_fen test_movegen test_eval test_search test_all bench_perft release debug profile
 
 all: $(TARGET)
 
@@ -93,7 +95,11 @@ test_eval: $(EVAL_TEST_TARGET)
 	@echo "Running evaluation tests..."
 	@$(EVAL_TEST_TARGET)
 
-test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET)
+test_search: $(SEARCH_TEST_TARGET)
+	@echo "Running search tests..."
+	@$(SEARCH_TEST_TARGET)
+
+test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET) $(SEARCH_TEST_TARGET)
 	@echo "Running board tests..."
 	@$(TEST_TARGET)
 	@echo "Running FEN tests..."
@@ -102,6 +108,8 @@ test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_T
 	@$(MOVEGEN_TEST_TARGET)
 	@echo "Running evaluation tests..."
 	@$(EVAL_TEST_TARGET)
+	@echo "Running search tests..."
+	@$(SEARCH_TEST_TARGET)
 
 $(TARGET): $(SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $^
@@ -114,6 +122,9 @@ $(MOVEGEN_TEST_TARGET): $(LIB_SRCS) $(MOVEGEN_TEST_SRCS) | $(BUILD_DIR)
 
 $(EVAL_TEST_TARGET): $(LIB_SRCS) $(EVAL_TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(EVAL_TEST_SRCS)
+
+$(SEARCH_TEST_TARGET): $(LIB_SRCS) $(SEARCH_TEST_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(SEARCH_TEST_SRCS)
 
 $(PERFT_BENCH_TARGET): $(LIB_SRCS) $(PERFT_BENCH_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(PERFT_BENCH_SRCS)
