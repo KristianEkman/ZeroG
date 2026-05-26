@@ -1,6 +1,7 @@
 #include "fen.h"
 #include "boards.h"
 #include "zobrist.h"
+#include "movegen.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -127,27 +128,34 @@ int fen_parse(const char *fen, Position *pos)
     if (*p == '\0') {
         pos->fiftyMoveCounter = 0;
         pos->fullmoveNumber = 1;
-        pos->hashKey = zobrist_compute_key(pos);
-        return 0;
+    } else {
+        if (*p != ' ') return -1;
+        p++;
+        pos->fiftyMoveCounter = 0;
+        while (*p >= '0' && *p <= '9') {
+            pos->fiftyMoveCounter = pos->fiftyMoveCounter * 10 + (int)(*p - '0');
+            p++;
+        }
+
+        if (*p != ' ') return -1;
+        p++;
+        pos->fullmoveNumber = 0;
+        while (*p >= '0' && *p <= '9') {
+            pos->fullmoveNumber = pos->fullmoveNumber * 10 + (int)(*p - '0');
+            p++;
+        }
+        if (pos->fullmoveNumber < 1) {
+            pos->fullmoveNumber = 1;
+        }
     }
 
-    if (*p != ' ') return -1;
-    p++;
-    pos->fiftyMoveCounter = 0;
-    while (*p >= '0' && *p <= '9') {
-        pos->fiftyMoveCounter = pos->fiftyMoveCounter * 10 + (int)(*p - '0');
-        p++;
-    }
-
-    if (*p != ' ') return -1;
-    p++;
-    pos->fullmoveNumber = 0;
-    while (*p >= '0' && *p <= '9') {
-        pos->fullmoveNumber = pos->fullmoveNumber * 10 + (int)(*p - '0');
-        p++;
-    }
-    if (pos->fullmoveNumber < 1) {
-        pos->fullmoveNumber = 1;
+    /* Check that other side to move king is not in check */
+    Color other_side = OPPOSITE(pos->sideToMove);
+    int other_king_sq = pos->kingSq[COLOR_IDX(other_side)];
+    if (pos->board[other_king_sq] == MAKE_PIECE(other_side, KING)) {
+        if (is_square_attacked(pos, other_king_sq, pos->sideToMove)) {
+            return -1;
+        }
     }
 
     pos->hashKey = zobrist_compute_key(pos);

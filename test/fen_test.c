@@ -305,6 +305,20 @@ void test_fen_normalize_consecutive_empty_digits(void)
     TEST_ASSERT_EQUAL_STRING("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", buf);
 }
 
+/* ── FEN parse check: other side to move king in check ────────────────── */
+void test_fen_parse_other_king_in_check(void)
+{
+    Position pos;
+
+    /* 1. White to move, Black king in check by White Rook on e1 (illegal state) */
+    int rc1 = fen_parse("4k3/8/8/8/8/8/8/4R3 w - - 0 1", &pos);
+    TEST_ASSERT_EQUAL_INT(-1, rc1);
+
+    /* 2. Black to move, Black king in check by White Rook on e1 (legal state) */
+    int rc2 = fen_parse("4k3/8/8/8/8/8/8/4R3 b - - 0 1", &pos);
+    TEST_ASSERT_EQUAL_INT(0, rc2);
+}
+
 
 /* ── main ────────────────────────────────────────────────────────────────── */
 int main(void)
@@ -335,6 +349,7 @@ int main(void)
     RUN_TEST(test_fen_normalize_missing_clocks);
     RUN_TEST(test_fen_normalize_invalid_fullmove);
     RUN_TEST(test_fen_normalize_consecutive_empty_digits);
+    RUN_TEST(test_fen_parse_other_king_in_check);
 
     return UNITY_END();
 }
