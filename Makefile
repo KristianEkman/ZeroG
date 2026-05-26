@@ -14,11 +14,12 @@ endif
 SRC_DIR = src
 TEST_DIR = test
 BUILD_DIR = builds
-CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_OPT) -I$(SRC_DIR) -I$(SRC_DIR)/movegen -I$(SRC_DIR)/hashing -I$(SRC_DIR)/uci -I$(SRC_DIR)/search
+CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_OPT) -I$(SRC_DIR) -I$(SRC_DIR)/movegen -I$(SRC_DIR)/hashing -I$(SRC_DIR)/uci -I$(SRC_DIR)/search -I$(SRC_DIR)/eval
 TARGET = $(BUILD_DIR)/chessai2027
 TEST_TARGET = $(BUILD_DIR)/test_runner
 FEN_TEST_TARGET = $(BUILD_DIR)/fen_test_runner
 MOVEGEN_TEST_TARGET = $(BUILD_DIR)/movegen_test_runner
+EVAL_TEST_TARGET = $(BUILD_DIR)/eval_test_runner
 PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
 
 PROFILE_BUILD_DIR ?= builds/profile
@@ -29,16 +30,18 @@ SRCS = $(wildcard $(SRC_DIR)/*.c) \
        $(wildcard $(SRC_DIR)/movegen/*.c) \
        $(wildcard $(SRC_DIR)/hashing/*.c) \
        $(wildcard $(SRC_DIR)/uci/*.c) \
-       $(wildcard $(SRC_DIR)/search/*.c)
+       $(wildcard $(SRC_DIR)/search/*.c) \
+       $(wildcard $(SRC_DIR)/eval/*.c)
 
 # library sources (everything except main)
 LIB_SRCS = $(filter-out $(SRC_DIR)/main.c, $(SRCS))
 TEST_SRCS = $(TEST_DIR)/test_boards.c $(TEST_DIR)/unity.c
 FEN_TEST_SRCS = $(TEST_DIR)/fen_test.c $(TEST_DIR)/unity.c
 MOVEGEN_TEST_SRCS = $(wildcard $(TEST_DIR)/movegen_tests/*.c) $(TEST_DIR)/unity.c
+EVAL_TEST_SRCS = $(TEST_DIR)/eval_test.c $(TEST_DIR)/unity.c
 PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
 
-.PHONY: all clean test test_fen test_movegen test_all bench_perft release debug profile
+.PHONY: all clean test test_fen test_movegen test_eval test_all bench_perft release debug profile
 
 all: $(TARGET)
 
@@ -86,13 +89,19 @@ test_movegen: $(MOVEGEN_TEST_TARGET)
 	@echo "Running movegen tests..."
 	@$(MOVEGEN_TEST_TARGET)
 
-test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET)
+test_eval: $(EVAL_TEST_TARGET)
+	@echo "Running evaluation tests..."
+	@$(EVAL_TEST_TARGET)
+
+test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET)
 	@echo "Running board tests..."
 	@$(TEST_TARGET)
 	@echo "Running FEN tests..."
 	@$(FEN_TEST_TARGET)
 	@echo "Running movegen tests..."
 	@$(MOVEGEN_TEST_TARGET)
+	@echo "Running evaluation tests..."
+	@$(EVAL_TEST_TARGET)
 
 $(TARGET): $(SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $^
@@ -102,6 +111,9 @@ $(FEN_TEST_TARGET): $(LIB_SRCS) $(FEN_TEST_SRCS) | $(BUILD_DIR)
 
 $(MOVEGEN_TEST_TARGET): $(LIB_SRCS) $(MOVEGEN_TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -I$(TEST_DIR)/movegen_tests -o $@ $(LIB_SRCS) $(MOVEGEN_TEST_SRCS)
+
+$(EVAL_TEST_TARGET): $(LIB_SRCS) $(EVAL_TEST_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(EVAL_TEST_SRCS)
 
 $(PERFT_BENCH_TARGET): $(LIB_SRCS) $(PERFT_BENCH_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(PERFT_BENCH_SRCS)

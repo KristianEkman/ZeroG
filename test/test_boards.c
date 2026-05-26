@@ -1,5 +1,7 @@
 #include "unity.h"
 #include "boards.h"
+#include "fen.h"
+#include <string.h>
 
 static Position pos;
 
