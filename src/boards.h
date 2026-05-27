@@ -131,9 +131,30 @@ extern uint64_t knightAttacks[64];
 extern uint64_t kingAttacks[64];
 extern uint64_t pawnAttacks[2][64];
 
+/* ── magic bitboard attack tables (extern definitions) ─────────────────── */
+extern const int rook_shift[64];
+extern const uint64_t rook_magics[64];
+extern uint64_t *rook_magic_table[64];
+extern uint64_t rook_masks[64];
+
+extern const int bishop_shift[64];
+extern const uint64_t bishop_magics[64];
+extern uint64_t *bishop_magic_table[64];
+extern uint64_t bishop_masks[64];
+
 /* ── magic bitboard attack getters ─────────────────────────────────────── */
-uint64_t rookAttacks(int sq, uint64_t occ);
-uint64_t bishopAttacks(int sq, uint64_t occ);
+static inline uint64_t rookAttacks(int sq, uint64_t occ) {
+    uint64_t masked_occ = occ & rook_masks[sq];
+    int index = (int)((masked_occ * rook_magics[sq]) >> (64 - rook_shift[sq]));
+    return rook_magic_table[sq][index];
+}
+
+static inline uint64_t bishopAttacks(int sq, uint64_t occ) {
+    uint64_t masked_occ = occ & bishop_masks[sq];
+    int index = (int)((masked_occ * bishop_magics[sq]) >> (64 - bishop_shift[sq]));
+    return bishop_magic_table[sq][index];
+}
+
 static inline uint64_t queenAttacks(int sq, uint64_t occ) {
     return rookAttacks(sq, occ) | bishopAttacks(sq, occ);
 }

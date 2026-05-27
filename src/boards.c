@@ -17,7 +17,7 @@ uint64_t pawnAttacks[2][64];
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /* Offsets for rook occupancies on each square */
-static const int rook_shift[64] = {
+const int rook_shift[64] = {
     12, 11, 11, 11, 11, 11, 11, 12,
     11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11,
@@ -28,7 +28,7 @@ static const int rook_shift[64] = {
     12, 11, 11, 11, 11, 11, 11, 12};
 
 /* Rook magics (found with trial and error / pre-generated) */
-static const uint64_t rook_magics[64] = {
+const uint64_t rook_magics[64] = {
     0x0080002080104000ULL,     0x0040004010002000ULL,     0x0880081001200380ULL,     0x0900209000090004ULL,
     0x1200020020040811ULL,     0x4100080244004100ULL,     0x0C00020830208401ULL,     0x05000282204A0500ULL,
     0x0020802080004008ULL,     0x045240100043E000ULL,     0x4201802000809000ULL,     0x0001000A21041000ULL,
@@ -48,14 +48,14 @@ static const uint64_t rook_magics[64] = {
 };
 
 /* Rook attack tables: one variable-sized block per square */
-static uint64_t *rook_table[64];
-static uint64_t rook_masks[64];
+uint64_t *rook_magic_table[64];
+uint64_t rook_masks[64];
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Magic bitboards – bishop
  * ──────────────────────────────────────────────────────────────────────────── */
 
-static const int bishop_shift[64] = {
+const int bishop_shift[64] = {
     6, 5, 5, 5, 5, 5, 5, 6,
     5, 5, 5, 5, 5, 5, 5, 5,
     5, 5, 7, 7, 7, 7, 5, 5,
@@ -65,7 +65,7 @@ static const int bishop_shift[64] = {
     5, 5, 5, 5, 5, 5, 5, 5,
     6, 5, 5, 5, 5, 5, 5, 6};
 
-static const uint64_t bishop_magics[64] = {
+const uint64_t bishop_magics[64] = {
     0x4020208100408080ULL,     0x4008120086020504ULL,     0xB821020C00480000ULL,     0x8111040085200000ULL,
     0x0204042080000304ULL,     0x0002300420015258ULL,     0x0202023002C82020ULL,     0x1204804110312008ULL,
     0x4004042048820080ULL,     0x0000044810940080ULL,     0x4009C10401004000ULL,     0x140004050A001000ULL,
@@ -84,8 +84,8 @@ static const uint64_t bishop_magics[64] = {
     0x0010040091020200ULL,     0x200C41501010A120ULL,     0x0400A14204010409ULL,     0x6108101000410020ULL,
 };
 
-static uint64_t *bishop_table[64];
-static uint64_t bishop_masks[64];
+uint64_t *bishop_magic_table[64];
+uint64_t bishop_masks[64];
 
 
 
@@ -299,10 +299,10 @@ void bitboard_init(void)
         int permutations = 1 << bits;
 
         rook_masks[sq] = mask;
-        rook_table[sq] = (uint64_t *)calloc((size_t)table_size, sizeof(uint64_t));
-        if (!rook_table[sq])
+        rook_magic_table[sq] = (uint64_t *)calloc((size_t)table_size, sizeof(uint64_t));
+        if (!rook_magic_table[sq])
         {
-            fprintf(stderr, "malloc failed for rook_table[%d]\n", sq);
+            fprintf(stderr, "malloc failed for rook_magic_table[%d]\n", sq);
             exit(1);
         }
 
@@ -320,7 +320,7 @@ void bitboard_init(void)
                 exit(1);
             }
 
-            rook_table[sq][index] = attacks;
+            rook_magic_table[sq][index] = attacks;
         }
     }
 
@@ -333,10 +333,10 @@ void bitboard_init(void)
         int permutations = 1 << bits;
 
         bishop_masks[sq] = mask;
-        bishop_table[sq] = (uint64_t *)calloc((size_t)table_size, sizeof(uint64_t));
-        if (!bishop_table[sq])
+        bishop_magic_table[sq] = (uint64_t *)calloc((size_t)table_size, sizeof(uint64_t));
+        if (!bishop_magic_table[sq])
         {
-            fprintf(stderr, "malloc failed for bishop_table[%d]\n", sq);
+            fprintf(stderr, "malloc failed for bishop_magic_table[%d]\n", sq);
             exit(1);
         }
 
@@ -354,7 +354,7 @@ void bitboard_init(void)
                 exit(1);
             }
 
-            bishop_table[sq][index] = attacks;
+            bishop_magic_table[sq][index] = attacks;
         }
     }
 
@@ -363,22 +363,8 @@ void bitboard_init(void)
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Magic attack getters
+ * Magic attack getters (inlined in boards.h)
  * ──────────────────────────────────────────────────────────────────────────── */
-
-uint64_t rookAttacks(int sq, uint64_t occ)
-{
-    uint64_t masked_occ = occ & rook_masks[sq];
-    int index = (int)((masked_occ * rook_magics[sq]) >> (64 - rook_shift[sq]));
-    return rook_table[sq][index];
-}
-
-uint64_t bishopAttacks(int sq, uint64_t occ)
-{
-    uint64_t masked_occ = occ & bishop_masks[sq];
-    int index = (int)((masked_occ * bishop_magics[sq]) >> (64 - bishop_shift[sq]));
-    return bishop_table[sq][index];
-}
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Position functions
