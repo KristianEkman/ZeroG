@@ -3,6 +3,7 @@
 #include "eval/eval.h"
 #include "uci/uci.h"
 #include "transposition_table.h"
+#include "zobrist.h"
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -305,7 +306,7 @@ static int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t star
 }
 
 /* Principal Variation Search */
-static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move, const UndoNode *history) {
+static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move, const UndoNode *history, int allow_nmp) {
     if (stop_requested) {
         return 0;
     }
@@ -359,6 +360,54 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
     }
 
     int in_check = is_square_attacked(pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
+
+    // Null Move Pruning (NMP)
+    if (allow_nmp && !in_check && depth >= 3) {
+        // Check if we have major/minor pieces (non-pawns) to avoid zugzwang
+        uint64_t non_pawns = pos->pieces[COLOR_IDX(pos->sideToMove)][KNIGHT] |
+                             pos->pieces[COLOR_IDX(pos->sideToMove)][BISHOP] |
+                             pos->pieces[COLOR_IDX(pos->sideToMove)][ROOK]   |
+                             pos->pieces[COLOR_IDX(pos->sideToMove)][QUEEN];
+        if (non_pawns != 0) {
+            int R = (depth > 6) ? 3 : 2;
+
+            // Make Null Move
+            int old_ep = pos->enPassantSquare;
+            int old_fifty = pos->fiftyMoveCounter;
+            uint64_t old_hash = pos->hashKey;
+
+            pos->sideToMove = OPPOSITE(pos->sideToMove);
+            pos->hashKey ^= zobrist_side_to_move_key();
+            if (pos->enPassantSquare != SQ_NONE) {
+                pos->hashKey ^= zobrist_en_passant_key(pos->enPassantSquare);
+                pos->enPassantSquare = SQ_NONE;
+            }
+            pos->fiftyMoveCounter++;
+
+            PVLine child_pv;
+            child_pv.length = 0;
+
+            // Search null move with a reduced depth and zero window
+            int score = -pvs(pos, depth - 1 - R, ply + 1, -beta, -beta + 1, &child_pv, start_time, limits, 0, history, 0);
+
+            // Unmake Null Move
+            pos->enPassantSquare = old_ep;
+            pos->fiftyMoveCounter = old_fifty;
+            pos->sideToMove = OPPOSITE(pos->sideToMove);
+            pos->hashKey = old_hash;
+
+            if (stop_requested) {
+                return 0;
+            }
+
+            if (score >= beta) {
+                if (score >= MATE_SCORE - 100) {
+                    return beta;
+                }
+                return score;
+            }
+        }
+    }
 
     Move moves[MAX_MOVES];
     int count = movegen_pseudo_legal(pos, moves);
@@ -414,12 +463,12 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
         int score;
         if (search_pv) {
-            score = -pvs(pos, depth - 1, ply + 1, -beta, -alpha, &child_pv, start_time, limits, 0, &next_node);
+            score = -pvs(pos, depth - 1, ply + 1, -beta, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
             search_pv = 0;
         } else {
-            score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node);
+            score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
             if (score > alpha && score < beta && !stop_requested) {
-                score = -pvs(pos, depth - 1, ply + 1, -beta, -score, &child_pv, start_time, limits, 0, &next_node);
+                score = -pvs(pos, depth - 1, ply + 1, -beta, -score, &child_pv, start_time, limits, 0, &next_node, 1);
             }
         }
 
@@ -530,7 +579,37 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
         PVLine pv;
         pv.length = 0;
 
-        int score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, limits, best_move_so_far, NULL);
+        int score;
+        if (d >= 3 && abs(best_score_so_far) < MATE_SCORE - 100) {
+            int delta = 40; // centipawns window
+            int alpha = best_score_so_far - delta;
+            int beta = best_score_so_far + delta;
+
+            while (1) {
+                if (alpha < -INFINITY_SCORE) alpha = -INFINITY_SCORE;
+                if (beta > INFINITY_SCORE) beta = INFINITY_SCORE;
+
+                score = pvs(&pos, d, 0, alpha, beta, &pv, start_time, limits, best_move_so_far, NULL, 1);
+
+                if (stop_requested) {
+                    break;
+                }
+
+                if (score <= alpha) {
+                    // Fail low: widen alpha
+                    alpha -= delta;
+                    delta *= 2;
+                } else if (score >= beta) {
+                    // Fail high: widen beta
+                    beta += delta;
+                    delta *= 2;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, limits, best_move_so_far, NULL, 1);
+        }
 
         if (stop_requested) {
             break;
