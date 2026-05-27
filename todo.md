@@ -14,7 +14,7 @@ Search
  -iterative deepening-
  -principal variation search, PVS-
  -quiescence search-
- transposition-table move ordering
+ -transposition-table move ordering-
  capture ordering with MVV-LVA and SEE
 -killer moves-
 history heuristic

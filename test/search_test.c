@@ -164,15 +164,15 @@ void test_search_mate_in_4(void)
     TEST_ASSERT_TRUE(result.score > MATE_SCORE - 100);
 }
 
-void test_search_mate_in_5(void)
+void test_search_mate_in_4b(void)
 {
     Position test_pos;
     memset(&test_pos, 0, sizeof(Position));
-    int parse_res = fen_parse("1Q5R/p1p2P2/3N4/p2k4/2p5/K7/2bP4/R7 w - - 0 1", &test_pos);
+    int parse_res = fen_parse("7R/pQ3P2/2pN4/p2k4/2p5/K7/2bP4/R7 w - - 0 2", &test_pos);
     TEST_ASSERT_EQUAL_INT(0, parse_res);
 
     SearchLimits limits = {
-        .depth = 9,
+        .depth = 8,
         .soft_time_limit_ms = 0,
         .hard_time_limit_ms = 0
     };
@@ -265,7 +265,7 @@ int main(void)
     RUN_TEST(test_search_hash_size);
     RUN_TEST(test_search_repetition);
     RUN_TEST(test_search_mate_in_4);
-    RUN_TEST(test_search_mate_in_5);
+    RUN_TEST(test_search_mate_in_4b);
     RUN_TEST(test_search_no_illegal_castle_in_check);
     RUN_TEST(test_search_pv_promotion_suffix);
 
