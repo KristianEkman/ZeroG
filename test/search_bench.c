@@ -28,7 +28,7 @@ static const BenchPosition positions[] = {
 
 int main(int argc, char **argv)
 {
-    int target_depth = 5;
+    int target_depth = 7;
     if (argc > 1) {
         target_depth = atoi(argv[1]);
     }
