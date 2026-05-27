@@ -8,6 +8,10 @@ typedef struct {
     unsigned depth;
     unsigned soft_time_limit_ms;
     unsigned hard_time_limit_ms;
+    unsigned remaining_time_ms;
+    unsigned increment_ms;
+    unsigned movestogo;
+    int is_time_controlled;
 } SearchLimits;
 
 typedef struct {
@@ -25,6 +29,7 @@ int search_compute_time_limits(const Position *board,
                                unsigned depth,
                                unsigned remaining_ms,
                                unsigned increment_ms,
+                               unsigned movestogo,
                                SearchLimits *limits);
 int search_set_hash_size_mb(unsigned size_mb);
 

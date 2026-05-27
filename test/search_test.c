@@ -3,6 +3,7 @@
 #include "fen.h"
 #include "movegen.h"
 #include "search/search.h"
+#include "search/time_control.h"
 #include "uci/uci.h"
 #include <string.h>
 
@@ -252,6 +253,63 @@ void test_search_pv_promotion_suffix(void)
     TEST_ASSERT_NULL(strstr(buf, "a7a8\n"));
 }
 
+void test_time_control_one_legal_move(void)
+{
+    Position test_pos;
+    memset(&test_pos, 0, sizeof(Position));
+    int parse_res = fen_parse("kR6/P7/2K5/8/8/8/8/8 b - - 0 1", &test_pos);
+    TEST_ASSERT_EQUAL_INT(0, parse_res);
+
+    SearchLimits limits = {
+        .depth = 12,
+        .remaining_time_ms = 1000,
+        .increment_ms = 0,
+        .movestogo = 0,
+        .is_time_controlled = 1
+    };
+    SearchResult result;
+    memset(&result, 0, sizeof(SearchResult));
+
+    int search_res = search_best_move_with_limits(&test_pos, &limits, &result);
+    TEST_ASSERT_EQUAL_INT(0, search_res);
+    TEST_ASSERT_TRUE(result.has_legal_move);
+
+    // Verify Kxa7 is indeed the move (a8a7)
+    char move_str[6];
+    int str_res = uci_move_to_string(&test_pos, result.best_move, move_str, sizeof(move_str));
+    TEST_ASSERT_EQUAL_INT(0, str_res);
+    TEST_ASSERT_EQUAL_STRING("a8a7", move_str);
+
+    // Iterative deepening should stop immediately because there's only 1 legal move.
+    // Node count should be very small (typically < 10 nodes).
+    TEST_ASSERT_TRUE(result.node_count < 100);
+}
+
+void test_time_control_calculations(void)
+{
+    Position mid_pos;
+    memset(&mid_pos, 0, sizeof(Position));
+    fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &mid_pos);
+
+    Position end_pos;
+    memset(&end_pos, 0, sizeof(Position));
+    fen_parse("k7/8/8/8/8/8/8/K7 w - - 0 1", &end_pos);
+
+    TimeControl tc_mid, tc_end;
+    time_control_init(&tc_mid, &mid_pos, 40000, 0, 0, 20);
+    time_control_init(&tc_end, &end_pos, 40000, 0, 0, 5);
+
+    // Middlegame should budget for more moves (slower play), so soft limit is smaller.
+    // Endgame should budget for fewer moves (faster play), so soft limit is larger.
+    TEST_ASSERT_TRUE(tc_mid.soft_limit_ms < tc_end.soft_limit_ms);
+
+    // Test movestogo override
+    TimeControl tc_override;
+    time_control_init(&tc_override, &mid_pos, 40000, 0, 10, 20);
+    // With movestogo=10, we budget for 10 moves, so soft limit is larger than tc_mid (moves_to_go=40)
+    TEST_ASSERT_TRUE(tc_override.soft_limit_ms > tc_mid.soft_limit_ms);
+}
+
 int main(void)
 {
     bitboard_init();
@@ -268,6 +326,8 @@ int main(void)
     RUN_TEST(test_search_mate_in_4b);
     RUN_TEST(test_search_no_illegal_castle_in_check);
     RUN_TEST(test_search_pv_promotion_suffix);
+    RUN_TEST(test_time_control_one_legal_move);
+    RUN_TEST(test_time_control_calculations);
 
     return UNITY_END();
 }

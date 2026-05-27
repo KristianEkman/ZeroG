@@ -108,9 +108,13 @@ int uci_search(const Position *board,
                SearchResult *result)
 {
     SearchLimits limits = {
-        depth,
-        time_limit_ms,
-        time_limit_ms,
+        .depth = depth,
+        .soft_time_limit_ms = time_limit_ms,
+        .hard_time_limit_ms = time_limit_ms,
+        .remaining_time_ms = 0,
+        .increment_ms = 0,
+        .movestogo = 0,
+        .is_time_controlled = 0
     };
 
     return uci_search_with_limits(board, &limits, output, result);

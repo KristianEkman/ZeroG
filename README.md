@@ -64,7 +64,15 @@ Scores a given board position statically.
 ### 7. UCI Protocol Engine (`src/uci/`)
 Implements the industry-standard Universal Chess Interface (UCI) protocol, enabling ChessAI2027 to interface with chess GUIs (like Arena, Cute Chess, or ChessBase).
 - **Asynchronous Search Loop**: Spawns a background thread to process searching asynchronously, allowing the main loop to listen for standard `stop` and `quit` commands.
-- **Commands Handled**: Supports standard instructions including `uci`, `isready`, `ucinewgame`, `position`, `go`, `setoption`, `stop`, and `quit`.
+- **Commands Handled**: Supports standard instructions including `uci`, `isready`, `ucinewgame`, `position`, `go` (including `wtime`, `btime`, `winc`, `binc`, `movestogo`), `setoption`, `stop`, and `quit`.
+
+### 8. Time Control (`src/search/time_control.h` / `src/search/time_control.c`)
+Manages search time budgets dynamically to optimize strength and prevent clock flag-outs.
+- **Game Phase Budgeting**: Adjusts estimated moves-to-go dynamically between 20 (endgame) and 40 (opening/middlegame) using non-pawn piece counts.
+- **Only Legal Move Exit**: Terminates the search immediately after depth 1 if only one legal move exists at the root, saving time for complex positions.
+- **Dynamic Soft Limit Scaling**: Reduces the soft limit by up to 50% if the best move at the root is highly stable across multiple depths, or expands it by 150% if the best move fluctuates or scores drop.
+- **Next-Depth Node Growth Prediction**: Predicts if the next depth iteration will exceed the soft limit by tracking the effective branching factor, avoiding wasted computation on incomplete depths.
+- **UCI movestogo Support**: Parses and budgets remaining time according to the moves left until the next time control.
 
 ---
 

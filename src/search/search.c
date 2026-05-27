@@ -1,4 +1,5 @@
 #include "search/search.h"
+#include "search/time_control.h"
 #include "movegen/movegen.h"
 #include "eval/eval.h"
 #include "uci/uci.h"
@@ -85,9 +86,14 @@ int search_compute_time_limits(const Position *board,
                                unsigned depth,
                                unsigned remaining_ms,
                                unsigned increment_ms,
+                               unsigned movestogo,
                                SearchLimits *limits) {
     (void)board;
-    (void)depth;
+    limits->depth = depth;
+    limits->remaining_time_ms = remaining_ms;
+    limits->increment_ms = increment_ms;
+    limits->movestogo = movestogo;
+    limits->is_time_controlled = 1;
     limits->soft_time_limit_ms = remaining_ms / 20;
     limits->hard_time_limit_ms = remaining_ms / 10 + increment_ms;
     return 0;
@@ -755,11 +761,20 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
         max_search_depth = 64;
     }
 
+    SearchLimits local_limits = *limits;
+    TimeControl tc;
+    int use_tc = limits->is_time_controlled;
+    if (use_tc) {
+        time_control_init(&tc, board, limits->remaining_time_ms, limits->increment_ms, limits->movestogo, count);
+        local_limits.soft_time_limit_ms = tc.soft_limit_ms;
+        local_limits.hard_time_limit_ms = tc.hard_limit_ms;
+    }
+
     // Iterative Deepening
     for (unsigned d = 1; d <= max_search_depth; d++) {
-        if (limits->soft_time_limit_ms > 0) {
+        if (local_limits.soft_time_limit_ms > 0) {
             uint64_t elapsed = get_time_ms() - start_time;
-            if (elapsed >= limits->soft_time_limit_ms) {
+            if (elapsed >= local_limits.soft_time_limit_ms) {
                 break;
             }
         }
@@ -769,9 +784,9 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
 
         int score;
         if (d >= 3 && abs(best_score_so_far) < MATE_SCORE - 100) {
-            score = search_aspiration_window(&pos, d, best_score_so_far, &pv, start_time, limits, best_move_so_far);
+            score = search_aspiration_window(&pos, d, best_score_so_far, &pv, start_time, &local_limits, best_move_so_far);
         } else {
-            score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, limits, best_move_so_far, NULL, 1, 0);
+            score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, &local_limits, best_move_so_far, NULL, 1, 0);
         }
 
         if (stop_requested) {
@@ -788,6 +803,15 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
         }
 
         log_search_info(d, score, node_count, &pv, board);
+
+        if (use_tc) {
+            uint64_t elapsed = get_time_ms() - start_time;
+            if (time_control_update(&tc, d, score, best_move_so_far, node_count, elapsed)) {
+                break;
+            }
+            local_limits.soft_time_limit_ms = tc.soft_limit_ms;
+            local_limits.hard_time_limit_ms = tc.hard_limit_ms;
+        }
     }
 
     return 0;

@@ -18,6 +18,8 @@ typedef struct
     unsigned winc_ms;
     int has_binc;
     unsigned binc_ms;
+    int has_movestogo;
+    unsigned movestogo;
 } UciGoOptions;
 
 static int parse_unsigned_token(const char *text, unsigned *value, const char **remainder);
@@ -78,6 +80,11 @@ static int uci_parse_go_options(const char *args,
         {
             target_value = &options->binc_ms;
             target_flag = &options->has_binc;
+        }
+        else if (token_length == 9 && strncmp(token_start, "movestogo", 9) == 0)
+        {
+            target_value = &options->movestogo;
+            target_flag = &options->has_movestogo;
         }
 
         if (target_value != NULL)
@@ -199,6 +206,7 @@ int uci_parse_go_search_limits(const UciState *state,
     limits->depth = options.depth;
     limits->soft_time_limit_ms = 0u;
     limits->hard_time_limit_ms = 0u;
+    limits->is_time_controlled = 0;
 
     if (options.has_movetime)
     {
@@ -225,6 +233,7 @@ int uci_parse_go_search_limits(const UciState *state,
                                        options.has_depth ? options.depth : UINT_MAX,
                                        remaining_ms,
                                        increment_ms,
+                                       options.has_movestogo ? options.movestogo : 0,
                                        limits) != 0)
         {
             return -1;
