@@ -46,9 +46,12 @@ Determines the best move using search algorithm logic.
   - *PV / TT Move*: Searches the best move from the transposition table or previous iteration first.
   - *MVV-LVA (Most Valuable Victim, Least Valuable Attacker)*: Prioritizes captures that win material.
   - *Killer Moves*: Prioritizes quiet moves that caused a beta-cutoff in helper plies.
-- **Pruning & Safety Features**:
+- **Pruning, Extensions & Safety Features**:
   - *Null-Move Pruning (NMP)*: Passes the move to detect quick fail-high branches, bypassing search branches if the opponent cannot exploit the pass.
   - *Late Move Reductions (LMR)*: Reduces the search depth of quiet moves that appear late in the move list. If a reduced search fails high, it is re-searched at full depth. Reduces less in PV nodes and for killer moves, and bypasses reduction for tactical moves (captures/promotions), check-giving moves, and shallow depths ($d < 5$).
+  - *Singular Extensions (SE)*: Extends the search depth by 1 ply when a move (typically the transposition table best move) is significantly better than all alternative moves. Run at depth $\ge 8$, a reduced-depth verification search ensures no other move can score within a depth-dependent margin of the best move.
+  - *Reverse Futility Pruning (RFP)*: Prunes search branches at shallow depths ($d \le 3$) if the static evaluation minus a depth-dependent margin is still greater than or equal to beta.
+  - *Futility Pruning*: Prunes quiet moves at shallow depths ($d \le 2$) if the static evaluation plus a depth-dependent margin fails to exceed alpha.
   - *Mate Distance Pruning*: Speeds up search by capping alpha/beta boundaries when a forced mate is found.
   - *Draw & Repetition Detection*: Immediately returns draw evaluations (0) on repetition or 50-move rule limits.
 

@@ -53,7 +53,7 @@ typedef struct UndoNode {
 } UndoNode;
 
 /* Forward Declarations */
-static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move, const UndoNode *history, int allow_nmp);
+static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move, const UndoNode *history, int allow_nmp, Move excluded_move);
 
 FILE *search_set_log_output(FILE *output) {
     FILE *prev = search_log_output;
@@ -306,7 +306,7 @@ static int try_null_move_pruning(Position *pos, int depth, int ply, int beta, ui
     child_pv.length = 0;
 
     // Search null move with a reduced depth and zero window
-    int score = -pvs(pos, depth - 1 - R, ply + 1, -beta, -beta + 1, &child_pv, start_time, limits, 0, history, 0);
+    int score = -pvs(pos, depth - 1 - R, ply + 1, -beta, -beta + 1, &child_pv, start_time, limits, 0, history, 0, 0);
 
     // Unmake Null Move
     pos->enPassantSquare = old_ep;
@@ -394,7 +394,7 @@ static int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t star
 }
 
 /* Principal Variation Search */
-static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move, const UndoNode *history, int allow_nmp) {
+static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move pv_move, const UndoNode *history, int allow_nmp, Move excluded_move) {
     check_time_limit(start_time, limits);
     if (stop_requested) {
         return 0;
@@ -414,20 +414,23 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
     int old_alpha = alpha;
     TranspositionEntry tt_entry;
-    int tt_hit = transposition_table_lookup(&tt, pos->hashKey, ply, &tt_entry);
-    if (tt_hit == 1) {
-        if (tt_entry.depth >= (unsigned)depth) {
-            if (tt_entry.bound == TT_BOUND_EXACT) {
-                pv->length = 0;
-                if (tt_entry.best_move != 0) {
-                    pv->moves[0] = tt_entry.best_move;
-                    pv->length = 1;
+    int tt_hit = 0;
+    if (excluded_move == 0) {
+        tt_hit = transposition_table_lookup(&tt, pos->hashKey, ply, &tt_entry);
+        if (tt_hit == 1) {
+            if (tt_entry.depth >= (unsigned)depth) {
+                if (tt_entry.bound == TT_BOUND_EXACT) {
+                    pv->length = 0;
+                    if (tt_entry.best_move != 0) {
+                        pv->moves[0] = tt_entry.best_move;
+                        pv->length = 1;
+                    }
+                    return tt_entry.score;
+                } else if (tt_entry.bound == TT_BOUND_LOWER && tt_entry.score >= beta) {
+                    return tt_entry.score;
+                } else if (tt_entry.bound == TT_BOUND_UPPER && tt_entry.score <= alpha) {
+                    return tt_entry.score;
                 }
-                return tt_entry.score;
-            } else if (tt_entry.bound == TT_BOUND_LOWER && tt_entry.score >= beta) {
-                return tt_entry.score;
-            } else if (tt_entry.bound == TT_BOUND_UPPER && tt_entry.score <= alpha) {
-                return tt_entry.score;
             }
         }
     }
@@ -438,6 +441,22 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
     }
 
     int in_check = is_square_attacked(pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
+
+    int static_eval = 0;
+    if (!in_check) {
+        static_eval = evaluate(pos);
+        if (pos->sideToMove == BLACK) {
+            static_eval = -static_eval;
+        }
+    }
+
+    // Reverse Futility Pruning (RFP)
+    if (ply > 0 && !in_check && depth <= 3 && beta < MATE_SCORE - 100) {
+        int rfp_margin = 120 * depth;
+        if (static_eval - rfp_margin >= beta) {
+            return static_eval;
+        }
+    }
 
     // Null Move Pruning (NMP)
     if (allow_nmp && !in_check && depth >= 3) {
@@ -453,15 +472,37 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         }
     }
 
-    Move moves[MAX_MOVES];
-    int count = movegen_pseudo_legal(pos, moves);
-
+    int extension = 0;
     Move hash_move = 0;
     if (tt_hit == 1 && tt_entry.best_move != 0) {
         hash_move = tt_entry.best_move;
     } else if (ply == 0) {
         hash_move = pv_move;
     }
+
+    // Singular Extension check
+    if (excluded_move == 0
+        && depth >= 8
+        && hash_move != 0
+        && tt_hit == 1
+        && tt_entry.depth >= (unsigned)(depth - 3)
+        && tt_entry.bound != TT_BOUND_UPPER
+        && abs(tt_entry.score) < MATE_SCORE - 100) {
+
+        int r = 3;
+        int margin = 2 * depth;
+        int singular_beta = tt_entry.score - margin;
+        PVLine child_pv;
+        child_pv.length = 0;
+
+        int score = pvs(pos, depth - 1 - r, ply, singular_beta - 1, singular_beta, &child_pv, start_time, limits, 0, history, 0, hash_move);
+        if (score < singular_beta && !stop_requested) {
+            extension = 1;
+        }
+    }
+
+    Move moves[MAX_MOVES];
+    int count = movegen_pseudo_legal(pos, moves);
 
     int scores[MAX_MOVES];
     for (int i = 0; i < count; i++) {
@@ -475,6 +516,10 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
     for (int i = 0; i < count; i++) {
         pick_best_move(moves, scores, count, i);
+        if (moves[i] == excluded_move) {
+            continue;
+        }
+
         PVLine child_pv;
         child_pv.length = 0;
 
@@ -482,10 +527,14 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
             continue;
         }
 
+        int ext = (moves[i] == hash_move && extension == 1) ? 1 : 0;
+
+        int is_quiet = !move_is_capture_or_promo(pos, moves[i]);
+
         int reduction = 0;
         int is_pv = (beta - alpha > 1);
 
-        if (depth >= 5 && legal_moves_searched >= 1 && !move_is_capture_or_promo(pos, moves[i]) && !in_check) {
+        if (depth >= 5 && legal_moves_searched >= 1 && is_quiet && !in_check) {
             int move_count = legal_moves_searched + 1;
             reduction = lmr_reductions[depth >= MAX_DEPTH ? MAX_DEPTH - 1 : depth][move_count >= MAX_MOVES ? MAX_MOVES - 1 : move_count];
             if (is_pv) {
@@ -511,26 +560,40 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
             reduction = 0;
         }
 
+        // Futility Pruning
+        if (depth <= 2
+            && !in_check
+            && is_quiet
+            && !gives_check
+            && legal_moves_searched > 1
+            && (alpha < MATE_SCORE - 100)) {
+            int fp_margin = 150 * depth;
+            if (static_eval + fp_margin <= alpha) {
+                undo_move(pos, &u);
+                continue;
+            }
+        }
+
         UndoNode next_node;
         next_node.undo = &u;
         next_node.parent = history;
 
         int score;
         if (search_pv) {
-            score = -pvs(pos, depth - 1, ply + 1, -beta, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+            score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -alpha, &child_pv, start_time, limits, 0, &next_node, 1, 0);
             search_pv = 0;
         } else {
             if (reduction > 0) {
-                score = -pvs(pos, depth - 1 - reduction, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+                score = -pvs(pos, depth - 1 - reduction + ext, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1, 0);
                 if (score > alpha && !stop_requested) {
-                    score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+                    score = -pvs(pos, depth - 1 + ext, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1, 0);
                 }
             } else {
-                score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+                score = -pvs(pos, depth - 1 + ext, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1, 0);
             }
 
             if (score > alpha && score < beta && !stop_requested) {
-                score = -pvs(pos, depth - 1, ply + 1, -beta, -score, &child_pv, start_time, limits, 0, &next_node, 1);
+                score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -score, &child_pv, start_time, limits, 0, &next_node, 1, 0);
             }
         }
 
@@ -570,7 +633,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         best_score = evaluate_no_moves(in_check, ply);
     }
 
-    if (!stop_requested) {
+    if (!stop_requested && excluded_move == 0) {
         TranspositionBound bound = TT_BOUND_EXACT;
         if (best_score <= old_alpha) {
             bound = TT_BOUND_UPPER;
@@ -594,7 +657,7 @@ static int search_aspiration_window(Position *pos, unsigned depth, int previous_
         if (alpha < -INFINITY_SCORE) alpha = -INFINITY_SCORE;
         if (beta > INFINITY_SCORE) beta = INFINITY_SCORE;
 
-        score = pvs(pos, depth, 0, alpha, beta, pv, start_time, limits, best_move_so_far, NULL, 1);
+        score = pvs(pos, depth, 0, alpha, beta, pv, start_time, limits, best_move_so_far, NULL, 1, 0);
 
         if (stop_requested) {
             break;
@@ -708,7 +771,7 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
         if (d >= 3 && abs(best_score_so_far) < MATE_SCORE - 100) {
             score = search_aspiration_window(&pos, d, best_score_so_far, &pv, start_time, limits, best_move_so_far);
         } else {
-            score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, limits, best_move_so_far, NULL, 1);
+            score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time, limits, best_move_so_far, NULL, 1, 0);
         }
 
         if (stop_requested) {

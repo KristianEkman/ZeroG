@@ -22,20 +22,14 @@ countermove/history continuation heuristics
 -aspiration windows-
 -null-move pruning-
 -late move reductions, LMR-
-futility pruning
-reverse futility pruning
-mate distance penalty
-singular extensions
+-futility pruning-
+-reverse futility pruning-
+-mate distance penalty-
+-singular extensions-
 probcut
 
 Time control
  - game phase
-
-Evaluation
- - piece square tables?
- - draw detection
-
-Move ordering/ move-ordering for quite search /movepicker
 
 Skills
  - sts tests
