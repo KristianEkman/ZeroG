@@ -38,11 +38,24 @@ Optimizes search speed and prevents redundant evaluations of transposition posit
 
 ### 5. Search Engine (`src/search/`)
 Determines the best move using search algorithm logic.
-- **Alpha-Beta Search**: Implements standard minimax search optimized with alpha-beta pruning.
-- **Time Controls**: Manages soft and hard time limits to allocate search time dynamically depending on remaining time and increments.
-- **Transposition Table Integration**: Queries the TT to fail-high/fail-low early and stores results to narrow alpha-beta windows.
+- **Iterative Deepening**: Incrementally searches deeper plies, allowing the engine to return the best-move-so-far if time expires.
+- **Principal Variation Search (PVS)**: Optimizes the alpha-beta search window by searching the principal variation (PV) first with a full window, and subsequent moves with a null/zero window.
+- **Quiescence Search**: Extends search at leaf nodes to evaluate only captures and promotions, preventing the horizon effect.
+- **Move Ordering**:
+  - *PV / TT Move*: Searches the best move from the transposition table or previous iteration first.
+  - *MVV-LVA (Most Valuable Victim, Least Valuable Attacker)*: Prioritizes captures that win material.
+  - *Killer Moves*: Prioritizes quiet moves that caused a beta-cutoff in helper plies.
+- **Pruning & Safety Features**:
+  - *Mate Distance Pruning*: Speeds up search by capping alpha/beta boundaries when a forced mate is found.
+  - *Draw & Repetition Detection*: Immediately returns draw evaluations (0) on repetition or 50-move rule limits.
 
-### 6. UCI Protocol Engine (`src/uci/`)
+### 6. Evaluation Engine (`src/eval/`)
+Scores a given board position statically.
+- **Material Value**: Applies standard piece weights (Pawn: 100, Knight: 320, Bishop: 330, Rook: 500, Queen: 900).
+- **Piece-Square Tables (PST)**: Encourages positional play (e.g., centralizing knights, active rooks, king safety).
+- **Dynamic King Safety**: Selects middle-game or end-game king PSTs based on a dynamic endgame detection heuristic (absence of queens, or queens with minimal minor pieces).
+
+### 7. UCI Protocol Engine (`src/uci/`)
 Implements the industry-standard Universal Chess Interface (UCI) protocol, enabling ChessAI2027 to interface with chess GUIs (like Arena, Cute Chess, or ChessBase).
 - **Asynchronous Search Loop**: Spawns a background thread to process searching asynchronously, allowing the main loop to listen for standard `stop` and `quit` commands.
 - **Commands Handled**: Supports standard instructions including `uci`, `isready`, `ucinewgame`, `position`, `go`, `setoption`, `stop`, and `quit`.
