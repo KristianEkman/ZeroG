@@ -18,12 +18,31 @@ typedef struct {
     Move moves[MAX_DEPTH];
 } PVLine;
 
+#include <math.h>
+
 static FILE *search_log_output = NULL;
 static int stop_requested = 0;
 static unsigned hash_size = 16; /* default 16MB */
 static uint64_t node_count = 0;
 
 static Move killer_moves[2][MAX_DEPTH];
+
+static int lmr_reductions[MAX_DEPTH][MAX_MOVES];
+static int lmr_initialized = 0;
+
+static void init_lmr(void) {
+    for (int depth = 0; depth < MAX_DEPTH; depth++) {
+        for (int moves = 0; moves < MAX_MOVES; moves++) {
+            if (depth == 0 || moves == 0) {
+                lmr_reductions[depth][moves] = 0;
+                continue;
+            }
+            double r = 0.5 + log((double)depth) * log((double)moves) / 3.0;
+            lmr_reductions[depth][moves] = (int)r;
+        }
+    }
+    lmr_initialized = 1;
+}
 
 static TranspositionTable tt;
 static int tt_initialized = 0;
@@ -463,12 +482,34 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
             continue;
         }
 
+        int reduction = 0;
+        int is_pv = (beta - alpha > 1);
+
+        if (depth >= 5 && legal_moves_searched >= 1 && !move_is_capture_or_promo(pos, moves[i]) && !in_check) {
+            int move_count = legal_moves_searched + 1;
+            reduction = lmr_reductions[depth >= MAX_DEPTH ? MAX_DEPTH - 1 : depth][move_count >= MAX_MOVES ? MAX_MOVES - 1 : move_count];
+            if (is_pv) {
+                reduction--;
+            }
+            if (moves[i] == killer_moves[0][ply] || moves[i] == killer_moves[1][ply]) {
+                reduction--;
+            }
+            if (reduction < 0) {
+                reduction = 0;
+            }
+        }
+
         Undo u;
         if (!make_move_and_check_legal(pos, moves[i], &u)) {
             continue;
         }
 
         legal_moves_searched++;
+
+        int gives_check = is_square_attacked(pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
+        if (gives_check) {
+            reduction = 0;
+        }
 
         UndoNode next_node;
         next_node.undo = &u;
@@ -479,7 +520,15 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
             score = -pvs(pos, depth - 1, ply + 1, -beta, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
             search_pv = 0;
         } else {
-            score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+            if (reduction > 0) {
+                score = -pvs(pos, depth - 1 - reduction, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+                if (score > alpha && !stop_requested) {
+                    score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+                }
+            } else {
+                score = -pvs(pos, depth - 1, ply + 1, -alpha - 1, -alpha, &child_pv, start_time, limits, 0, &next_node, 1);
+            }
+
             if (score > alpha && score < beta && !stop_requested) {
                 score = -pvs(pos, depth - 1, ply + 1, -beta, -score, &child_pv, start_time, limits, 0, &next_node, 1);
             }
@@ -601,6 +650,10 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
     search_reset_stop_request();
     node_count = 0;
     uint64_t start_time = get_time_ms();
+
+    if (!lmr_initialized) {
+        init_lmr();
+    }
 
     if (!tt_initialized) {
         if (transposition_table_init(&tt, (size_t)hash_size * 1024 * 1024) == 0) {

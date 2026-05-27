@@ -48,6 +48,7 @@ Determines the best move using search algorithm logic.
   - *Killer Moves*: Prioritizes quiet moves that caused a beta-cutoff in helper plies.
 - **Pruning & Safety Features**:
   - *Null-Move Pruning (NMP)*: Passes the move to detect quick fail-high branches, bypassing search branches if the opponent cannot exploit the pass.
+  - *Late Move Reductions (LMR)*: Reduces the search depth of quiet moves that appear late in the move list. If a reduced search fails high, it is re-searched at full depth. Reduces less in PV nodes and for killer moves, and bypasses reduction for tactical moves (captures/promotions), check-giving moves, and shallow depths ($d < 5$).
   - *Mate Distance Pruning*: Speeds up search by capping alpha/beta boundaries when a forced mate is found.
   - *Draw & Repetition Detection*: Immediately returns draw evaluations (0) on repetition or 50-move rule limits.
 

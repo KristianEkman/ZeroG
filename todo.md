@@ -21,7 +21,7 @@ history heuristic
 countermove/history continuation heuristics
 -aspiration windows-
 -null-move pruning-
-late move reductions, LMR
+-late move reductions, LMR-
 futility pruning
 reverse futility pruning
 mate distance penalty
