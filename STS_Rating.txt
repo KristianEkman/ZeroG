@@ -46,3 +46,51 @@ STS 15: Avoid Pointless Exchange
 4. STS 15, 40.8%, "Avoid Pointless Exchange"
 5. STS 07, 41.6%, "Offer of Simplification"
 
+STS Rating v14.2
+Engine: ChessAI2027 1.0.0
+Hash: 32, Threads: 1, time/pos: 0.065s
+
+Number of positions in ../STS-Rating/STS1-STS15_LAN_v3.epd: 1500
+Max score = 1500 x 10 = 15000
+Test duration: 00h:01m:37s
+Expected time to finish: 00h:02m:22s
+STS rating: 2003
+
+  STS ID   STS1   STS2   STS3   STS4   STS5   STS6   STS7   STS8   STS9  STS10  STS11  STS12  STS13  STS14  STS15    ALL
+  NumPos    100    100    100    100    100    100    100    100    100    100    100    100    100    100    100   1500
+ BestCnt     25     21     38     30     50     48     30     21     27     64     38     45     49     46     21    553
+   Score    351    318    534    458    604    722    418    330    414    733    493    541    615    602    435   7568
+Score(%)   35.1   31.8   53.4   45.8   60.4   72.2   41.8   33.0   41.4   73.3   49.3   54.1   61.5   60.2   43.5   50.5
+  Rating   1320   1173   2135   1796   2446   2972   1618   1226   1600   3021   1952   2166   2495   2437   1694   2003
+
+:: STS ID and Titles ::
+STS 01: Undermining
+STS 02: Open Files and Diagonals
+STS 03: Knight Outposts
+STS 04: Square Vacancy
+STS 05: Bishop vs Knight
+STS 06: Re-Capturing
+STS 07: Offer of Simplification
+STS 08: Advancement of f/g/h Pawns
+STS 09: Advancement of a/b/c Pawns
+STS 10: Simplification
+STS 11: Activity of the King
+STS 12: Center Control
+STS 13: Pawn Play in the Center
+STS 14: Queens and Rooks to the 7th rank
+STS 15: Avoid Pointless Exchange
+
+:: Top 5 STS with high result ::
+1. STS 10, 73.3%, "Simplification"
+2. STS 06, 72.2%, "Re-Capturing"
+3. STS 13, 61.5%, "Pawn Play in the Center"
+4. STS 05, 60.4%, "Bishop vs Knight"
+5. STS 14, 60.2%, "Queens and Rooks to the 7th rank"
+
+:: Top 5 STS with low result ::
+1. STS 02, 31.8%, "Open Files and Diagonals"
+2. STS 08, 33.0%, "Advancement of f/g/h Pawns"
+3. STS 01, 35.1%, "Undermining"
+4. STS 09, 41.4%, "Advancement of a/b/c Pawns"
+5. STS 07, 41.8%, "Offer of Simplification"
+
