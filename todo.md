@@ -1,7 +1,7 @@
 benchmark, profile, sts,selfplay averything below
 
 Evaluation
-bishop pair
+ - [x] bishop pair
 mobility
 king safety
 passed pawns

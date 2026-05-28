@@ -1,5 +1,7 @@
 #include "eval.h"
 
+#define BISHOP_PAIR_BONUS 50
+
 /* Piece-Square Tables (PST) pre-flipped vertically so that index 0 corresponds to A1 */
 
 static const int pawn_table[64] = {
@@ -175,6 +177,16 @@ int evaluate(const Position *pos) {
     while (b_king) {
         int sq = pop_lsb(&b_king);
         score -= 20000 + (is_endgame ? king_end_table[sq ^ 56] : king_middle_table[sq ^ 56]);
+    }
+
+    // Bishop pair evaluation
+    int w_bishops_count = bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
+    if (w_bishops_count >= 2) {
+        score += BISHOP_PAIR_BONUS;
+    }
+    int b_bishops_count = bit_count(pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
+    if (b_bishops_count >= 2) {
+        score -= BISHOP_PAIR_BONUS;
     }
 
     return score;

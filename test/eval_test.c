@@ -79,6 +79,27 @@ void test_eval_endgame_transition(void)
     TEST_ASSERT_EQUAL_INT(30, evaluate(&test_pos));
 }
 
+void test_eval_bishop_pair(void)
+{
+    Position test_pos;
+
+    // Symmetric position with 2 bishops for both White and Black.
+    // Evaluation should be 0 since both get the bonus.
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("2b1k1b1/8/8/8/8/8/8/2B1K1B1 w - - 0 1", &test_pos));
+    TEST_ASSERT_EQUAL_INT(0, evaluate(&test_pos));
+
+    // Remove one Black bishop.
+    // Material diff: White has 2 bishops (+660), Black has 1 bishop (-330). Net: +330.
+    // PST diff: White King E1 (-30), Black King E8 (-30). White Bishops C1 (-10), G1 (-10). Black Bishop C8 (-10).
+    // Net PST: (-30 - 10 - 10) - (-30 - 10) = -10.
+    // Bishop Pair: White has 2 (+50), Black has 1 (0). Net: +50.
+    // Expected evaluation score: 330 - 10 + 50 = 370.
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("2b1k3/8/8/8/8/8/8/2B1K1B1 w - - 0 1", &test_pos));
+    TEST_ASSERT_EQUAL_INT(370, evaluate(&test_pos));
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -93,6 +114,7 @@ int main(void)
     RUN_TEST(test_eval_after_e4_e5);
     RUN_TEST(test_eval_material_imbalance);
     RUN_TEST(test_eval_endgame_transition);
+    RUN_TEST(test_eval_bishop_pair);
 
     return UNITY_END();
 }
