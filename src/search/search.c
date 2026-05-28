@@ -744,6 +744,7 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
         result->score = 0;
         result->has_legal_move = 0;
         result->node_count = 0;
+        result->depth = 0;
         return 0;
     }
 
@@ -752,6 +753,7 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
     result->has_legal_move = 1;
     result->score = 0;
     result->node_count = 0;
+    result->depth = 0;
 
     Move best_move_so_far = moves[0];
     int best_score_so_far = -INFINITY_SCORE;
@@ -800,6 +802,7 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
             result->best_move = best_move_so_far;
             result->score = best_score_so_far;
             result->node_count = node_count;
+            result->depth = d;
         }
 
         log_search_info(d, score, node_count, &pv, board);

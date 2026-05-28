@@ -117,6 +117,7 @@ static int uci_start_async_search(UciSearchRuntime *runtime,
     runtime->task.result.score = 0;
     runtime->task.result.has_legal_move = 0;
     runtime->task.result.node_count = 0;
+    runtime->task.result.depth = 0;
     runtime->task.search_status = -1;
     atomic_init(&runtime->task.finished, 0);
 

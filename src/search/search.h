@@ -19,6 +19,7 @@ typedef struct {
     int score;
     int has_legal_move;
     uint64_t node_count;
+    unsigned depth;
 } SearchResult;
 
 FILE *search_set_log_output(FILE *output);

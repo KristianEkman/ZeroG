@@ -3,8 +3,11 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "search/search.h"
+#include "fen.h"
+#include "movegen.h"
 
 const char *uci_skip_spaces(const char *text)
 {
@@ -82,6 +85,37 @@ int uci_write_bestmove(const Position *board, FILE *output, Move move)
     return 0;
 }
 
+static int is_move_tactical(const Position *board, Move m)
+{
+    if (m == 0)
+    {
+        return 0;
+    }
+
+    int from = MOVE_FROM(m);
+    int to = MOVE_TO(m);
+    Piece moving_piece = board->board[from];
+    PieceType pt = PIECE_TYPE(moving_piece);
+
+    // Capture
+    if (board->board[to] != EMPTY)
+    {
+        return 1;
+    }
+    // En passant capture
+    if (pt == PAWN && to == board->enPassantSquare)
+    {
+        return 1;
+    }
+    // Promotion
+    if (pt == PAWN && (RANK_OF(to) == RANK_1 || RANK_OF(to) == RANK_8))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
 int uci_search_with_limits(const Position *board,
                            const SearchLimits *limits,
                            FILE *output,
@@ -98,6 +132,29 @@ int uci_search_with_limits(const Position *board,
     previous_log_output = search_set_log_output(output);
     search_status = search_best_move_with_limits(board, limits, result);
     (void)search_set_log_output(previous_log_output);
+
+    if (search_status == 0 && result->has_legal_move)
+    {
+        const char *filename = uci_get_save_quiet_positions_file();
+        if (filename && filename[0] != '\0')
+        {
+            int in_check = is_square_attacked(board, board->kingSq[COLOR_IDX(board->sideToMove)], OPPOSITE(board->sideToMove));
+            if (!in_check && !is_move_tactical(board, result->best_move) && abs(result->score) < 28000)
+            {
+                char fen_buf[128];
+                if (fen_serialize(board, fen_buf) > 0)
+                {
+                    FILE *f = fopen(filename, "a");
+                    if (f != NULL)
+                    {
+                        fprintf(f, "%s score %d; depth %u;\n", fen_buf, result->score, result->depth);
+                        fclose(f);
+                    }
+                }
+            }
+        }
+    }
+
     return search_status;
 }
 

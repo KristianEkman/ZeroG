@@ -1,12 +1,21 @@
 #include "uci/uci_internal.h"
 
 #include <stdio.h>
+#include <string.h>
+
+static char uci_save_quiet_positions_file[512] = "";
+
+const char* uci_get_save_quiet_positions_file(void)
+{
+    return uci_save_quiet_positions_file;
+}
 
 static int write_uci_handshake(FILE *output)
 {
     if (fprintf(output, "id name ChessAI2027 1.0.0\n") < 0 ||
         fprintf(output, "id author Kristian Ekman\n") < 0 ||
         fprintf(output, "option name Hash type spin default 16 min 1 max 1024\n") < 0 ||
+        fprintf(output, "option name SaveQuietPositionsFile type string default <empty>\n") < 0 ||
         fprintf(output, "uciok\n") < 0)
     {
         return -1;
@@ -84,12 +93,27 @@ int uci_handle_line(UciState *state, const char *line, FILE *output, int *should
     {
         unsigned hash_size_mb;
 
-        if (uci_parse_hash_option_value(args, &hash_size_mb) != 0)
+        if (uci_parse_hash_option_value(args, &hash_size_mb) == 0)
         {
-            return -1;
+            return search_set_hash_size_mb(hash_size_mb);
         }
 
-        return search_set_hash_size_mb(hash_size_mb);
+        char path_buf[512];
+        if (uci_parse_string_option_value(args, "SaveQuietPositionsFile", path_buf, sizeof(path_buf)) == 0)
+        {
+            if (strcmp(path_buf, "<empty>") == 0)
+            {
+                uci_save_quiet_positions_file[0] = '\0';
+            }
+            else
+            {
+                strncpy(uci_save_quiet_positions_file, path_buf, sizeof(uci_save_quiet_positions_file));
+                uci_save_quiet_positions_file[sizeof(uci_save_quiet_positions_file) - 1] = '\0';
+            }
+            return 0;
+        }
+
+        return -1;
     }
 
     if (uci_starts_with_keyword(line, "stop", &args) ||
