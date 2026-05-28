@@ -23,11 +23,11 @@ static const int QueenMobilityEG[28] = {
  * Calculate game phase based on remaining minor/major pieces.
  * Starts at 24 (opening/middlegame) and decreases to 0 (endgame).
  */
-static int get_game_phase(const Position *pos) {
-    int knights = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT]) + bit_count(pos->pieces[COLOR_IDX(BLACK)][KNIGHT]);
-    int bishops = bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP]) + bit_count(pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
-    int rooks   = bit_count(pos->pieces[COLOR_IDX(WHITE)][ROOK])   + bit_count(pos->pieces[COLOR_IDX(BLACK)][ROOK]);
-    int queens  = bit_count(pos->pieces[COLOR_IDX(WHITE)][QUEEN])  + bit_count(pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+static inline int get_game_phase(const Position *pos) {
+    int knights = bit_count(pos->pieces[0][KNIGHT] | pos->pieces[1][KNIGHT]);
+    int bishops = bit_count(pos->pieces[0][BISHOP] | pos->pieces[1][BISHOP]);
+    int rooks   = bit_count(pos->pieces[0][ROOK]   | pos->pieces[1][ROOK]);
+    int queens  = bit_count(pos->pieces[0][QUEEN]  | pos->pieces[1][QUEEN]);
     
     return knights * 1 + bishops * 1 + rooks * 2 + queens * 4;
 }
@@ -35,7 +35,7 @@ static int get_game_phase(const Position *pos) {
 /*
  * Evaluates the mobility for a single color.
  */
-static int evaluate_color_mobility(const Position *pos, Color us, int phase) {
+static inline int evaluate_color_mobility(const Position *pos, Color us, int phase) {
     Color them = OPPOSITE(us);
     uint64_t own_pieces = pos->occ[COLOR_IDX(us)];
     uint64_t enemy_pawns = pos->pieces[COLOR_IDX(them)][PAWN];
