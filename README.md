@@ -173,11 +173,20 @@ The engine supports a complete pipeline for generating and labeling training dat
 ### Step 1: Harvesting Quiet Positions (Self-Play)
 During engine self-play matches, quiet (non-tactical) positions visited are automatically recorded if the `SaveQuietPositionsFile` option is set.
 
+The `selfplay.sh` script acts as an entry point for `selfplay.py`, which manages the `cutechess-cli` tournament and outputs a real-time progress dashboard.
+
 Run the self-play script with the `--savefen` flag pointing to the output EPD file:
 ```bash
 ./selfplay.sh --savefen quiet_training_positions.epd
 ```
 This launches a match of `NEW` vs `OLD` using `cutechess-cli`, appending valid quiet positions to the specified file with the engine's original search score.
+
+#### Key self-play options:
+* `--savefen <file>`: Save harvested quiet training positions.
+* `--pgnout <file>`: Output PGN file containing all games played.
+* `-games`, `--games <int>`: Total number of games to play (default: `20000`).
+* `-concurrency`, `--concurrency <int>`: Concurrency level / thread count (default: `4`).
+* `-tc`, `--tc <str>`: Time control configuration (default: `3+0.01`).
 
 ### Step 2: Labeling Positions with Stockfish
 Once you have generated an EPD file with quiet positions, run the `evaluate_epd.py` script to evaluate and label all positions using Stockfish. This runs multiple Stockfish processes in parallel to process the file rapidly:
