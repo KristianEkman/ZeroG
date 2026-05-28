@@ -42,7 +42,7 @@ done
  -engine cmd=./builds/ChessAI2027_prev proto=uci name=OLD \
  -engine cmd=./builds/ChessAI2027 proto=uci name=NEW "${savefen_args[@]}" \
  -each tc=3+0.01 \
- -games 300 \
+ -games 3000 \
  -openings file=./grand_master_openings.epd format=epd order=random \
  -repeat \
  -concurrency 4 \

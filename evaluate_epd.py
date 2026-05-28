@@ -155,6 +155,10 @@ def process_position(task):
         if perspective == 'white' and active_player == 'b':
             score_val = -score_val
             
+        # Check for extreme evaluations (abs(score) >= 1000 centipawns or mate)
+        if score_type == "mate" or (score_type == "cp" and abs(score_val) >= 1000):
+            return idx, None, "skip_extreme"
+            
         # Format evaluation score
         if score_type == "mate":
             if mate_to_cp:
@@ -294,6 +298,7 @@ def main():
     
     completed = 0
     errors = 0
+    skipped_extreme = 0
     
     try:
         # imap yields results in the same order as input tasks
@@ -304,9 +309,13 @@ def main():
             fen, _ = extract_fen_and_extra(original_line)
             
             if err:
-                errors += 1
-                # If error, write the original line with a comment
-                results_ordered[idx] = f"{original_line} # Error: {err}\n"
+                if err == "skip_extreme":
+                    skipped_extreme += 1
+                    results_ordered[idx] = ""
+                else:
+                    errors += 1
+                    # If error, write the original line with a comment
+                    results_ordered[idx] = f"{original_line} # Error: {err}\n"
             else:
                 results_ordered[idx] = f"{fen} {output_extra}\n"
                 
@@ -320,7 +329,8 @@ def main():
                 print(f"Progress: {completed}/{len(tasks)} ({completed/len(tasks)*100:.1f}%) | "
                       f"Speed: {rate:.1f} pos/s | "
                       f"ETA: {eta_min}m {eta_sec}s | "
-                      f"Errors: {errors}", end="\r")
+                      f"Errors: {errors} | "
+                      f"Skipped Extreme: {skipped_extreme}", end="\r")
         
         print() # Newline after progress loop
         
@@ -348,6 +358,8 @@ def main():
     elapsed = time.time() - start_time
     print(f"Finished evaluation in {elapsed:.1f} seconds.")
     print(f"Results written to '{args.output}'.")
+    if skipped_extreme > 0:
+        print(f"Skipped {skipped_extreme} positions with extreme evaluations (abs(score) >= 1000 or mate).")
     if errors > 0:
         print(f"Warning: {errors} positions encountered errors during evaluation.")
 

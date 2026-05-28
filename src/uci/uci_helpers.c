@@ -139,7 +139,7 @@ int uci_search_with_limits(const Position *board,
         if (filename && filename[0] != '\0')
         {
             int in_check = is_square_attacked(board, board->kingSq[COLOR_IDX(board->sideToMove)], OPPOSITE(board->sideToMove));
-            if (!in_check && !is_move_tactical(board, result->best_move) && abs(result->score) < 28000)
+            if (!in_check && !is_move_tactical(board, result->best_move) && abs(result->score) < 1000)
             {
                 char fen_buf[128];
                 if (fen_serialize(board, fen_buf) > 0)
