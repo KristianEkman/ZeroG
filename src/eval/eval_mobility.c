@@ -19,19 +19,6 @@ static const int QueenMobilityEG[28] = {
     50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115 
 };
 
-/* 
- * Calculate game phase based on remaining minor/major pieces.
- * Starts at 24 (opening/middlegame) and decreases to 0 (endgame).
- */
-static inline int get_game_phase(const Position *pos) {
-    int knights = bit_count(pos->pieces[0][KNIGHT] | pos->pieces[1][KNIGHT]);
-    int bishops = bit_count(pos->pieces[0][BISHOP] | pos->pieces[1][BISHOP]);
-    int rooks   = bit_count(pos->pieces[0][ROOK]   | pos->pieces[1][ROOK]);
-    int queens  = bit_count(pos->pieces[0][QUEEN]  | pos->pieces[1][QUEEN]);
-    
-    return knights * 1 + bishops * 1 + rooks * 2 + queens * 4;
-}
-
 /*
  * Evaluates the mobility for a single color.
  */

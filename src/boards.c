@@ -11,6 +11,8 @@
 uint64_t knightAttacks[64];
 uint64_t kingAttacks[64];
 uint64_t pawnAttacks[2][64];
+uint64_t bishopEmptyAttacks[64];
+uint64_t rookEmptyAttacks[64];
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Magic bitboards – rook
@@ -288,6 +290,13 @@ void bitboard_init(void)
         if (r > 0 && f < 7)
             b |= (1ULL << SQUARE(f + 1, r - 1));
         pawnAttacks[COLOR_IDX(BLACK)][sq] = b;
+    }
+
+    /* ── empty board sliding attacks ────────────────────────────────── */
+    for (int sq = 0; sq < 64; sq++)
+    {
+        bishopEmptyAttacks[sq] = bishop_attacks_raw(sq, 0ULL);
+        rookEmptyAttacks[sq] = rook_attacks_raw(sq, 0ULL);
     }
 
     /* ── rook magic ─────────────────────────────────────────────────── */

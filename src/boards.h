@@ -130,6 +130,8 @@ typedef struct {
 extern uint64_t knightAttacks[64];
 extern uint64_t kingAttacks[64];
 extern uint64_t pawnAttacks[2][64];
+extern uint64_t bishopEmptyAttacks[64];
+extern uint64_t rookEmptyAttacks[64];
 
 /* ── magic bitboard attack tables (extern definitions) ─────────────────── */
 extern const int rook_shift[64];
@@ -167,6 +169,18 @@ static inline int pop_lsb(uint64_t *bb) {
 }
 static inline int bit_count(uint64_t bb) {
     return __builtin_popcountll(bb);
+}
+
+/*
+ * Calculate game phase based on remaining minor/major pieces.
+ * Starts at 24 (opening/middlegame) and decreases to 0 (endgame).
+ */
+static inline int get_game_phase(const Position *pos) {
+    int knights = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT] | pos->pieces[COLOR_IDX(BLACK)][KNIGHT]);
+    int bishops = bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP] | pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
+    int rooks   = bit_count(pos->pieces[COLOR_IDX(WHITE)][ROOK]   | pos->pieces[COLOR_IDX(BLACK)][ROOK]);
+    int queens  = bit_count(pos->pieces[COLOR_IDX(WHITE)][QUEEN]  | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+    return knights * 1 + bishops * 1 + rooks * 2 + queens * 4; // Max 24
 }
 
 /* ── one-time initialisation (must be called before any Position use) ─── */

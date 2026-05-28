@@ -419,7 +419,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
     if (alpha >= beta) return alpha;
 
     int old_alpha = alpha;
-    TranspositionEntry tt_entry;
+    TranspositionEntry tt_entry = {0};
     int tt_hit = 0;
     if (excluded_move == 0) {
         tt_hit = transposition_table_lookup(&tt, pos->hashKey, ply, &tt_entry);

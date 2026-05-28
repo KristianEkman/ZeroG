@@ -1,14 +1,6 @@
 #include "time_control.h"
 #include <stdlib.h>
 
-static int get_game_phase(const Position *pos) {
-    int knights = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT] | pos->pieces[COLOR_IDX(BLACK)][KNIGHT]);
-    int bishops = bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP] | pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
-    int rooks   = bit_count(pos->pieces[COLOR_IDX(WHITE)][ROOK]   | pos->pieces[COLOR_IDX(BLACK)][ROOK]);
-    int queens  = bit_count(pos->pieces[COLOR_IDX(WHITE)][QUEEN]  | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
-    return knights * 1 + bishops * 1 + rooks * 2 + queens * 4; // Max 24
-}
-
 void time_control_init(TimeControl *tc,
                        const Position *board,
                        unsigned remaining_ms,
