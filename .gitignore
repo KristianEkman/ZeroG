@@ -1,5 +1,4 @@
 .DS_Store
 builds/
-openings.epd
-grand_master_openings.epd
+*.epd
 out.pgn

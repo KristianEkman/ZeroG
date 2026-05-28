@@ -22,7 +22,13 @@ while [[ $# -gt 0 ]]; do
 				exit 1
 			fi
 
-			savefen_args=(option.SaveQuietPositionsFile="$2")
+			# Convert to absolute path so cutechess-cli/engine doesn't write relative to the executable directory (builds/)
+			if [[ "$2" = /* ]]; then
+				abs_savefen="$2"
+			else
+				abs_savefen="$(pwd)/$2"
+			fi
+			savefen_args=(option.SaveQuietPositionsFile="$abs_savefen")
 			shift 2
 			;;
 		*)

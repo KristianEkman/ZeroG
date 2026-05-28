@@ -160,3 +160,34 @@ To quit the engine:
 ```text
 quit
 ```
+
+---
+
+## Neural Network Training Data Generation
+
+The engine supports a complete pipeline for generating and labeling training data to train the custom evaluation neural network. This pipeline consists of two steps: position harvesting during self-play, and labeling the positions using Stockfish.
+
+### Step 1: Harvesting Quiet Positions (Self-Play)
+During engine self-play matches, quiet (non-tactical) positions visited are automatically recorded if the `SaveQuietPositionsFile` option is set.
+
+Run the self-play script with the `--savefen` flag pointing to the output EPD file:
+```bash
+./selfplay.sh --savefen quiet_training_positions.epd
+```
+This launches a match of `NEW` vs `OLD` using `cutechess-cli`, appending valid quiet positions to the specified file with the engine's original search score.
+
+### Step 2: Labeling Positions with Stockfish
+Once you have generated an EPD file with quiet positions, run the `evaluate_epd.py` script to evaluate and label all positions using Stockfish. This runs multiple Stockfish processes in parallel to process the file rapidly:
+
+```bash
+./evaluate_epd.py -i quiet_training_positions.epd -o quiet_training_positions_evaluated.epd -d 10 -c 4
+```
+
+#### Key Script Options:
+* `-i`, `--input`: Path to the input harvested EPD file (default: `quiet_training_positions.epd`).
+* `-o`, `--output`: Path to save the labeled EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-d`, `--depth`: Target search depth for Stockfish (default: `10`).
+* `-t`, `--movetime`: Search time limit in milliseconds per position (optional, overrides depth).
+* `-c`, `--concurrency`: Number of concurrent Stockfish instances to run (default: number of CPU cores).
+* `-p`, `--perspective`: Evaluation score perspective: `side` (side-to-move, default) or `white` (normalized to White's perspective).
+* `--mate-to-cp`: Automatically converts mate scores to high centipawn values (e.g. mate in X moves -> `30000 - X` score).
