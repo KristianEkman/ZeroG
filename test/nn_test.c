@@ -118,6 +118,62 @@ void test_nn_train_xor_gate(void)
     nn_free(nn);
 }
 
+void test_nn_train_large_network(void)
+{
+    // Initialize 4-layer neural network (50 input, 50 hidden, 50 hidden, 1 output)
+    int sizes[] = {50, 50, 50, 1};
+    NeuralNetwork *nn = nn_init(sizes, 4);
+    TEST_ASSERT_NOT_NULL(nn);
+
+    int num_samples = 16;
+    float inputs[16][50];
+    float targets[16];
+
+    // Generate deterministic input data and targets using sine/cosine relationships
+    for (int i = 0; i < num_samples; i++) {
+        for (int j = 0; j < 50; j++) {
+            inputs[i][j] = (float)sin(i * 1.3f + j * 0.7f);
+        }
+        targets[i] = 0.5f * inputs[i][0] - 0.3f * inputs[i][1] + 0.8f * inputs[i][2] * inputs[i][2] - 0.4f * inputs[i][3];
+    }
+
+    float lr = 0.01f;
+    float initial_total_loss = 0.0f;
+    
+    // Evaluate initial loss
+    for (int i = 0; i < num_samples; i++) {
+        float out = nn_forward(nn, inputs[i]);
+        float diff = out - targets[i];
+        initial_total_loss += 0.5f * diff * diff;
+    }
+
+    // Train for 1000 epochs
+    for (int epoch = 0; epoch < 1000; epoch++) {
+        for (int i = 0; i < num_samples; i++) {
+            nn_train_step(nn, inputs[i], targets[i], lr);
+        }
+    }
+
+    float final_total_loss = 0.0f;
+    printf("\n=== Large Network (50,50,50,1) Training Results ===\n");
+    for (int i = 0; i < num_samples; i++) {
+        float out = nn_forward(nn, inputs[i]);
+        float diff = out - targets[i];
+        final_total_loss += 0.5f * diff * diff;
+        
+        // Assert prediction is very close to target (within 0.05)
+        TEST_ASSERT_FLOAT_WITHIN(0.05f, targets[i], out);
+    }
+    printf("Initial Loss: %.6f, Final Loss: %.6f\n", initial_total_loss, final_total_loss);
+    printf("===================================================\n");
+
+    // Assert loss decreased dramatically and is extremely small
+    TEST_ASSERT_TRUE(final_total_loss < initial_total_loss);
+    TEST_ASSERT_TRUE(final_total_loss < 0.001f);
+
+    nn_free(nn);
+}
+
 void test_nn_save_load(void)
 {
     const char *test_file = "test_weights.bin";
@@ -179,6 +235,7 @@ int main(void)
     RUN_TEST(test_nn_init_and_free);
     RUN_TEST(test_nn_forward_returns_finite);
     RUN_TEST(test_nn_train_xor_gate);
+    RUN_TEST(test_nn_train_large_network);
     RUN_TEST(test_nn_save_load);
 
     return UNITY_END();
