@@ -5,6 +5,10 @@
 #include <math.h>
 #include <stdint.h>
 
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#include <arm_neon.h>
+#endif
+
 NeuralNetwork* nn_init(const int *sizes, int num_layers) {
     if (!sizes || num_layers < 2) {
         return NULL;
@@ -139,8 +143,42 @@ float nn_forward(NeuralNetwork *nn, const float *inputs) {
             float sum = b[i];
             const float *__restrict__ w_row = &w[i * n_in];
             
-            // Loop optimized for auto-vectorization
-            for (int j = 0; j < n_in; j++) {
+            int j = 0;
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            float32x4_t sum_vec0 = vdupq_n_f32(0.0f);
+            float32x4_t sum_vec1 = vdupq_n_f32(0.0f);
+            float32x4_t sum_vec2 = vdupq_n_f32(0.0f);
+            float32x4_t sum_vec3 = vdupq_n_f32(0.0f);
+            
+            for (; j <= n_in - 16; j += 16) {
+                float32x4_t w_vec0 = vld1q_f32(&w_row[j]);
+                float32x4_t a_vec0 = vld1q_f32(&prev_act[j]);
+                sum_vec0 = vmlaq_f32(sum_vec0, w_vec0, a_vec0);
+
+                float32x4_t w_vec1 = vld1q_f32(&w_row[j + 4]);
+                float32x4_t a_vec1 = vld1q_f32(&prev_act[j + 4]);
+                sum_vec1 = vmlaq_f32(sum_vec1, w_vec1, a_vec1);
+
+                float32x4_t w_vec2 = vld1q_f32(&w_row[j + 8]);
+                float32x4_t a_vec2 = vld1q_f32(&prev_act[j + 8]);
+                sum_vec2 = vmlaq_f32(sum_vec2, w_vec2, a_vec2);
+
+                float32x4_t w_vec3 = vld1q_f32(&w_row[j + 12]);
+                float32x4_t a_vec3 = vld1q_f32(&prev_act[j + 12]);
+                sum_vec3 = vmlaq_f32(sum_vec3, w_vec3, a_vec3);
+            }
+            for (; j <= n_in - 4; j += 4) {
+                float32x4_t w_vec = vld1q_f32(&w_row[j]);
+                float32x4_t a_vec = vld1q_f32(&prev_act[j]);
+                sum_vec0 = vmlaq_f32(sum_vec0, w_vec, a_vec);
+            }
+            float32x4_t total_vec = vaddq_f32(
+                vaddq_f32(sum_vec0, sum_vec1),
+                vaddq_f32(sum_vec2, sum_vec3)
+            );
+            sum += vaddvq_f32(total_vec);
+#endif
+            for (; j < n_in; j++) {
                 sum += w_row[j] * prev_act[j];
             }
 
@@ -187,15 +225,54 @@ float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float 
         const float *__restrict__ w_next = nn->weights[l + 1];
         const float *__restrict__ z_curr = nn->pre_activations[l];
 
-        for (int i = 0; i < n_curr; i++) {
-            float sum = 0.0f;
-            for (int j = 0; j < n_next; j++) {
-                // Weight connecting i (current layer) to j (next layer)
-                // Next weight matrix dimensions: n_next x n_curr
-                sum += d_next[j] * w_next[j * n_curr + i];
+        // Zero out current layer delta first (swapped loops)
+        memset(d_curr, 0, n_curr * sizeof(float));
+
+        for (int j = 0; j < n_next; j++) {
+            float d_val = d_next[j];
+            const float *__restrict__ w_row = &w_next[j * n_curr];
+            
+            int i = 0;
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            float32x4_t d_val_vec = vdupq_n_f32(d_val);
+            for (; i <= n_curr - 16; i += 16) {
+                float32x4_t d_curr_vec0 = vld1q_f32(&d_curr[i]);
+                float32x4_t w_vec0 = vld1q_f32(&w_row[i]);
+                d_curr_vec0 = vmlaq_f32(d_curr_vec0, d_val_vec, w_vec0);
+                vst1q_f32(&d_curr[i], d_curr_vec0);
+
+                float32x4_t d_curr_vec1 = vld1q_f32(&d_curr[i + 4]);
+                float32x4_t w_vec1 = vld1q_f32(&w_row[i + 4]);
+                d_curr_vec1 = vmlaq_f32(d_curr_vec1, d_val_vec, w_vec1);
+                vst1q_f32(&d_curr[i + 4], d_curr_vec1);
+
+                float32x4_t d_curr_vec2 = vld1q_f32(&d_curr[i + 8]);
+                float32x4_t w_vec2 = vld1q_f32(&w_row[i + 8]);
+                d_curr_vec2 = vmlaq_f32(d_curr_vec2, d_val_vec, w_vec2);
+                vst1q_f32(&d_curr[i + 8], d_curr_vec2);
+
+                float32x4_t d_curr_vec3 = vld1q_f32(&d_curr[i + 12]);
+                float32x4_t w_vec3 = vld1q_f32(&w_row[i + 12]);
+                d_curr_vec3 = vmlaq_f32(d_curr_vec3, d_val_vec, w_vec3);
+                vst1q_f32(&d_curr[i + 12], d_curr_vec3);
             }
-            // ReLU derivative: 1 if z > 0, else 0
-            d_curr[i] = (z_curr[i] > 0.0f) ? sum : 0.0f;
+            for (; i <= n_curr - 4; i += 4) {
+                float32x4_t d_curr_vec = vld1q_f32(&d_curr[i]);
+                float32x4_t w_vec = vld1q_f32(&w_row[i]);
+                d_curr_vec = vmlaq_f32(d_curr_vec, d_val_vec, w_vec);
+                vst1q_f32(&d_curr[i], d_curr_vec);
+            }
+#endif
+            for (; i < n_curr; i++) {
+                d_curr[i] += d_val * w_row[i];
+            }
+        }
+
+        // Apply ReLU derivative: delta is 0 if z <= 0
+        for (int i = 0; i < n_curr; i++) {
+            if (z_curr[i] <= 0.0f) {
+                d_curr[i] = 0.0f;
+            }
         }
     }
 
@@ -218,7 +295,39 @@ float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float 
             // Update weights row
             float *__restrict__ w_row = &w[i * n_in];
             float lr_d_val = learning_rate * d_val;
-            for (int j = 0; j < n_in; j++) {
+            
+            int j = 0;
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            float32x4_t lr_d_vec = vdupq_n_f32(lr_d_val);
+            for (; j <= n_in - 16; j += 16) {
+                float32x4_t w_vec0 = vld1q_f32(&w_row[j]);
+                float32x4_t a_vec0 = vld1q_f32(&prev_act[j]);
+                float32x4_t res_vec0 = vmlsq_f32(w_vec0, lr_d_vec, a_vec0);
+                vst1q_f32(&w_row[j], res_vec0);
+
+                float32x4_t w_vec1 = vld1q_f32(&w_row[j + 4]);
+                float32x4_t a_vec1 = vld1q_f32(&prev_act[j + 4]);
+                float32x4_t res_vec1 = vmlsq_f32(w_vec1, lr_d_vec, a_vec1);
+                vst1q_f32(&w_row[j + 4], res_vec1);
+
+                float32x4_t w_vec2 = vld1q_f32(&w_row[j + 8]);
+                float32x4_t a_vec2 = vld1q_f32(&prev_act[j + 8]);
+                float32x4_t res_vec2 = vmlsq_f32(w_vec2, lr_d_vec, a_vec2);
+                vst1q_f32(&w_row[j + 8], res_vec2);
+
+                float32x4_t w_vec3 = vld1q_f32(&w_row[j + 12]);
+                float32x4_t a_vec3 = vld1q_f32(&prev_act[j + 12]);
+                float32x4_t res_vec3 = vmlsq_f32(w_vec3, lr_d_vec, a_vec3);
+                vst1q_f32(&w_row[j + 12], res_vec3);
+            }
+            for (; j <= n_in - 4; j += 4) {
+                float32x4_t w_vec = vld1q_f32(&w_row[j]);
+                float32x4_t a_vec = vld1q_f32(&prev_act[j]);
+                float32x4_t res_vec = vmlsq_f32(w_vec, lr_d_vec, a_vec);
+                vst1q_f32(&w_row[j], res_vec);
+            }
+#endif
+            for (; j < n_in; j++) {
                 w_row[j] -= lr_d_val * prev_act[j];
             }
         }

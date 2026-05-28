@@ -24,6 +24,7 @@ SEARCH_TEST_TARGET = $(BUILD_DIR)/search_test_runner
 NN_TEST_TARGET = $(BUILD_DIR)/nn_test_runner
 PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
 SEARCH_BENCH_TARGET = $(BUILD_DIR)/search_bench
+NN_BENCH_TARGET = $(BUILD_DIR)/nn_bench
 
 PROFILE_BUILD_DIR ?= builds/profile
 PROFILE_DEPTH ?= 6
@@ -47,8 +48,9 @@ SEARCH_TEST_SRCS = $(TEST_DIR)/search_test.c $(TEST_DIR)/unity.c
 NN_TEST_SRCS = $(TEST_DIR)/nn_test.c $(TEST_DIR)/unity.c
 PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
 SEARCH_BENCH_SRCS = $(TEST_DIR)/search_bench.c
+NN_BENCH_SRCS = $(TEST_DIR)/nn_bench.c
 
-.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_all bench_perft bench_search release debug profile profile_search
+.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn
 
 all: $(TARGET)
 
@@ -101,6 +103,32 @@ profile_search:
 	elif command -v sample >/dev/null 2>&1; then \
 		echo "Running macOS sample on search_bench (depth $(PROFILE_DEPTH)) ..."; \
 		$(PROFILE_BUILD_DIR)/search_bench $(PROFILE_DEPTH) & \
+		pid=$$!; \
+		sample $$pid $(PROFILE_SAMPLE_SECONDS) -file $(PROFILE_BUILD_DIR)/sample.txt; \
+		wait $$pid; \
+		head -150 $(PROFILE_BUILD_DIR)/sample.txt; \
+	else \
+		echo "No supported profiler found. Install valgrind/callgrind or use a macOS profiler." >&2; \
+		exit 1; \
+	fi
+
+bench_nn: $(NN_BENCH_TARGET)
+	@echo "Running neural network benchmark..."
+	@$(NN_BENCH_TARGET)
+
+PROFILE_NN_ITERATIONS ?= 200000
+profile_nn:
+	$(MAKE) BUILD_DIR=$(PROFILE_BUILD_DIR) CFLAGS_OPT="-O3 -g -DNDEBUG -march=native -flto" $(PROFILE_BUILD_DIR)/nn_bench
+	@if command -v valgrind >/dev/null 2>&1 && command -v callgrind_annotate >/dev/null 2>&1; then \
+		echo "Running Callgrind on nn_bench ..."; \
+		valgrind --tool=callgrind \
+		         --callgrind-out-file=$(PROFILE_BUILD_DIR)/callgrind.out \
+		         --collect-atstart=yes \
+		         $(PROFILE_BUILD_DIR)/nn_bench $(PROFILE_NN_ITERATIONS); \
+		callgrind_annotate --auto=yes --threshold=1 $(PROFILE_BUILD_DIR)/callgrind.out | head -150; \
+	elif command -v sample >/dev/null 2>&1; then \
+		echo "Running macOS sample on nn_bench ..."; \
+		$(PROFILE_BUILD_DIR)/nn_bench $(PROFILE_NN_ITERATIONS) & \
 		pid=$$!; \
 		sample $$pid $(PROFILE_SAMPLE_SECONDS) -file $(PROFILE_BUILD_DIR)/sample.txt; \
 		wait $$pid; \
@@ -170,6 +198,9 @@ $(PERFT_BENCH_TARGET): $(LIB_SRCS) $(PERFT_BENCH_SRCS) | $(BUILD_DIR)
 
 $(SEARCH_BENCH_TARGET): $(LIB_SRCS) $(SEARCH_BENCH_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(SEARCH_BENCH_SRCS) $(LDFLAGS) -lm
+
+$(NN_BENCH_TARGET): $(LIB_SRCS) $(NN_BENCH_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(NN_BENCH_SRCS) $(LDFLAGS) -lm
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
