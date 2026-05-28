@@ -28,8 +28,5 @@ countermove/history continuation heuristics
 -singular extensions-
 probcut
 
-Time control
- - game phase
-
 Skills
  - sts tests
