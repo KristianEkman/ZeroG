@@ -1,6 +1,8 @@
 #ifndef NN_H
 #define NN_H
 
+#include "boards.h"
+
 /**
  * @struct NeuralNetwork
  * @brief Structure representing a Feedforward Neural Network optimized for cache locality.
@@ -104,5 +106,16 @@ bool nn_save(const NeuralNetwork *nn, const char *filename);
  * @return true on success, false on failure.
  */
 bool nn_load(NeuralNetwork *nn, const char *filename);
+
+/**
+ * @brief Extracts standard piece-square features from a chess position.
+ * 
+ * Maps the 64 squares and 12 piece types (friendly and opponent) to a 768-element
+ * float vector. The representation is oriented from the side-to-move's perspective.
+ * 
+ * @param pos Pointer to the chess Position structure.
+ * @param features Destination float array of size 768.
+ */
+void nn_extract_features(const Position *pos, float *features);
 
 #endif /* NN_H */

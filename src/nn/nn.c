@@ -453,3 +453,31 @@ bool nn_load(NeuralNetwork *nn, const char *filename) {
     fclose(f);
     return true;
 }
+
+void nn_extract_features(const Position *pos, float *features) {
+    if (!pos || !features) return;
+    
+    memset(features, 0, 768 * sizeof(float));
+    Color stm = pos->sideToMove;
+    
+    for (int sq = 0; sq < 64; sq++) {
+        Piece p = pos->board[sq];
+        if (p == EMPTY) continue;
+        
+        Color p_color = PIECE_COLOR(p);
+        PieceType p_type = PIECE_TYPE(p);
+        
+        if (p_type == NONE || p_type >= PIECE_TYPE_NB) continue;
+        
+        int is_opponent = (p_color != stm);
+        int side_offset = is_opponent ? 6 : 0;
+        int piece_idx = (int)p_type - 1;
+        
+        // Orient the square vertically from side-to-move's perspective
+        int oriented_sq = (stm == WHITE) ? sq : (sq ^ 56);
+        
+        int feature_idx = (side_offset + piece_idx) * 64 + oriented_sq;
+        features[feature_idx] = 1.0f;
+    }
+}
+

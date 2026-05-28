@@ -227,6 +227,72 @@ void test_nn_save_load(void)
     remove(test_file);
 }
 
+void test_nn_feature_extraction(void)
+{
+    Position pos;
+    // Initialize starting position
+    position_startpos(&pos);
+
+    float features[768];
+    nn_extract_features(&pos, features);
+
+    // Starting position has 32 pieces:
+    // White: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen, 1 king (16 pieces)
+    // Black: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen, 1 king (16 pieces)
+    // Side to move is White.
+    // Active features should be 32 (1.0f values).
+    int active_count = 0;
+    for (int i = 0; i < 768; i++) {
+        if (features[i] == 1.0f) {
+            active_count++;
+        } else {
+            TEST_ASSERT_EQUAL_FLOAT(0.0f, features[i]);
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(32, active_count);
+
+    // Let's verify friendly pieces count is 16 and opponent pieces count is 16
+    int friendly_count = 0;
+    int opponent_count = 0;
+    for (int i = 0; i < 384; i++) {
+        if (features[i] == 1.0f) friendly_count++;
+    }
+    for (int i = 384; i < 768; i++) {
+        if (features[i] == 1.0f) opponent_count++;
+    }
+    TEST_ASSERT_EQUAL_INT(16, friendly_count);
+    TEST_ASSERT_EQUAL_INT(16, opponent_count);
+
+    // Change side to move to Black and check perspective change
+    pos.sideToMove = BLACK;
+    float black_features[768];
+    nn_extract_features(&pos, black_features);
+
+    // Black is now friendly, White is opponent.
+    // Ensure total active count is still 32
+    active_count = 0;
+    for (int i = 0; i < 768; i++) {
+        if (black_features[i] == 1.0f) {
+            active_count++;
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(32, active_count);
+
+    // Let's make sure that friendly pieces for Black are at the same locations (except mirrored ranks)
+    // For example, friendly pawns for Black on starting board are on A7..H7.
+    // From Black's perspective, they should be on rank 2 (A2..H2, squares 8..15).
+    // Let's check features[8..15] (friendly pawns on rank 2 - should be 8 pawns!).
+    int black_friendly_pawn_count_on_rank2 = 0;
+    for (int sq = 8; sq < 16; sq++) {
+        // Friendly pawn index: piece_idx=0 (PAWN-1), side_offset=0
+        // feature index = 0 * 64 + sq
+        if (black_features[sq] == 1.0f) {
+            black_friendly_pawn_count_on_rank2++;
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(8, black_friendly_pawn_count_on_rank2);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -237,6 +303,8 @@ int main(void)
     RUN_TEST(test_nn_train_xor_gate);
     RUN_TEST(test_nn_train_large_network);
     RUN_TEST(test_nn_save_load);
+    RUN_TEST(test_nn_feature_extraction);
 
     return UNITY_END();
 }
+

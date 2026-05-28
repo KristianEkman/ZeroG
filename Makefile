@@ -25,6 +25,8 @@ NN_TEST_TARGET = $(BUILD_DIR)/nn_test_runner
 PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
 SEARCH_BENCH_TARGET = $(BUILD_DIR)/search_bench
 NN_BENCH_TARGET = $(BUILD_DIR)/nn_bench
+NN_TRAINER_TARGET = $(BUILD_DIR)/nn_trainer
+
 
 PROFILE_BUILD_DIR ?= builds/profile
 PROFILE_DEPTH ?= 6
@@ -49,8 +51,9 @@ NN_TEST_SRCS = $(TEST_DIR)/nn_test.c $(TEST_DIR)/unity.c
 PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
 SEARCH_BENCH_SRCS = $(TEST_DIR)/search_bench.c
 NN_BENCH_SRCS = $(TEST_DIR)/nn_bench.c
+NN_TRAINER_SRCS = $(SRC_DIR)/nn/trainer/nn_trainer.c
 
-.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn
+.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn nn_trainer train_nn
 
 all: $(TARGET)
 
@@ -201,6 +204,15 @@ $(SEARCH_BENCH_TARGET): $(LIB_SRCS) $(SEARCH_BENCH_SRCS) | $(BUILD_DIR)
 
 $(NN_BENCH_TARGET): $(LIB_SRCS) $(NN_BENCH_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(NN_BENCH_SRCS) $(LDFLAGS) -lm
+
+$(NN_TRAINER_TARGET): $(LIB_SRCS) $(NN_TRAINER_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lm
+
+nn_trainer: $(NN_TRAINER_TARGET)
+
+train_nn: $(NN_TRAINER_TARGET)
+	@echo "Running NN Trainer..."
+	@$(NN_TRAINER_TARGET) -i quiet_training_positions_evaluated.epd -o nn_weights.bin
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

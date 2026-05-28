@@ -80,6 +80,9 @@ A custom Feedforward Neural Network implemented from scratch in C99, optimized f
 - **SIMD / NEON Vectorization**: Uses hand-crafted ARM NEON intrinsics (with generic C fallbacks) to vectorize forward pass, backpropagation, and SGD weight update loops.
 - **Loop Swapping**: Swaps loop execution order during backpropagation to access weights contiguously, enabling efficient vectorized memory loading.
 - **Safe Weight Serialization**: Implements binary serialization (`nn_save`/`nn_load`) with header magic number verification and network architecture validation to prevent corruption.
+- **Perspective-Aware Feature Extraction**: Maps a position to a 768-element binary vector (`nn_extract_features`) from the side-to-move's perspective (vertical mirroring + piece color flipping for Black).
+- **Standalone C Trainer**: Implements `nn_trainer` to train the evaluation network on centipawn-labeled positions directly in C, utilizing SGD, Fisher-Yates shuffling, validation splitting, and learning rate decay.
+
 
 ---
 
@@ -190,4 +193,29 @@ Once you have generated an EPD file with quiet positions, run the `evaluate_epd.
 * `-t`, `--movetime`: Search time limit in milliseconds per position (optional, overrides depth).
 * `-c`, `--concurrency`: Number of concurrent Stockfish instances to run (default: number of CPU cores).
 * `-p`, `--perspective`: Evaluation score perspective: `side` (side-to-move, default) or `white` (normalized to White's perspective).
-* `--mate-to-cp`: Automatically converts mate scores to high centipawn values (e.g. mate in X moves -> `30000 - X` score).
+* `--mate-to-cp`: Automatically converts mate scores to high centipawn values (e.g. mate in 2 -> `29998` score).
+
+### Step 3: Training the Neural Network (C Trainer)
+Once positions are harvested and labeled, train the custom feedforward neural network directly in C99 using the standalone training executable.
+
+1. Compile the trainer target:
+   ```bash
+   make nn_trainer
+   ```
+
+2. Run the training process on the labeled EPD file:
+   ```bash
+   ./builds/nn_trainer -i quiet_training_positions.epd -o nn_weights.bin -e 30
+   ```
+   Alternatively, run the Makefile shortcut target to compile and train automatically:
+   ```bash
+   make train_nn
+   ```
+
+#### Trainer CLI Options:
+* `-i`, `--input <file>`: Path to the centipawn-labeled EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-o`, `--output <file>`: Destination path for the trained binary weights file (default: `nn_weights.bin`).
+* `-e`, `--epochs <num>`: Total training epochs (default: `30`).
+* `-l`, `--lr <value>`: Initial Stochastic Gradient Descent (SGD) learning rate (default: `0.01`).
+* `-v`, `--val-split <val>`: Validation dataset fraction between `0.0` and `1.0` (default: `0.1` / 10%).
+* `-h`, `--help`: Prints command line options help menu.
