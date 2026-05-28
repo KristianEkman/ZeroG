@@ -74,6 +74,13 @@ Manages search time budgets dynamically to optimize strength and prevent clock f
 - **Next-Depth Node Growth Prediction**: Predicts if the next depth iteration will exceed the soft limit by tracking the effective branching factor, avoiding wasted computation on incomplete depths.
 - **UCI movestogo Support**: Parses and budgets remaining time according to the moves left until the next time control.
 
+### 9. Neural Network Module (`src/nn/`)
+A custom Feedforward Neural Network implemented from scratch in C99, optimized for evaluation.
+- **Cache-Optimized Layout**: Organizes all weights, biases, activations, pre-activations, and backprop deltas in contiguous memory buffers to maximize L1/L2 cache hit rates.
+- **SIMD / NEON Vectorization**: Uses hand-crafted ARM NEON intrinsics (with generic C fallbacks) to vectorize forward pass, backpropagation, and SGD weight update loops.
+- **Loop Swapping**: Swaps loop execution order during backpropagation to access weights contiguously, enabling efficient vectorized memory loading.
+- **Safe Weight Serialization**: Implements binary serialization (`nn_save`/`nn_load`) with header magic number verification and network architecture validation to prevent corruption.
+
 ---
 
 ## Build and Testing
@@ -100,11 +107,22 @@ The engine includes benchmarking and profiling tools to measure and optimize mov
   make bench_perft
   ```
 
-- **Run CPU Profiler**:
+- **Run Neural Network Benchmark**:
+  ```bash
+  make bench_nn
+  ```
+
+- **Run CPU Profiler (Chess Engine)**:
   ```bash
   make profile
   ```
   This builds the benchmark target with optimizations and debug symbols enabled (`-O3 -g`), then profiles the run using `valgrind/callgrind` (on Linux) or macOS `sample` (on macOS).
+
+- **Run CPU Profiler (Neural Network)**:
+  ```bash
+  make profile_nn
+  ```
+  This compiles the neural network benchmark target with optimizations and debug symbols enabled, then profiles it using macOS `sample` or Callgrind.
 
 ### Running Tests
 The engine includes exhaustive tests built using the Unity C test framework.
@@ -113,10 +131,11 @@ The engine includes exhaustive tests built using the Unity C test framework.
   ```bash
   make test
   ```
-  This compiles and executes three distinct test runners:
+  This compiles and executes four distinct test runners:
   1. `test_runner` (Core board features, attacks, and encoding)
   2. `fen_test_runner` (FEN parsing validation)
   3. `movegen_test_runner` (Move generator and deep perft counts)
+  4. `nn_test_runner` (Neural network initialization, forward/backward propagation, XOR convergence, and weight loading/saving verification)
 
 ---
 
