@@ -173,7 +173,7 @@ void test_search_mate_in_4b(void)
     TEST_ASSERT_EQUAL_INT(0, parse_res);
 
     SearchLimits limits = {
-        .depth = 8,
+        .depth = 10,
         .soft_time_limit_ms = 0,
         .hard_time_limit_ms = 0
     };

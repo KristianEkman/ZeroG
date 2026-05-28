@@ -2,13 +2,13 @@ benchmark, profile, sts,selfplay averything below
 
 Evaluation
  - [x] bishop pair
-mobility
-king safety
-passed pawns
-isolated/doubled pawns
-rook on open file
-tempo bonus
-pawn shield
+ - [x] mobility
+ king safety
+ passed pawns
+ isolated/doubled pawns
+ rook on open file
+ tempo bonus
+ pawn shield
 
 Search
  -iterative deepening-

@@ -23,7 +23,8 @@ void test_eval_after_e4(void)
     memset(&test_pos, 0, sizeof(Position));
     TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", &test_pos));
     // White pawn moved from E2 (PST -20) to E4 (PST 20), a gain of +40.
-    TEST_ASSERT_EQUAL_INT(40, evaluate(&test_pos));
+    // Plus White has better piece mobility after e4.
+    TEST_ASSERT_EQUAL_INT(84, evaluate(&test_pos));
 }
 
 void test_eval_after_e4_e5(void)
@@ -41,7 +42,7 @@ void test_eval_material_imbalance(void)
     // Remove White Queen from D1. Startpos is symmetric, so removing White Queen should make the score exactly -895.
     // (Queen value is 900, Queen PST at D1 is -5. 900 + (-5) = 895 centipawns lost).
     TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1", &test_pos));
-    TEST_ASSERT_EQUAL_INT(-895, evaluate(&test_pos));
+    TEST_ASSERT_EQUAL_INT(-883, evaluate(&test_pos));
 }
 
 void test_eval_endgame_transition(void)
@@ -74,9 +75,10 @@ void test_eval_endgame_transition(void)
     // White King is now on E2 (index 12).
     // In endgame, King E1 PST is -30, King E2 PST is 0.
     // So the King PST score changes from -30 to 0, which is a gain of +30.
+    // Plus White has slightly different mobility.
     memset(&test_pos, 0, sizeof(Position));
     TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/ppp2ppp/2n5/8/8/2N5/PPP1KPPP/8 w - - 0 1", &test_pos));
-    TEST_ASSERT_EQUAL_INT(30, evaluate(&test_pos));
+    TEST_ASSERT_EQUAL_INT(25, evaluate(&test_pos));
 }
 
 void test_eval_bishop_pair(void)
@@ -97,7 +99,25 @@ void test_eval_bishop_pair(void)
     // Expected evaluation score: 330 - 10 + 50 = 370.
     memset(&test_pos, 0, sizeof(Position));
     TEST_ASSERT_EQUAL_INT(0, fen_parse("2b1k3/8/8/8/8/8/8/2B1K1B1 w - - 0 1", &test_pos));
-    TEST_ASSERT_EQUAL_INT(370, evaluate(&test_pos));
+    TEST_ASSERT_EQUAL_INT(390, evaluate(&test_pos));
+}
+
+void test_eval_mobility(void)
+{
+    Position test_pos;
+
+    // Symmetric position: mobility difference must be exactly 0
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &test_pos));
+    TEST_ASSERT_EQUAL_INT(0, evaluate(&test_pos));
+
+    // A position where White has active pieces and Black has blocked/passive pieces
+    // White knight on e4 (highly active), Black knight on a8 (cornered, blocked)
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("n7/8/8/8/4N3/8/8/4K3 w - - 0 1", &test_pos));
+    int active_score = evaluate(&test_pos);
+    // Since White has much better mobility and piece placement, the score should be positive
+    TEST_ASSERT_TRUE(active_score > 0);
 }
 
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
@@ -115,6 +135,7 @@ int main(void)
     RUN_TEST(test_eval_material_imbalance);
     RUN_TEST(test_eval_endgame_transition);
     RUN_TEST(test_eval_bishop_pair);
+    RUN_TEST(test_eval_mobility);
 
     return UNITY_END();
 }

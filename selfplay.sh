@@ -22,9 +22,9 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-../cutechess/cutechess/build/cutechess-cli \
+../cutechess/build/cutechess-cli \
  -engine cmd=./builds/ChessAI2027_prev proto=uci name=OLD \
- -engine cmd=./builds/ChessAI2027 proto=uci name=NEW \
+ -engine cmd=./builds/chessai2027 proto=uci name=NEW \
  -each tc=3+0.01 \
  -games 300 \
  -openings file=./grand_master_openings.epd format=epd order=random \

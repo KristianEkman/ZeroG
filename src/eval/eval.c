@@ -1,4 +1,5 @@
 #include "eval.h"
+#include "eval_mobility.h"
 
 #define BISHOP_PAIR_BONUS 50
 
@@ -188,6 +189,9 @@ int evaluate(const Position *pos) {
     if (b_bishops_count >= 2) {
         score -= BISHOP_PAIR_BONUS;
     }
+
+    // Mobility evaluation
+    score += evaluate_mobility(pos);
 
     return score;
 }
