@@ -26,6 +26,7 @@ PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
 SEARCH_BENCH_TARGET = $(BUILD_DIR)/search_bench
 NN_BENCH_TARGET = $(BUILD_DIR)/nn_bench
 NN_TRAINER_TARGET = $(BUILD_DIR)/nn_trainer
+EPD_DEDUP_TARGET = $(BUILD_DIR)/epd_dedup
 
 
 PROFILE_BUILD_DIR ?= builds/profile
@@ -52,8 +53,9 @@ PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
 SEARCH_BENCH_SRCS = $(TEST_DIR)/search_bench.c
 NN_BENCH_SRCS = $(TEST_DIR)/nn_bench.c
 NN_TRAINER_SRCS = $(SRC_DIR)/nn/trainer/nn_trainer.c
+EPD_DEDUP_SRCS = $(SRC_DIR)/nn/trainer/epd_dedup.c
 
-.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn nn_trainer train_nn
+.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn nn_trainer train_nn epd_dedup dedup
 
 all: $(TARGET)
 
@@ -209,6 +211,15 @@ $(NN_TRAINER_TARGET): $(LIB_SRCS) $(NN_TRAINER_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lm
 
 nn_trainer: $(NN_TRAINER_TARGET)
+
+$(EPD_DEDUP_TARGET): $(LIB_SRCS) $(EPD_DEDUP_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lm
+
+epd_dedup: $(EPD_DEDUP_TARGET)
+
+dedup: $(EPD_DEDUP_TARGET)
+	@echo "Running EPD Deduplication..."
+	@$(EPD_DEDUP_TARGET) -i quiet_training_positions_evaluated.epd -o quiet_training_positions_evaluated_dedup.epd
 
 train_nn: $(NN_TRAINER_TARGET)
 	@echo "Running NN Trainer..."

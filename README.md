@@ -167,8 +167,7 @@ quit
 ---
 
 ## Neural Network Training Data Generation
-
-The engine supports a complete pipeline for generating and labeling training data to train the custom evaluation neural network. This pipeline consists of two steps: position harvesting during self-play, and labeling the positions using Stockfish.
+The engine supports a complete pipeline for generating and labeling training data to train the custom evaluation neural network. This pipeline consists of the following steps: position harvesting during self-play, concatenating and deduplicating harvested positions, labeling unique positions using Stockfish, and training the neural network.
 
 ### Step 1: Harvesting Quiet Positions (Self-Play)
 During engine self-play matches, quiet (non-tactical) positions visited are automatically recorded if the `SaveQuietPositionsFile` option is set.
@@ -188,11 +187,36 @@ This launches a match of `NEW` vs `OLD` using `cutechess-cli`, appending valid q
 * `-concurrency`, `--concurrency <int>`: Concurrency level / thread count (default: `4`).
 * `-tc`, `--tc <str>`: Time control configuration (default: `3+0.01`).
 
-### Step 2: Labeling Positions with Stockfish
-Once you have generated an EPD file with quiet positions, run the `evaluate_epd.py` script to evaluate and label all positions using Stockfish. This runs multiple Stockfish processes in parallel to process the file rapidly:
+### Step 2: Concatenating and Deduplicating Positions
+If you have harvested training positions across multiple runs (e.g., `quiet_training_positions.epd` and `quiet_training_positions_2.epd`), you can concatenate them and remove duplicate positions.
+
+1. **Concatenate EPD files**:
+   ```bash
+   cat quiet_training_positions.epd quiet_training_positions_2.epd > quiet_training_positions_combined.epd
+   ```
+
+2. **Deduplicate the combined positions** (requires compiling `epd_dedup` first):
+   ```bash
+   # Compile the tool
+   make epd_dedup
+
+   # Run deduplication
+   ./builds/epd_dedup -i quiet_training_positions_combined.epd -o traindata.epd
+   ```
+   *Alternatively, you can run the default Makefile rule:*
+   ```bash
+   make dedup
+   ```
+
+#### Deduplication CLI Options:
+* `-i`, `--input <file>`: Input EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-o`, `--output <file>`: Output deduplicated EPD file (default: `quiet_training_positions_evaluated_dedup.epd`).
+
+### Step 3: Labeling Positions with Stockfish
+Once you have generated/deduplicated an EPD file (e.g. `traindata.epd`), run the `evaluate_epd.py` script to evaluate and label all positions using Stockfish. This runs multiple Stockfish processes in parallel to process the file rapidly:
 
 ```bash
-./evaluate_epd.py -i quiet_training_positions.epd -o quiet_training_positions_evaluated.epd -d 10 -c 4
+./evaluate_epd.py -i traindata.epd -o traindata_evaluated.epd -d 10 -c 4
 ```
 
 #### Key Script Options:
@@ -204,19 +228,19 @@ Once you have generated an EPD file with quiet positions, run the `evaluate_epd.
 * `-p`, `--perspective`: Evaluation score perspective: `side` (side-to-move, default) or `white` (normalized to White's perspective).
 * `--mate-to-cp`: Automatically converts mate scores to high centipawn values (e.g. mate in 2 -> `29998` score).
 
-### Step 3: Training the Neural Network (C Trainer)
+### Step 4: Training the Neural Network (C Trainer)
 Once positions are harvested and labeled, train the custom feedforward neural network directly in C99 using the standalone training executable.
 
-1. Compile the trainer target:
+1. **Compile the trainer target**:
    ```bash
    make nn_trainer
    ```
 
-2. Run the training process on the labeled EPD file:
+2. **Run the training process on the labeled EPD file**:
    ```bash
-   ./builds/nn_trainer -i quiet_training_positions.epd -o nn_weights.bin -e 30
+   ./builds/nn_trainer -i traindata_evaluated.epd -o nn_weights.bin -e 30
    ```
-   Alternatively, run the Makefile shortcut target to compile and train automatically:
+   *Alternatively, run the default training rule (uses default filenames):*
    ```bash
    make train_nn
    ```
