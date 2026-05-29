@@ -60,6 +60,11 @@ Scores a given board position statically.
 - **Material Value**: Applies standard piece weights (Pawn: 100, Knight: 320, Bishop: 330, Rook: 500, Queen: 900).
 - **Piece-Square Tables (PST)**: Encourages positional play (e.g., centralizing knights, active rooks, king safety).
 - **Dynamic King Safety**: Selects middle-game or end-game king PSTs based on a dynamic endgame detection heuristic (absence of queens, or queens with minimal minor pieces).
+- **Bishop Pair & Mobility**: Rewards possessing the bishop pair and evaluates piece mobility areas dynamically based on game phase.
+- **Passed Pawns**: Identifies passed pawns efficiently using precalculated lookup bitboards. Scores them based on their rank (advancement) and game phase (tapered towards endgame), and applies secondary positional heuristics:
+  - *Protection*: Bonus if the passed pawn is defended by another friendly pawn.
+  - *Blockade*: Reduces the bonus if any piece blockades the pawn on the square directly in front of it.
+  - *Rook/Queen Alignment*: Grants a bonus if a friendly rook/queen supports the pawn from behind on the same file, or applies a penalty if an enemy rook/queen aligns behind it.
 
 ### 7. UCI Protocol Engine (`src/uci/`)
 Implements the industry-standard Universal Chess Interface (UCI) protocol, enabling ChessAI2027 to interface with chess GUIs (like Arena, Cute Chess, or ChessBase).

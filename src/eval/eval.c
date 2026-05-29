@@ -3,6 +3,9 @@
 
 #define BISHOP_PAIR_BONUS 50
 
+static const int passed_pawn_mg[8] = { 0, 5, 10, 20, 35, 60, 100, 0 };
+static const int passed_pawn_eg[8] = { 0, 8, 15, 30, 60, 110, 180, 0 };
+
 /* Piece-Square Tables (PST) pre-flipped vertically so that index 0 corresponds to A1 */
 
 static const int pawn_table[64] = {
@@ -85,6 +88,12 @@ static const int king_end_table[64] = {
 int evaluate(const Position *pos) {
     int score = 0;
 
+    // Cache pawn bitboards and rook/queen bitboards for fast passed pawn evaluation
+    uint64_t w_pawns_copy = pos->pieces[COLOR_IDX(WHITE)][PAWN];
+    uint64_t b_pawns_copy = pos->pieces[COLOR_IDX(BLACK)][PAWN];
+    uint64_t w_rooks_queens = pos->pieces[COLOR_IDX(WHITE)][ROOK] | pos->pieces[COLOR_IDX(WHITE)][QUEEN];
+    uint64_t b_rooks_queens = pos->pieces[COLOR_IDX(BLACK)][ROOK] | pos->pieces[COLOR_IDX(BLACK)][QUEEN];
+
     // Endgame detection criteria:
     // 1. Both sides have no queens OR
     // 2. Every side that has a queen has no other pieces, or at most one minor piece (no rooks and <= 1 minor piece)
@@ -117,10 +126,40 @@ int evaluate(const Position *pos) {
     }
 
     // Evaluate White pieces
-    uint64_t w_pawns = pos->pieces[COLOR_IDX(WHITE)][PAWN];
+    uint64_t w_pawns = w_pawns_copy;
     while (w_pawns) {
         int sq = pop_lsb(&w_pawns);
-        score += 100 + pawn_table[sq];
+        int item_score = 100 + pawn_table[sq];
+
+        // Passed pawn evaluation
+        if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+            int rank = RANK_OF(sq);
+            int bp = is_endgame ? passed_pawn_eg[rank] : passed_pawn_mg[rank];
+
+            // Defended/Protected by friendly pawn
+            if (pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) {
+                bp += is_endgame ? 25 : 15;
+            }
+
+            // Blocked by any piece
+            int front_sq = sq + 8;
+            if (pos->occAll & (1ULL << front_sq)) {
+                bp = (bp * 7) / 10;
+            }
+
+            // Friendly rook/queen behind
+            if (fileBehindMasks[COLOR_IDX(WHITE)][sq] & w_rooks_queens) {
+                bp += is_endgame ? 40 : 20;
+            }
+
+            // Enemy rook/queen behind
+            if (fileBehindMasks[COLOR_IDX(WHITE)][sq] & b_rooks_queens) {
+                bp -= is_endgame ? 30 : 15;
+            }
+
+            item_score += bp;
+        }
+        score += item_score;
     }
     uint64_t w_knights = pos->pieces[COLOR_IDX(WHITE)][KNIGHT];
     while (w_knights) {
@@ -149,10 +188,40 @@ int evaluate(const Position *pos) {
     }
 
     // Evaluate Black pieces (subtracted from score)
-    uint64_t b_pawns = pos->pieces[COLOR_IDX(BLACK)][PAWN];
+    uint64_t b_pawns = b_pawns_copy;
     while (b_pawns) {
         int sq = pop_lsb(&b_pawns);
-        score -= 100 + pawn_table[sq ^ 56];
+        int item_score = 100 + pawn_table[sq ^ 56];
+
+        // Passed pawn evaluation
+        if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+            int rank = 7 - RANK_OF(sq);
+            int bp = is_endgame ? passed_pawn_eg[rank] : passed_pawn_mg[rank];
+
+            // Defended/Protected by friendly pawn
+            if (pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) {
+                bp += is_endgame ? 25 : 15;
+            }
+
+            // Blocked by any piece
+            int front_sq = sq - 8;
+            if (pos->occAll & (1ULL << front_sq)) {
+                bp = (bp * 7) / 10;
+            }
+
+            // Friendly rook/queen behind
+            if (fileBehindMasks[COLOR_IDX(BLACK)][sq] & b_rooks_queens) {
+                bp += is_endgame ? 40 : 20;
+            }
+
+            // Enemy rook/queen behind
+            if (fileBehindMasks[COLOR_IDX(BLACK)][sq] & w_rooks_queens) {
+                bp -= is_endgame ? 30 : 15;
+            }
+
+            item_score += bp;
+        }
+        score -= item_score;
     }
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
     while (b_knights) {

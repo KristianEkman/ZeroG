@@ -120,6 +120,58 @@ void test_eval_mobility(void)
     TEST_ASSERT_TRUE(active_score > 0);
 }
 
+void test_eval_passed_pawns(void)
+{
+    Position test_pos;
+
+    // 1. Test basic passed pawn presence
+    // Symmetric position with Kings:
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/8/8/8/8/4K3 w - - 0 1", &test_pos));
+    int base_kings = evaluate(&test_pos);
+
+    // Now add White pawn on E5: FEN: 4k3/8/8/4P3/8/8/8/4K3 w - - 0 1
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/4P3/8/8/8/4K3 w - - 0 1", &test_pos));
+    int with_pawn = evaluate(&test_pos);
+    TEST_ASSERT_TRUE(with_pawn - base_kings > 150);
+
+    // 2. Test blocked passed pawn (30% reduction)
+    // Compare pawn unblocked (Black King on C6) vs pawn blocked (Black King on E6).
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("8/8/2k5/4P3/8/8/8/4K3 w - - 0 1", &test_pos));
+    int score_unblocked = evaluate(&test_pos);
+
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("8/8/4k3/4P3/8/8/8/4K3 w - - 0 1", &test_pos));
+    int score_blocked = evaluate(&test_pos);
+    TEST_ASSERT_TRUE(score_unblocked > score_blocked);
+
+    // 3. Test protected passed pawn
+    // Place a White pawn on D4 to protect E5:
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/4P3/3P4/8/8/4K3 w - - 0 1", &test_pos));
+    int score_protected = evaluate(&test_pos);
+
+    // Place a White pawn on C4 (does not protect E5):
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/4P3/2P5/8/8/4K3 w - - 0 1", &test_pos));
+    int score_unprotected = evaluate(&test_pos);
+    TEST_ASSERT_TRUE(score_protected > score_unprotected);
+
+    // 4. Test rook behind passed pawn
+    // Rook on E3 (behind E5):
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/4P3/8/4R3/8/4K3 w - - 0 1", &test_pos));
+    int score_rook_behind = evaluate(&test_pos);
+
+    // Rook on A3 (not behind E5):
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/4P3/8/R7/8/4K3 w - - 0 1", &test_pos));
+    int score_rook_side = evaluate(&test_pos);
+    TEST_ASSERT_TRUE(score_rook_behind > score_rook_side);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -136,6 +188,7 @@ int main(void)
     RUN_TEST(test_eval_endgame_transition);
     RUN_TEST(test_eval_bishop_pair);
     RUN_TEST(test_eval_mobility);
+    RUN_TEST(test_eval_passed_pawns);
 
     return UNITY_END();
 }

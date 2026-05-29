@@ -11,6 +11,8 @@
 uint64_t knightAttacks[64];
 uint64_t kingAttacks[64];
 uint64_t pawnAttacks[2][64];
+uint64_t passedPawnMasks[2][64];
+uint64_t fileBehindMasks[2][64];
 uint64_t bishopEmptyAttacks[64];
 uint64_t rookEmptyAttacks[64];
 
@@ -290,6 +292,58 @@ void bitboard_init(void)
         if (r > 0 && f < 7)
             b |= (1ULL << SQUARE(f + 1, r - 1));
         pawnAttacks[COLOR_IDX(BLACK)][sq] = b;
+    }
+
+    /* ── passed pawn masks ───────────────────────────────────────────── */
+    for (int sq = 0; sq < 64; sq++)
+    {
+        int r = RANK_OF(sq), f = FILE_OF(sq);
+
+        /* White passed pawn mask (ranks above r, files f-1, f, f+1) */
+        uint64_t w_mask = 0ULL;
+        for (int rr = r + 1; rr < 8; rr++)
+        {
+            w_mask |= (1ULL << SQUARE(f, rr));
+            if (f > 0)
+                w_mask |= (1ULL << SQUARE(f - 1, rr));
+            if (f < 7)
+                w_mask |= (1ULL << SQUARE(f + 1, rr));
+        }
+        passedPawnMasks[COLOR_IDX(WHITE)][sq] = w_mask;
+
+        /* Black passed pawn mask (ranks below r, files f-1, f, f+1) */
+        uint64_t b_mask = 0ULL;
+        for (int rr = r - 1; rr >= 0; rr--)
+        {
+            b_mask |= (1ULL << SQUARE(f, rr));
+            if (f > 0)
+                b_mask |= (1ULL << SQUARE(f - 1, rr));
+            if (f < 7)
+                b_mask |= (1ULL << SQUARE(f + 1, rr));
+        }
+        passedPawnMasks[COLOR_IDX(BLACK)][sq] = b_mask;
+    }
+
+    /* ── file behind masks ───────────────────────────────────────────── */
+    for (int sq = 0; sq < 64; sq++)
+    {
+        int r = RANK_OF(sq), f = FILE_OF(sq);
+
+        /* White: ranks below r on file f */
+        uint64_t w_mask = 0ULL;
+        for (int rr = 0; rr < r; rr++)
+        {
+            w_mask |= (1ULL << SQUARE(f, rr));
+        }
+        fileBehindMasks[COLOR_IDX(WHITE)][sq] = w_mask;
+
+        /* Black: ranks above r on file f */
+        uint64_t b_mask = 0ULL;
+        for (int rr = r + 1; rr < 8; rr++)
+        {
+            b_mask |= (1ULL << SQUARE(f, rr));
+        }
+        fileBehindMasks[COLOR_IDX(BLACK)][sq] = b_mask;
     }
 
     /* ── empty board sliding attacks ────────────────────────────────── */

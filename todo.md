@@ -4,7 +4,7 @@ Evaluation
  - [x] bishop pair
  - [x] mobility
  king safety
- passed pawns
+ - [x] passed pawns
  isolated/doubled pawns
  rook on open file
  tempo bonus

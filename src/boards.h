@@ -130,6 +130,8 @@ typedef struct {
 extern uint64_t knightAttacks[64];
 extern uint64_t kingAttacks[64];
 extern uint64_t pawnAttacks[2][64];
+extern uint64_t passedPawnMasks[2][64];
+extern uint64_t fileBehindMasks[2][64];
 extern uint64_t bishopEmptyAttacks[64];
 extern uint64_t rookEmptyAttacks[64];
 
