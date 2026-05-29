@@ -736,6 +736,9 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
     memset(killer_moves, 0, sizeof(killer_moves));
 
     Position pos = *board;
+    if (use_nn && eval_nn) {
+        nnue_refresh_accumulator(eval_nn, &pos);
+    }
     Move moves[MAX_MOVES];
     int count = movegen_legal(&pos, moves);
 

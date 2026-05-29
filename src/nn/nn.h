@@ -27,6 +27,16 @@ typedef struct {
     float **activations;        ///< activations[l] points to activation vector of layer l (0 <= l < num_layers)
     float **pre_activations;    ///< pre_activations[l] points to pre-activation vector of layer l (1 <= l < num_layers)
     float **deltas;             ///< deltas[l] points to delta vector of layer l (1 <= l < num_layers)
+    
+    // Contiguous memory buffers for integer quantized parameters
+    int16_t *quant_weight_buffer;   ///< Contiguous block storing all quantized weights
+    int32_t *quant_bias_buffer;     ///< Contiguous block storing all quantized biases
+    int32_t *quant_activation_buffer; ///< Contiguous block storing all quantized activations
+    
+    // Layer-wise pointers into the contiguous quantized buffers above
+    int16_t **quant_weights;        ///< quant_weights[l] points to quantized weight matrix of layer l
+    int32_t **quant_biases;         ///< quant_biases[l] points to quantized bias vector of layer l
+    int32_t **quant_activations;    ///< quant_activations[l] points to quantized activation vector of layer l
 
     int total_weights;          ///< Total number of weights in the network
     int total_biases;           ///< Total number of biases in the network
@@ -108,6 +118,13 @@ bool nn_save(const NeuralNetwork *nn, const char *filename);
 bool nn_load(NeuralNetwork *nn, const char *filename);
 
 /**
+ * @brief Performs on-the-fly quantization of float parameters to integer parameters.
+ * 
+ * @param nn Pointer to the NeuralNetwork.
+ */
+void nn_quantize(NeuralNetwork *nn);
+
+/**
  * @brief Extracts standard piece-square features from a chess position.
  * 
  * Maps the 64 squares and 12 piece types (friendly and opponent) to a 768-element
@@ -117,5 +134,22 @@ bool nn_load(NeuralNetwork *nn, const char *filename);
  * @param features Destination float array of size 768.
  */
 void nn_extract_features(const Position *pos, float *features);
+
+/**
+ * @brief Fully recalculates the accumulators for White and Black perspectives from scratch.
+ */
+void nnue_refresh_accumulator(NeuralNetwork *nn, Position *pos);
+
+struct Undo;
+
+/**
+ * @brief Incrementally updates the accumulators for White and Black perspectives after a move.
+ */
+void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struct Undo *u);
+
+/**
+ * @brief Evaluates the position starting from the cached accumulators.
+ */
+float nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos);
 
 #endif /* NN_H */

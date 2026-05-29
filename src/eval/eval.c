@@ -109,9 +109,7 @@ static const int king_end_table[64] = {
 
 int evaluate(const Position *pos) {
     if (use_nn && eval_nn) {
-        float features[768];
-        nn_extract_features(pos, features);
-        float output = nn_forward(eval_nn, features);
+        float output = nnue_evaluate_accumulator(eval_nn, pos);
         int score = (int)roundf(output * 100.0f);
         
         // The network evaluates from the side-to-move's perspective.

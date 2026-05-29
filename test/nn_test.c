@@ -1,7 +1,12 @@
 #include "unity.h"
 #include "nn.h"
+#include "boards.h"
+#include "fen.h"
+#include "movegen.h"
+#include "uci.h"
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 /* ── Unity boilerplate ───────────────────────────────────────────────────── */
 void setUp(void) {}
@@ -293,6 +298,136 @@ void test_nn_feature_extraction(void)
     TEST_ASSERT_EQUAL_INT(8, black_friendly_pawn_count_on_rank2);
 }
 
+void test_nnue_incremental_correctness(void)
+{
+    // Parse starting position
+    Position pos;
+    memset(&pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &pos));
+
+    // Initialize NN
+    int sizes[] = {768, 64, 32, 1};
+    NeuralNetwork *nn = nn_init(sizes, 4);
+    TEST_ASSERT_NOT_NULL(nn);
+
+    // Refresh accumulator
+    nnue_refresh_accumulator(nn, &pos);
+
+    // Compare full forward vs accumulator evaluation
+    float features[768];
+    nn_extract_features(&pos, features);
+    float full_output = nn_forward(nn, features);
+    float accum_output = nnue_evaluate_accumulator(nn, &pos);
+    TEST_ASSERT_FLOAT_WITHIN(0.2f, full_output, accum_output);
+
+    // Make some moves and verify incremental update matches full refresh at each step
+    Move moves[MAX_MOVES];
+    int count = movegen_legal(&pos, moves);
+    TEST_ASSERT_TRUE(count > 0);
+
+    extern NeuralNetwork *eval_nn;
+    extern bool use_nn;
+
+    // Try a few moves
+    for (int i = 0; i < count && i < 10; i++) {
+        Undo u;
+        NeuralNetwork *old_eval_nn = eval_nn;
+        bool old_use_nn = use_nn;
+        eval_nn = nn;
+        use_nn = true;
+
+        Position next_pos_auto = pos;
+        apply_move(&next_pos_auto, moves[i], &u);
+
+        // Reset global pointers
+        eval_nn = old_eval_nn;
+        use_nn = old_use_nn;
+
+        // Fully refresh accumulator on a clean copy of next_pos_auto
+        Position next_pos_refreshed = next_pos_auto;
+        nnue_refresh_accumulator(nn, &next_pos_refreshed);
+
+        // Check White and Black accumulators match exactly
+        for (int side = 0; side < 2; side++) {
+            for (int k = 0; k < 64; k++) {
+                TEST_ASSERT_EQUAL_INT(next_pos_refreshed.accum[side][k], next_pos_auto.accum[side][k]);
+            }
+        }
+
+        // Compare evaluate outputs
+        float output_auto = nnue_evaluate_accumulator(nn, &next_pos_auto);
+        float output_refreshed = nnue_evaluate_accumulator(nn, &next_pos_refreshed);
+        TEST_ASSERT_EQUAL_FLOAT(output_refreshed, output_auto);
+    }
+
+    nn_free(nn);
+}
+
+static void nnue_test_incremental_recursive(NeuralNetwork *nn, Position *pos, int depth) {
+    if (depth == 0) return;
+    
+    Move moves[MAX_MOVES];
+    int count = movegen_legal(pos, moves);
+    
+    for (int i = 0; i < count; i++) {
+        Undo u;
+        Position next_pos = *pos;
+        
+        apply_move(&next_pos, moves[i], &u);
+        
+        Position refreshed = next_pos;
+        nnue_refresh_accumulator(nn, &refreshed);
+        
+        for (int side = 0; side < 2; side++) {
+            for (int k = 0; k < 64; k++) {
+                if (refreshed.accum[side][k] != next_pos.accum[side][k]) {
+                    char move_str[6];
+                    uci_move_to_string(pos, moves[i], move_str, sizeof(move_str));
+                    printf("Mismatch after move %s at depth %d, side %d, index %d!\n", move_str, depth, side, k);
+                    printf("Refreshed: %d, Incremental: %d\n", refreshed.accum[side][k], next_pos.accum[side][k]);
+                    TEST_FAIL_MESSAGE("Accumulator mismatch during recursive search");
+                }
+            }
+        }
+        
+        nnue_test_incremental_recursive(nn, &next_pos, depth - 1);
+    }
+}
+
+void test_nnue_incremental_recursive_all_positions(void) {
+    const char *fens[] = {
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Startpos
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", // Kiwipete
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8", // Position 5 (promotions/checks)
+        "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"  // Position 6
+    };
+    int depths[] = {3, 2, 2, 2};
+
+    int sizes[] = {768, 64, 32, 1};
+    NeuralNetwork *nn = nn_init(sizes, 4);
+    TEST_ASSERT_NOT_NULL(nn);
+
+    extern NeuralNetwork *eval_nn;
+    extern bool use_nn;
+    NeuralNetwork *old_eval_nn = eval_nn;
+    bool old_use_nn = use_nn;
+    eval_nn = nn;
+    use_nn = true;
+
+    for (int i = 0; i < 4; i++) {
+        Position pos;
+        memset(&pos, 0, sizeof(Position));
+        TEST_ASSERT_EQUAL_INT(0, fen_parse(fens[i], &pos));
+
+        nnue_refresh_accumulator(nn, &pos);
+        nnue_test_incremental_recursive(nn, &pos, depths[i]);
+    }
+
+    eval_nn = old_eval_nn;
+    use_nn = old_use_nn;
+    nn_free(nn);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -304,6 +439,8 @@ int main(void)
     RUN_TEST(test_nn_train_large_network);
     RUN_TEST(test_nn_save_load);
     RUN_TEST(test_nn_feature_extraction);
+    RUN_TEST(test_nnue_incremental_correctness);
+    RUN_TEST(test_nnue_incremental_recursive_all_positions);
 
     return UNITY_END();
 }

@@ -1,4 +1,5 @@
 #include "nn.h"
+#include "movegen.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,25 @@ NeuralNetwork* nn_init(const int *sizes, int num_layers) {
     }
     memcpy(nn->sizes, sizes, num_layers * sizeof(int));
 
+    // Initialize all buffers to NULL to ensure safe cleanup if an allocation fails
+    nn->weight_buffer = NULL;
+    nn->bias_buffer = NULL;
+    nn->activation_buffer = NULL;
+    nn->pre_activation_buffer = NULL;
+    nn->delta_buffer = NULL;
+    nn->weights = NULL;
+    nn->biases = NULL;
+    nn->activations = NULL;
+    nn->pre_activations = NULL;
+    nn->deltas = NULL;
+
+    nn->quant_weight_buffer = NULL;
+    nn->quant_bias_buffer = NULL;
+    nn->quant_activation_buffer = NULL;
+    nn->quant_weights = NULL;
+    nn->quant_biases = NULL;
+    nn->quant_activations = NULL;
+
     // Calculate total buffer sizes needed
     nn->total_weights = 0;
     nn->total_biases = 0;
@@ -50,6 +70,11 @@ NeuralNetwork* nn_init(const int *sizes, int num_layers) {
     nn->pre_activation_buffer = (float*)calloc(nn->total_post_input_neurons, sizeof(float));
     nn->delta_buffer = (float*)calloc(nn->total_post_input_neurons, sizeof(float));
 
+    // Allocate quantized memory blocks
+    nn->quant_weight_buffer = (int16_t*)malloc(nn->total_weights * sizeof(int16_t));
+    nn->quant_bias_buffer = (int32_t*)calloc(nn->total_biases, sizeof(int32_t));
+    nn->quant_activation_buffer = (int32_t*)calloc(nn->total_neurons, sizeof(int32_t));
+
     // Allocate pointer arrays
     nn->weights = (float**)malloc(num_layers * sizeof(float*));
     nn->biases = (float**)malloc(num_layers * sizeof(float*));
@@ -57,10 +82,16 @@ NeuralNetwork* nn_init(const int *sizes, int num_layers) {
     nn->pre_activations = (float**)malloc(num_layers * sizeof(float*));
     nn->deltas = (float**)malloc(num_layers * sizeof(float*));
 
+    nn->quant_weights = (int16_t**)malloc(num_layers * sizeof(int16_t*));
+    nn->quant_biases = (int32_t**)malloc(num_layers * sizeof(int32_t*));
+    nn->quant_activations = (int32_t**)malloc(num_layers * sizeof(int32_t*));
+
     // Check if any allocations failed
     if (!nn->weight_buffer || !nn->bias_buffer || !nn->activation_buffer ||
         !nn->pre_activation_buffer || !nn->delta_buffer || !nn->weights ||
-        !nn->biases || !nn->activations || !nn->pre_activations || !nn->deltas) {
+        !nn->biases || !nn->activations || !nn->pre_activations || !nn->deltas ||
+        !nn->quant_weight_buffer || !nn->quant_bias_buffer || !nn->quant_activation_buffer ||
+        !nn->quant_weights || !nn->quant_biases || !nn->quant_activations) {
         nn_free(nn);
         return NULL;
     }
@@ -92,6 +123,25 @@ NeuralNetwork* nn_init(const int *sizes, int num_layers) {
         d_ptr += sizes[l];
     }
 
+    // Partition the quantized buffers into layer-wise chunks
+    int16_t *qw_ptr = nn->quant_weight_buffer;
+    int32_t *qb_ptr = nn->quant_bias_buffer;
+    int32_t *qa_ptr = nn->quant_activation_buffer;
+
+    nn->quant_activations[0] = qa_ptr;
+    qa_ptr += sizes[0];
+
+    for (int l = 1; l < num_layers; l++) {
+        nn->quant_weights[l] = qw_ptr;
+        qw_ptr += sizes[l] * sizes[l - 1];
+
+        nn->quant_biases[l] = qb_ptr;
+        qb_ptr += sizes[l];
+
+        nn->quant_activations[l] = qa_ptr;
+        qa_ptr += sizes[l];
+    }
+
     // Initialize weights using He / Xavier initialization
     // Use a local deterministic PRNG (Xorshift32) to ensure reproducibility
     uint32_t rng_state = 314159265; // Pi seed
@@ -118,6 +168,8 @@ NeuralNetwork* nn_init(const int *sizes, int num_layers) {
         
         // Biases are already initialized to 0 by calloc
     }
+
+    nn_quantize(nn);
 
     return nn;
 }
@@ -327,11 +379,13 @@ float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float 
                 vst1q_f32(&w_row[j], res_vec);
             }
 #endif
-            for (; j < n_in; j++) {
+            for (int j = 0; j < n_in; j++) {
                 w_row[j] -= lr_d_val * prev_act[j];
             }
         }
     }
+
+    nn_quantize(nn);
 
     return loss;
 }
@@ -351,6 +405,13 @@ void nn_free(NeuralNetwork *nn) {
     free(nn->activations);
     free(nn->pre_activations);
     free(nn->deltas);
+
+    free(nn->quant_weight_buffer);
+    free(nn->quant_bias_buffer);
+    free(nn->quant_activation_buffer);
+    free(nn->quant_weights);
+    free(nn->quant_biases);
+    free(nn->quant_activations);
 
     free(nn);
 }
@@ -451,6 +512,9 @@ bool nn_load(NeuralNetwork *nn, const char *filename) {
     }
 
     fclose(f);
+
+    nn_quantize(nn);
+
     return true;
 }
 
@@ -480,4 +544,224 @@ void nn_extract_features(const Position *pos, float *features) {
         features[feature_idx] = 1.0f;
     }
 }
+
+void nn_quantize(NeuralNetwork *nn) {
+    if (!nn) return;
+
+    // Layer 1 weights and biases (Q1 = 128)
+    int n_in = nn->sizes[0];
+    int n_out = nn->sizes[1];
+    
+    for (int i = 0; i < n_out * n_in; i++) {
+        float val = nn->weights[1][i] * 128.0f;
+        if (val > 32767.0f) val = 32767.0f;
+        if (val < -32768.0f) val = -32768.0f;
+        nn->quant_weight_buffer[i] = (int16_t)roundf(val);
+    }
+    for (int i = 0; i < n_out; i++) {
+        nn->quant_biases[1][i] = (int32_t)roundf(nn->biases[1][i] * 128.0f);
+    }
+
+    // Subsequent layers (Qw = 64, Qb = 8192)
+    for (int l = 2; l < nn->num_layers; l++) {
+        n_in = nn->sizes[l - 1];
+        n_out = nn->sizes[l];
+
+        for (int i = 0; i < n_out * n_in; i++) {
+            float val = nn->weights[l][i] * 64.0f;
+            if (val > 32767.0f) val = 32767.0f;
+            if (val < -32768.0f) val = -32768.0f;
+            nn->quant_weights[l][i] = (int16_t)roundf(val);
+        }
+        for (int i = 0; i < n_out; i++) {
+            nn->quant_biases[l][i] = (int32_t)roundf(nn->biases[l][i] * 8192.0f);
+        }
+    }
+}
+
+static inline int nnue_feature_index(Color perspective, Piece p, int sq) {
+    Color p_color = PIECE_COLOR(p);
+    PieceType p_type = PIECE_TYPE(p);
+    if (p_type == NONE || p_type >= PIECE_TYPE_NB) return -1;
+    
+    int is_opponent = (p_color != perspective);
+    int side_offset = is_opponent ? 6 : 0;
+    int piece_idx = (int)p_type - 1;
+    
+    int oriented_sq = (perspective == WHITE) ? sq : (sq ^ 56);
+    
+    return (side_offset + piece_idx) * 64 + oriented_sq;
+}
+
+void nnue_refresh_accumulator(NeuralNetwork *nn, Position *pos) {
+    if (!nn || !pos) return;
+    
+    int hidden_size = nn->sizes[1];
+    const int32_t *bias = nn->quant_biases[1];
+    const int16_t *weights = nn->quant_weights[1];
+    int n_in = nn->sizes[0];
+    
+    for (int i = 0; i < hidden_size; i++) {
+        pos->accum[0][i] = (int16_t)bias[i];
+        pos->accum[1][i] = (int16_t)bias[i];
+    }
+    
+    for (int sq = 0; sq < 64; sq++) {
+        Piece p = pos->board[sq];
+        if (p == EMPTY) continue;
+        
+        int w_idx = nnue_feature_index(WHITE, p, sq);
+        if (w_idx >= 0) {
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] += weights[i * n_in + w_idx];
+            }
+        }
+        
+        int b_idx = nnue_feature_index(BLACK, p, sq);
+        if (b_idx >= 0) {
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] += weights[i * n_in + b_idx];
+            }
+        }
+    }
+}
+
+typedef struct {
+    Piece piece;
+    int sq;
+} AccumulatorChange;
+
+void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struct Undo *u) {
+    if (!nn || !pos || !u) return;
+    
+    int from = MOVE_FROM(m);
+    int to = MOVE_TO(m);
+    int flag = MOVE_FLAG(m);
+    int promo = MOVE_PROMO(m);
+    Color us = OPPOSITE(pos->sideToMove); // sideToMove was already flipped in apply_move
+    
+    Piece moving_piece = u->moving;
+    PieceType pt = PIECE_TYPE(moving_piece);
+    
+    AccumulatorChange removals[3];
+    int num_removals = 0;
+    
+    AccumulatorChange additions[2];
+    int num_additions = 0;
+    
+    // 1. Moving piece leaves 'from'
+    removals[num_removals++] = (AccumulatorChange){moving_piece, from};
+    
+    // 2. Moving piece lands on 'to' (handling promotion)
+    int is_promo = (pt == PAWN) && (RANK_OF(to) == 0 || RANK_OF(to) == 7);
+    if (is_promo) {
+        static const PieceType promo_table[] = { KNIGHT, BISHOP, ROOK, QUEEN };
+        PieceType promo_pt = (promo <= 3) ? promo_table[promo] : QUEEN;
+        Piece promo_piece = MAKE_PIECE(us, promo_pt);
+        additions[num_additions++] = (AccumulatorChange){promo_piece, to};
+    } else {
+        additions[num_additions++] = (AccumulatorChange){moving_piece, to};
+    }
+    
+    // 3. Captured piece is removed
+    if (u->captured != EMPTY) {
+        removals[num_removals++] = (AccumulatorChange){u->captured, u->cap_sq};
+    }
+    
+    // 4. Castling rook relocation
+    if (flag == MOVE_CASTLE_KS) {
+        int r_from = (us == WHITE) ? H1 : H8;
+        int r_to   = (us == WHITE) ? F1 : F8;
+        removals[num_removals++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_from};
+        additions[num_additions++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_to};
+    } else if (flag == MOVE_CASTLE_QS) {
+        int r_from = (us == WHITE) ? A1 : A8;
+        int r_to   = (us == WHITE) ? D1 : D8;
+        removals[num_removals++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_from};
+        additions[num_additions++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_to};
+    }
+    
+    const int16_t *weights = nn->quant_weights[1];
+    int hidden_size = nn->sizes[1];
+    int n_in = nn->sizes[0];
+    
+    // Update White accumulator (index 0)
+    for (int r = 0; r < num_removals; r++) {
+        int idx = nnue_feature_index(WHITE, removals[r].piece, removals[r].sq);
+        if (idx >= 0) {
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] -= weights[i * n_in + idx];
+            }
+        }
+    }
+    for (int a = 0; a < num_additions; a++) {
+        int idx = nnue_feature_index(WHITE, additions[a].piece, additions[a].sq);
+        if (idx >= 0) {
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] += weights[i * n_in + idx];
+            }
+        }
+    }
+    
+    // Update Black accumulator (index 1)
+    for (int r = 0; r < num_removals; r++) {
+        int idx = nnue_feature_index(BLACK, removals[r].piece, removals[r].sq);
+        if (idx >= 0) {
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] -= weights[i * n_in + idx];
+            }
+        }
+    }
+    for (int a = 0; a < num_additions; a++) {
+        int idx = nnue_feature_index(BLACK, additions[a].piece, additions[a].sq);
+        if (idx >= 0) {
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] += weights[i * n_in + idx];
+            }
+        }
+    }
+}
+
+float nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
+    if (!nn || !pos) return 0.0f;
+    
+    int accum_idx = (pos->sideToMove == WHITE) ? 0 : 1;
+    const int16_t *accum = pos->accum[accum_idx];
+    
+    int h1_size = nn->sizes[1];
+    int32_t *act1 = nn->quant_activations[1];
+    for (int i = 0; i < h1_size; i++) {
+        act1[i] = (accum[i] > 0) ? accum[i] : 0;
+    }
+    
+    for (int l = 2; l < nn->num_layers; l++) {
+        int n_in = nn->sizes[l - 1];
+        int n_out = nn->sizes[l];
+
+        int32_t *__restrict__ act = nn->quant_activations[l];
+        const int32_t *__restrict__ prev_act = nn->quant_activations[l - 1];
+        const int32_t *__restrict__ b = nn->quant_biases[l];
+        const int16_t *__restrict__ w = nn->quant_weights[l];
+
+        for (int i = 0; i < n_out; i++) {
+            int32_t sum = b[i];
+            const int16_t *__restrict__ w_row = &w[i * n_in];
+            
+            int j = 0;
+            for (; j < n_in; j++) {
+                sum += w_row[j] * prev_act[j];
+            }
+
+            if (l < nn->num_layers - 1) {
+                act[i] = (sum > 0) ? (sum >> 6) : 0;
+            } else {
+                act[i] = sum;
+            }
+        }
+    }
+    
+    int32_t final_val = nn->quant_activations[nn->num_layers - 1][0];
+    return (float)final_val / 8192.0f;
+}
+
 
