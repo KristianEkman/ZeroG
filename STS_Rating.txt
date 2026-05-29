@@ -142,3 +142,99 @@ STS 15: Avoid Pointless Exchange
 4. STS 09, 38.7%, "Advancement of a/b/c Pawns"
 5. STS 15, 44.0%, "Avoid Pointless Exchange"
 
+STS Rating v14.2
+Engine: ChessAI2027 1.0.0
+Hash: 32, Threads: 1, time/pos: 0.068s
+
+Number of positions in ../STS-Rating/STS1-STS15_LAN_v3.epd: 1500
+Max score = 1500 x 10 = 15000
+Test duration: 00h:01m:42s
+Expected time to finish: 00h:02m:27s
+STS rating: 2223
+
+  STS ID   STS1   STS2   STS3   STS4   STS5   STS6   STS7   STS8   STS9  STS10  STS11  STS12  STS13  STS14  STS15    ALL
+  NumPos    100    100    100    100    100    100    100    100    100    100    100    100    100    100    100   1500
+ BestCnt     41     29     40     32     55     50     39     27     30     53     46     50     65     51     26    634
+   Score    533    415    517    467    637    734    506    406    433    618    538    619    765    641    478   8307
+Score(%)   53.3   41.5   51.7   46.7   63.7   73.4   50.6   40.6   43.3   61.8   53.8   61.9   76.5   64.1   47.8   55.4
+  Rating   2130   1605   2059   1836   2593   3025   2010   1565   1685   2509   2152   2513   3163   2611   1885   2223
+
+:: STS ID and Titles ::
+STS 01: Undermining
+STS 02: Open Files and Diagonals
+STS 03: Knight Outposts
+STS 04: Square Vacancy
+STS 05: Bishop vs Knight
+STS 06: Re-Capturing
+STS 07: Offer of Simplification
+STS 08: Advancement of f/g/h Pawns
+STS 09: Advancement of a/b/c Pawns
+STS 10: Simplification
+STS 11: Activity of the King
+STS 12: Center Control
+STS 13: Pawn Play in the Center
+STS 14: Queens and Rooks to the 7th rank
+STS 15: Avoid Pointless Exchange
+
+:: Top 5 STS with high result ::
+1. STS 13, 76.5%, "Pawn Play in the Center"
+2. STS 06, 73.4%, "Re-Capturing"
+3. STS 14, 64.1%, "Queens and Rooks to the 7th rank"
+4. STS 05, 63.7%, "Bishop vs Knight"
+5. STS 12, 61.9%, "Center Control"
+
+:: Top 5 STS with low result ::
+1. STS 08, 40.6%, "Advancement of f/g/h Pawns"
+2. STS 02, 41.5%, "Open Files and Diagonals"
+3. STS 09, 43.3%, "Advancement of a/b/c Pawns"
+4. STS 04, 46.7%, "Square Vacancy"
+5. STS 15, 47.8%, "Avoid Pointless Exchange"
+
+STS Rating v14.2
+Engine: ChessAI2027 1.0.0
+Hash: 32, Threads: 1, time/pos: 0.064s
+
+Number of positions in ../STS-Rating/STS1-STS15_LAN_v3.epd: 1500
+Max score = 1500 x 10 = 15000
+Test duration: 00h:01m:40s
+Expected time to finish: 00h:02m:21s
+STS rating: 1710
+
+  STS ID   STS1   STS2   STS3   STS4   STS5   STS6   STS7   STS8   STS9  STS10  STS11  STS12  STS13  STS14  STS15    ALL
+  NumPos    100    100    100    100    100    100    100    100    100    100    100    100    100    100    100   1500
+ BestCnt     30     26     31     25     50     37     22     15     20     62     17     28     37     38     28    466
+   Score    407    316    455    363    590    636    313    294    320    693    333    423    472    508    456   6579
+Score(%)   40.7   31.6   45.5   36.3   59.0   63.6   31.3   29.4   32.0   69.3   33.3   42.3   47.2   50.8   45.6   43.9
+  Rating   1569   1164   1783   1373   2384   2589   1151   1066   1182   2843   1240   1640   1859   2019   1787   1710
+
+:: STS ID and Titles ::
+STS 01: Undermining
+STS 02: Open Files and Diagonals
+STS 03: Knight Outposts
+STS 04: Square Vacancy
+STS 05: Bishop vs Knight
+STS 06: Re-Capturing
+STS 07: Offer of Simplification
+STS 08: Advancement of f/g/h Pawns
+STS 09: Advancement of a/b/c Pawns
+STS 10: Simplification
+STS 11: Activity of the King
+STS 12: Center Control
+STS 13: Pawn Play in the Center
+STS 14: Queens and Rooks to the 7th rank
+STS 15: Avoid Pointless Exchange
+
+:: Top 5 STS with high result ::
+1. STS 10, 69.3%, "Simplification"
+2. STS 06, 63.6%, "Re-Capturing"
+3. STS 05, 59.0%, "Bishop vs Knight"
+4. STS 14, 50.8%, "Queens and Rooks to the 7th rank"
+5. STS 13, 47.2%, "Pawn Play in the Center"
+
+:: Top 5 STS with low result ::
+1. STS 08, 29.4%, "Advancement of f/g/h Pawns"
+2. STS 07, 31.3%, "Offer of Simplification"
+3. STS 02, 31.6%, "Open Files and Diagonals"
+4. STS 09, 32.0%, "Advancement of a/b/c Pawns"
+5. STS 11, 33.3%, "Activity of the King"
+

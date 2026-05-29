@@ -1,4 +1,32 @@
 #include "eval.h"
+#include <stdio.h>
+#include <math.h>
+
+NeuralNetwork *eval_nn = NULL;
+bool use_nn = false;
+
+void eval_init(void) {
+    int sizes[] = {768, 64, 32, 1};
+    eval_nn = nn_init(sizes, 4);
+    if (eval_nn) {
+        if (nn_load(eval_nn, "nn_weights.bin")) {
+            use_nn = true;
+            printf("info string Loaded NN weights from nn_weights.bin\n");
+            fflush(stdout);
+        } else {
+            printf("info string Warning: Could not load nn_weights.bin, using classical evaluation\n");
+            fflush(stdout);
+        }
+    }
+}
+
+void eval_free(void) {
+    if (eval_nn) {
+        nn_free(eval_nn);
+        eval_nn = NULL;
+        use_nn = false;
+    }
+}
 
 /* Piece-Square Tables (PST) pre-flipped vertically so that index 0 corresponds to A1 */
 
@@ -80,6 +108,20 @@ static const int king_end_table[64] = {
 };
 
 int evaluate(const Position *pos) {
+    if (use_nn && eval_nn) {
+        float features[768];
+        nn_extract_features(pos, features);
+        float output = nn_forward(eval_nn, features);
+        int score = (int)roundf(output * 100.0f);
+        
+        // The network evaluates from the side-to-move's perspective.
+        // We must return the evaluation from White's perspective.
+        if (pos->sideToMove == BLACK) {
+            score = -score;
+        }
+        return score;
+    }
+
     int score = 0;
 
     // Endgame detection criteria:

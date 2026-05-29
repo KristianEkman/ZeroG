@@ -1,4 +1,5 @@
 #include "uci/uci_internal.h"
+#include "eval.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -16,6 +17,7 @@ static int write_uci_handshake(FILE *output)
         fprintf(output, "id author Kristian Ekman\n") < 0 ||
         fprintf(output, "option name Hash type spin default 16 min 1 max 1024\n") < 0 ||
         fprintf(output, "option name SaveQuietPositionsFile type string default <empty>\n") < 0 ||
+        fprintf(output, "option name UseNN type check default true\n") < 0 ||
         fprintf(output, "uciok\n") < 0)
     {
         return -1;
@@ -109,6 +111,19 @@ int uci_handle_line(UciState *state, const char *line, FILE *output, int *should
             {
                 strncpy(uci_save_quiet_positions_file, path_buf, sizeof(uci_save_quiet_positions_file));
                 uci_save_quiet_positions_file[sizeof(uci_save_quiet_positions_file) - 1] = '\0';
+            }
+            return 0;
+        }
+
+        if (uci_parse_string_option_value(args, "UseNN", path_buf, sizeof(path_buf)) == 0)
+        {
+            if (strcmp(path_buf, "true") == 0)
+            {
+                if (eval_nn) use_nn = true;
+            }
+            else if (strcmp(path_buf, "false") == 0)
+            {
+                use_nn = false;
             }
             return 0;
         }

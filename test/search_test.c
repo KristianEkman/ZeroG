@@ -5,11 +5,14 @@
 #include "search/search.h"
 #include "search/time_control.h"
 #include "uci/uci.h"
+#include "eval.h"
 #include <string.h>
 
 #define MATE_SCORE 29000
 
-void setUp(void) {}
+void setUp(void) {
+    use_nn = false;
+}
 void tearDown(void) {}
 
 void test_search_mate_in_1(void)
@@ -329,5 +332,7 @@ int main(void)
     RUN_TEST(test_time_control_one_legal_move);
     RUN_TEST(test_time_control_calculations);
 
-    return UNITY_END();
+    int result = UNITY_END();
+    eval_free();
+    return result;
 }
