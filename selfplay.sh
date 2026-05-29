@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-../cutechess/build/cutechess-cli \
+../cutechess/cutechess/build/cutechess-cli \
  -engine cmd=./builds/ChessAI2027_prev proto=uci name=OLD \
  -engine cmd=./builds/chessai2027 proto=uci name=NEW \
  -each tc=3+0.01 \

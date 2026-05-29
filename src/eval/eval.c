@@ -6,6 +6,26 @@
 static const int passed_pawn_mg[8] = { 0, 5, 10, 20, 35, 60, 100, 0 };
 static const int passed_pawn_eg[8] = { 0, 8, 15, 30, 60, 110, 180, 0 };
 
+static const int double_pawn_mg = 8;
+static const int double_pawn_eg = 12;
+
+static const int isolated_pawn_mg = 5;
+static const int isolated_pawn_eg = 8;
+
+static const int isolated_pawn_semi_open_mg = 10;
+static const int isolated_pawn_semi_open_eg = 15;
+
+static const uint64_t file_masks[8] = {
+    0x0101010101010101ULL << 0,
+    0x0101010101010101ULL << 1,
+    0x0101010101010101ULL << 2,
+    0x0101010101010101ULL << 3,
+    0x0101010101010101ULL << 4,
+    0x0101010101010101ULL << 5,
+    0x0101010101010101ULL << 6,
+    0x0101010101010101ULL << 7
+};
+
 /* Piece-Square Tables (PST) pre-flipped vertically so that index 0 corresponds to A1 */
 
 static const int pawn_table[64] = {
@@ -131,6 +151,21 @@ int evaluate(const Position *pos) {
         int sq = pop_lsb(&w_pawns);
         int item_score = 100 + pawn_table[sq];
 
+        // Isolated pawn evaluation
+        if (!(adjacentFilesMask[sq] & w_pawns_copy)) {
+            int is_semi_open = !(file_masks[sq & 7] & b_pawns_copy);
+            if (is_endgame) {
+                item_score -= is_semi_open ? isolated_pawn_semi_open_eg : isolated_pawn_eg;
+            } else {
+                item_score -= is_semi_open ? isolated_pawn_semi_open_mg : isolated_pawn_mg;
+            }
+        }
+
+        // Doubled pawn evaluation
+        if (fileBehindMasks[0][sq] & w_pawns_copy) {
+            item_score -= is_endgame ? double_pawn_eg : double_pawn_mg;
+        }
+
         // Passed pawn evaluation
         if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
             int rank = RANK_OF(sq);
@@ -192,6 +227,21 @@ int evaluate(const Position *pos) {
     while (b_pawns) {
         int sq = pop_lsb(&b_pawns);
         int item_score = 100 + pawn_table[sq ^ 56];
+
+        // Isolated pawn evaluation
+        if (!(adjacentFilesMask[sq] & b_pawns_copy)) {
+            int is_semi_open = !(file_masks[sq & 7] & w_pawns_copy);
+            if (is_endgame) {
+                item_score -= is_semi_open ? isolated_pawn_semi_open_eg : isolated_pawn_eg;
+            } else {
+                item_score -= is_semi_open ? isolated_pawn_semi_open_mg : isolated_pawn_mg;
+            }
+        }
+
+        // Doubled pawn evaluation
+        if (fileBehindMasks[1][sq] & b_pawns_copy) {
+            item_score -= is_endgame ? double_pawn_eg : double_pawn_mg;
+        }
 
         // Passed pawn evaluation
         if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {

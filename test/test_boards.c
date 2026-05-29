@@ -412,6 +412,22 @@ void test_pop_lsb(void)
     TEST_ASSERT_EQUAL_HEX64(0ULL, bb);
 }
 
+void test_adjacent_files_masks(void)
+{
+    // A-file square (e.g. A1): adjacent files should be B-file only
+    uint64_t expected_a = 0x0101010101010101ULL << 1; // B file
+    TEST_ASSERT_EQUAL_HEX64(expected_a, adjacentFilesMask[A1]);
+    TEST_ASSERT_EQUAL_HEX64(expected_a, adjacentFilesMask[A5]);
+
+    // H-file square (e.g. H8): adjacent files should be G-file only
+    uint64_t expected_h = 0x0101010101010101ULL << 6; // G file
+    TEST_ASSERT_EQUAL_HEX64(expected_h, adjacentFilesMask[H8]);
+
+    // D-file square (e.g. D4): adjacent files should be C and E files
+    uint64_t expected_d = (0x0101010101010101ULL << 2) | (0x0101010101010101ULL << 4);
+    TEST_ASSERT_EQUAL_HEX64(expected_d, adjacentFilesMask[D4]);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -444,6 +460,7 @@ int main(void)
     RUN_TEST(test_slider_attacks_match_reference_many_occupancies);
     RUN_TEST(test_move_encode_decode);
     RUN_TEST(test_pop_lsb);
+    RUN_TEST(test_adjacent_files_masks);
 
     return UNITY_END();
 }

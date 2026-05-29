@@ -13,6 +13,7 @@ uint64_t kingAttacks[64];
 uint64_t pawnAttacks[2][64];
 uint64_t passedPawnMasks[2][64];
 uint64_t fileBehindMasks[2][64];
+uint64_t adjacentFilesMask[64];
 uint64_t bishopEmptyAttacks[64];
 uint64_t rookEmptyAttacks[64];
 
@@ -344,6 +345,18 @@ void bitboard_init(void)
             b_mask |= (1ULL << SQUARE(f, rr));
         }
         fileBehindMasks[COLOR_IDX(BLACK)][sq] = b_mask;
+    }
+
+    /* ── adjacent files masks ────────────────────────────────────────── */
+    for (int sq = 0; sq < 64; sq++)
+    {
+        int f = FILE_OF(sq);
+        uint64_t mask = 0ULL;
+        if (f > 0)
+            mask |= (0x0101010101010101ULL << (f - 1));
+        if (f < 7)
+            mask |= (0x0101010101010101ULL << (f + 1));
+        adjacentFilesMask[sq] = mask;
     }
 
     /* ── empty board sliding attacks ────────────────────────────────── */

@@ -172,6 +172,50 @@ void test_eval_passed_pawns(void)
     TEST_ASSERT_TRUE(score_rook_behind > score_rook_side);
 }
 
+void test_eval_isolated_pawns(void)
+{
+    Position pos_connected;
+    Position pos_isolated;
+
+    // Case A: Connected White pawns on D3 and E3
+    memset(&pos_connected, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/8/8/3PP3/8/4K3 w - - 0 1", &pos_connected));
+    int score_connected = evaluate(&pos_connected);
+
+    // Case B: Isolated White pawns on C3 and E3
+    memset(&pos_isolated, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/8/8/2P1P3/8/4K3 w - - 0 1", &pos_isolated));
+    int score_isolated = evaluate(&pos_isolated);
+
+    // Connected pawns should evaluate higher than isolated pawns
+    TEST_ASSERT_TRUE(score_connected > score_isolated);
+}
+void test_eval_doubled_pawns(void)
+{
+    Position pos_single;
+    Position pos_doubled;
+    Position pos_tripled;
+
+    // Case A: 3 pawns, single and connected (A2, B2, C2) - healthy
+    memset(&pos_single, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/8/8/8/PPP5/4K3 w - - 0 1", &pos_single));
+    int score_single = evaluate(&pos_single);
+
+    // Case B: 3 pawns, doubled on A-file (A2, A3, C2)
+    memset(&pos_doubled, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/8/8/P7/P1P5/4K3 w - - 0 1", &pos_doubled));
+    int score_doubled = evaluate(&pos_doubled);
+
+    // Case C: 3 pawns, tripled on A-file (A2, A3, A4)
+    memset(&pos_tripled, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/8/8/8/P7/P7/P7/4K3 w - - 0 1", &pos_tripled));
+    int score_tripled = evaluate(&pos_tripled);
+
+    // Single pawns should evaluate higher than doubled pawns, which evaluate higher than tripled pawns
+    TEST_ASSERT_TRUE(score_single > score_doubled);
+    TEST_ASSERT_TRUE(score_doubled > score_tripled);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -189,6 +233,8 @@ int main(void)
     RUN_TEST(test_eval_bishop_pair);
     RUN_TEST(test_eval_mobility);
     RUN_TEST(test_eval_passed_pawns);
+    RUN_TEST(test_eval_isolated_pawns);
+    RUN_TEST(test_eval_doubled_pawns);
 
     return UNITY_END();
 }

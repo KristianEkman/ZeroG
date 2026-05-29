@@ -5,7 +5,7 @@ Evaluation
  - [x] mobility
  king safety
  - [x] passed pawns
- isolated/doubled pawns
+ - [x] isolated/doubled pawns
  rook on open file
  tempo bonus
  pawn shield
