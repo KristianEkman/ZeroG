@@ -133,11 +133,28 @@ The engine includes exhaustive tests built using the Unity C test framework.
 
 ## Usage
 
-When executed, ChessAI2027 automatically enters **UCI mode** and listens to standard input commands:
+By default, when executed without arguments, ChessAI2027 automatically enters **UCI mode** and listens to standard input commands:
 
 ```bash
 ./builds/chessai2027
 ```
+
+### Command-Line Arguments
+
+ChessAI2027 also supports specialized modes for tuning dataset preparation and feature extraction:
+
+- **Filter Quiet Positions**:
+  ```bash
+  ./builds/chessai2027 --tune-filter <input_epd_file> <output_epd_file>
+  ```
+  Parses a raw EPD file containing evaluations, runs a quiescence search to verify if a position is quiet (Q-search score matches static evaluation within $10$ cp), maps the score to simulated results, and outputs filtered records.
+
+- **Export Feature Coefficients**:
+  ```bash
+  ./builds/chessai2027 --tune-export <quiet_epd_file> <output_csv_file>
+  ```
+  Processes quiet positions to extract their linear evaluation representation (a vector of feature coefficients and the static constant score offset), writing them to a CSV file for rapid offline Texel tuning optimization.
+
 
 ### Example UCI Commands
 To start a new game and search for a move:

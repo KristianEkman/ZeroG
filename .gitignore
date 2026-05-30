@@ -4,4 +4,6 @@ openings.epd
 grand_master_openings.epd
 out.pgn
 traindata*.epd
-
+venv/
+quiet_traindata.epd
+quiet_traindata_features.csv

@@ -24,6 +24,14 @@ typedef struct {
 static FILE *search_log_output = NULL;
 static int stop_requested = 0;
 static unsigned hash_size = 16; /* default 16MB */
+static int lmr_base = 5;
+static int futility_margin = 100;
+static int rfp_margin_base = 120;
+static int nmp_min_depth = 3;
+static int singular_margin = 2;
+static int aspiration_window = 40;
+static int lmr_min_depth = 5;
+static int futility_max_depth = 2;
 static uint64_t node_count = 0;
 
 static Move killer_moves[2][MAX_DEPTH];
@@ -39,7 +47,13 @@ static void init_lmr(void) {
                 lmr_reductions[depth][moves] = 0;
                 continue;
             }
-            double r = 0.5 + log((double)depth) * log((double)moves) / 3.0;
+            double divisor = (double)lmr_base;
+            double r;
+            if (divisor <= 0.0) {
+                r = 0.0;
+            } else {
+                r = 0.5 + log((double)depth) * log((double)moves) / divisor;
+            }
             lmr_reductions[depth][moves] = (int)r;
         }
     }
@@ -80,6 +94,71 @@ int search_set_hash_size_mb(unsigned size_mb) {
     if (transposition_table_init(&tt, (size_t)hash_size * 1024 * 1024) == 0) {
         tt_initialized = 1;
     }
+    return 0;
+}
+
+int search_set_lmr_base(int base) {
+    if (base < 0 || base > 20) {
+        return -1;
+    }
+    lmr_base = base;
+    init_lmr();
+    return 0;
+}
+
+int search_set_futility_margin(int margin) {
+    if (margin < 0 || margin > 500) {
+        return -1;
+    }
+    futility_margin = margin;
+    return 0;
+}
+
+int search_set_rfp_margin(int margin) {
+    if (margin < 0 || margin > 300) {
+        return -1;
+    }
+    rfp_margin_base = margin;
+    return 0;
+}
+
+int search_set_nmp_min_depth(int depth) {
+    if (depth < 1 || depth > 10) {
+        return -1;
+    }
+    nmp_min_depth = depth;
+    return 0;
+}
+
+int search_set_singular_margin(int margin) {
+    if (margin < 0 || margin > 10) {
+        return -1;
+    }
+    singular_margin = margin;
+    return 0;
+}
+
+int search_set_aspiration_window(int window) {
+    if (window < 5 || window > 200) {
+        return -1;
+    }
+    aspiration_window = window;
+    return 0;
+}
+
+int search_set_lmr_min_depth(int depth) {
+    if (depth < 1 || depth > 15) {
+        return -1;
+    }
+    lmr_min_depth = depth;
+    return 0;
+}
+
+int search_set_futility_max_depth(int depth) {
+    if (depth < 1 || depth > 5) {
+        return -1;
+    }
+    futility_max_depth = depth;
     return 0;
 }
 
@@ -463,14 +542,14 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
     // Reverse Futility Pruning (RFP)
     if (ply > 0 && !in_check && depth <= 3 && beta < MATE_SCORE - 100) {
-        int rfp_margin = 120 * depth;
+        int rfp_margin = rfp_margin_base * depth;
         if (static_eval - rfp_margin >= beta) {
             return static_eval;
         }
     }
 
     // Null Move Pruning (NMP)
-    if (allow_nmp && !in_check && depth >= 3) {
+    if (allow_nmp && !in_check && depth >= nmp_min_depth) {
         int score = try_null_move_pruning(pos, depth, ply, beta, start_time, limits, history);
         if (stop_requested) {
             return 0;
@@ -501,7 +580,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         && abs(tt_entry.score) < MATE_SCORE - 100) {
 
         int r = 3;
-        int margin = 2 * depth;
+        int margin = singular_margin * depth;
         int singular_beta = tt_entry.score - margin;
         PVLine child_pv;
         child_pv.length = 0;
@@ -545,7 +624,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         int reduction = 0;
         int is_pv = (beta - alpha > 1);
 
-        if (depth >= 5 && legal_moves_searched >= 1 && is_quiet && !in_check) {
+        if (depth >= lmr_min_depth && legal_moves_searched >= 1 && is_quiet && !in_check) {
             int move_count = legal_moves_searched + 1;
             reduction = lmr_reductions[depth >= MAX_DEPTH ? MAX_DEPTH - 1 : depth][move_count >= MAX_MOVES ? MAX_MOVES - 1 : move_count];
             if (is_pv) {
@@ -572,13 +651,13 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         }
 
         // Futility Pruning
-        if (depth <= 2
+        if (depth <= futility_max_depth
             && !in_check
             && is_quiet
             && !gives_check
             && legal_moves_searched > 1
             && (alpha < MATE_SCORE - 100)) {
-            int fp_margin = 150 * depth;
+            int fp_margin = futility_margin * depth;
             if (static_eval + fp_margin <= alpha) {
                 undo_move(pos, &u);
                 continue;
@@ -668,7 +747,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
 
 /* Aspiration Window Widening Loop */
 static int search_aspiration_window(Position *pos, unsigned depth, int previous_score, PVLine *pv, uint64_t start_time, const SearchLimits *limits, Move best_move_so_far) {
-    int delta = 40; // centipawns window
+    int delta = aspiration_window; // centipawns window
     int alpha = previous_score - delta;
     int beta = previous_score + delta;
     int score = previous_score;
@@ -887,3 +966,14 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
 
     return 0;
 }
+
+int search_run_quiescence_only(const Position *board) {
+    Position pos = *board;
+    search_reset_stop_request();
+    memset(killer_moves, 0, sizeof(killer_moves));
+    SearchLimits limits = {0};
+    limits.hard_time_limit_ms = 0;
+    limits.is_time_controlled = 0;
+    return quiescence(&pos, 0, -INFINITY_SCORE, INFINITY_SCORE, 0, &limits);
+}
+

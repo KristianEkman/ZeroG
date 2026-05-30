@@ -1,16 +1,35 @@
 #include "pawn_eval.h"
+#include "eval_constants.h"
 
-static const int passed_pawn_mg[8] = { 0, 5, 10, 20, 35, 60, 100, 0 };
-static const int passed_pawn_eg[8] = { 0, 8, 15, 30, 60, 110, 180, 0 };
+static const int passed_pawn_mg[8] = {
+    0,
+    PASSED_PAWN_MG_R1_VAL,
+    PASSED_PAWN_MG_R2_VAL,
+    PASSED_PAWN_MG_R3_VAL,
+    PASSED_PAWN_MG_R4_VAL,
+    PASSED_PAWN_MG_R5_VAL,
+    PASSED_PAWN_MG_R6_VAL,
+    0
+};
+static const int passed_pawn_eg[8] = {
+    0,
+    PASSED_PAWN_EG_R1_VAL,
+    PASSED_PAWN_EG_R2_VAL,
+    PASSED_PAWN_EG_R3_VAL,
+    PASSED_PAWN_EG_R4_VAL,
+    PASSED_PAWN_EG_R5_VAL,
+    PASSED_PAWN_EG_R6_VAL,
+    0
+};
 
-static const int double_pawn_mg = 8;
-static const int double_pawn_eg = 12;
+static const int double_pawn_mg = DOUBLE_PAWN_MG_VAL;
+static const int double_pawn_eg = DOUBLE_PAWN_EG_VAL;
 
-static const int isolated_pawn_mg = 5;
-static const int isolated_pawn_eg = 8;
+static const int isolated_pawn_mg = ISOLATED_PAWN_MG_VAL;
+static const int isolated_pawn_eg = ISOLATED_PAWN_EG_VAL;
 
-static const int isolated_pawn_semi_open_mg = 10;
-static const int isolated_pawn_semi_open_eg = 15;
+static const int isolated_pawn_semi_open_mg = ISOLATED_PAWN_SEMI_OPEN_MG_VAL;
+static const int isolated_pawn_semi_open_eg = ISOLATED_PAWN_SEMI_OPEN_EG_VAL;
 
 static const uint64_t file_masks[8] = {
     0x0101010101010101ULL << 0,
@@ -47,7 +66,7 @@ int evaluate_pawns(const Position *pos, int is_endgame) {
     uint64_t w_pawns = w_pawns_copy;
     while (w_pawns) {
         int sq = pop_lsb(&w_pawns);
-        int item_score = 100 + pawn_table[sq];
+        int item_score = PIECE_PAWN_VAL + pawn_table[sq];
 
         // Isolated pawn evaluation
         if (!(adjacentFilesMask[sq] & w_pawns_copy)) {
@@ -71,7 +90,7 @@ int evaluate_pawns(const Position *pos, int is_endgame) {
 
             // Defended/Protected by friendly pawn
             if (pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) {
-                bp += is_endgame ? 25 : 15;
+                bp += is_endgame ? PASSED_PAWN_DEFENDED_EG_VAL : PASSED_PAWN_DEFENDED_MG_VAL;
             }
 
             // Blocked by any piece
@@ -82,12 +101,12 @@ int evaluate_pawns(const Position *pos, int is_endgame) {
 
             // Friendly rook/queen behind
             if (fileBehindMasks[COLOR_IDX(WHITE)][sq] & w_rooks_queens) {
-                bp += is_endgame ? 40 : 20;
+                bp += is_endgame ? PASSED_PAWN_FRIENDLY_BEHIND_EG_VAL : PASSED_PAWN_FRIENDLY_BEHIND_MG_VAL;
             }
 
             // Enemy rook/queen behind
             if (fileBehindMasks[COLOR_IDX(WHITE)][sq] & b_rooks_queens) {
-                bp -= is_endgame ? 30 : 15;
+                bp += is_endgame ? PASSED_PAWN_ENEMY_BEHIND_EG_VAL : PASSED_PAWN_ENEMY_BEHIND_MG_VAL;
             }
 
             item_score += bp;
@@ -99,7 +118,7 @@ int evaluate_pawns(const Position *pos, int is_endgame) {
     uint64_t b_pawns = b_pawns_copy;
     while (b_pawns) {
         int sq = pop_lsb(&b_pawns);
-        int item_score = 100 + pawn_table[sq ^ 56];
+        int item_score = PIECE_PAWN_VAL + pawn_table[sq ^ 56];
 
         // Isolated pawn evaluation
         if (!(adjacentFilesMask[sq] & b_pawns_copy)) {
@@ -123,7 +142,7 @@ int evaluate_pawns(const Position *pos, int is_endgame) {
 
             // Defended/Protected by friendly pawn
             if (pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) {
-                bp += is_endgame ? 25 : 15;
+                bp += is_endgame ? PASSED_PAWN_DEFENDED_EG_VAL : PASSED_PAWN_DEFENDED_MG_VAL;
             }
 
             // Blocked by any piece
@@ -134,12 +153,12 @@ int evaluate_pawns(const Position *pos, int is_endgame) {
 
             // Friendly rook/queen behind
             if (fileBehindMasks[COLOR_IDX(BLACK)][sq] & b_rooks_queens) {
-                bp += is_endgame ? 40 : 20;
+                bp += is_endgame ? PASSED_PAWN_FRIENDLY_BEHIND_EG_VAL : PASSED_PAWN_FRIENDLY_BEHIND_MG_VAL;
             }
 
             // Enemy rook/queen behind
             if (fileBehindMasks[COLOR_IDX(BLACK)][sq] & w_rooks_queens) {
-                bp -= is_endgame ? 30 : 15;
+                bp += is_endgame ? PASSED_PAWN_ENEMY_BEHIND_EG_VAL : PASSED_PAWN_ENEMY_BEHIND_MG_VAL;
             }
 
             item_score += bp;

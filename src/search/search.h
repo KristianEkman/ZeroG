@@ -32,6 +32,15 @@ int search_compute_time_limits(const Position *board,
                                unsigned movestogo,
                                SearchLimits *limits);
 int search_set_hash_size_mb(unsigned size_mb);
+int search_set_lmr_base(int base);
+int search_set_futility_margin(int margin);
+int search_set_rfp_margin(int margin);
+int search_set_nmp_min_depth(int depth);
+int search_set_singular_margin(int margin);
+int search_set_aspiration_window(int window);
+int search_set_lmr_min_depth(int depth);
+int search_set_futility_max_depth(int depth);
 int search_get_history_score(Color side, Square from, Square to);
+int search_run_quiescence_only(const Position *board);
 
 #endif /* SEARCH_H */

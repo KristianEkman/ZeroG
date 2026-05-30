@@ -35,5 +35,6 @@ int uci_parse_go_parameters(const UciState *state,
                             unsigned *depth,
                             unsigned *time_limit_ms);
 int uci_parse_hash_option_value(const char *args, unsigned *value);
+int uci_parse_spin_option_value(const char *args, const char *option_name, int *value);
 
 #endif

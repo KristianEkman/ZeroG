@@ -190,3 +190,51 @@ STS 15: Avoid Pointless Exchange
 4. STS 02, 48.1%, "Open Files and Diagonals"
 5. STS 07, 48.9%, "Offer of Simplification"
 
+STS Rating v14.2
+Engine: ChessAI2027 1.0.0
+Hash: 32, Threads: 1, time/pos: 0.065s
+
+Number of positions in ../STS-Rating/STS1-STS15_LAN_v3.epd: 1500
+Max score = 1500 x 10 = 15000
+Test duration: 00h:01m:37s
+Expected time to finish: 00h:02m:22s
+STS rating: 2310
+
+  STS ID   STS1   STS2   STS3   STS4   STS5   STS6   STS7   STS8   STS9  STS10  STS11  STS12  STS13  STS14  STS15    ALL
+  NumPos    100    100    100    100    100    100    100    100    100    100    100    100    100    100    100   1500
+ BestCnt     46     39     41     35     56     50     44     32     30     60     45     51     60     56     23    668
+   Score    575    483    534    479    666    722    574    455    456    688    540    613    721    661    433   8600
+Score(%)   57.5   48.3   53.4   47.9   66.6   72.2   57.4   45.5   45.6   68.8   54.0   61.3   72.1   66.1   43.3   57.3
+  Rating   2317   1908   2135   1890   2722   2972   2313   1783   1787   2820   2161   2486   2967   2700   1685   2310
+
+:: STS ID and Titles ::
+STS 01: Undermining
+STS 02: Open Files and Diagonals
+STS 03: Knight Outposts
+STS 04: Square Vacancy
+STS 05: Bishop vs Knight
+STS 06: Re-Capturing
+STS 07: Offer of Simplification
+STS 08: Advancement of f/g/h Pawns
+STS 09: Advancement of a/b/c Pawns
+STS 10: Simplification
+STS 11: Activity of the King
+STS 12: Center Control
+STS 13: Pawn Play in the Center
+STS 14: Queens and Rooks to the 7th rank
+STS 15: Avoid Pointless Exchange
+
+:: Top 5 STS with high result ::
+1. STS 06, 72.2%, "Re-Capturing"
+2. STS 13, 72.1%, "Pawn Play in the Center"
+3. STS 10, 68.8%, "Simplification"
+4. STS 05, 66.6%, "Bishop vs Knight"
+5. STS 14, 66.1%, "Queens and Rooks to the 7th rank"
+
+:: Top 5 STS with low result ::
+1. STS 15, 43.3%, "Avoid Pointless Exchange"
+2. STS 08, 45.5%, "Advancement of f/g/h Pawns"
+3. STS 09, 45.6%, "Advancement of a/b/c Pawns"
+4. STS 04, 47.9%, "Square Vacancy"
+5. STS 02, 48.3%, "Open Files and Diagonals"
+

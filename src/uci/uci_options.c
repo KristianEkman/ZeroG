@@ -183,6 +183,52 @@ int uci_parse_hash_option_value(const char *args, unsigned *value)
     return *cursor == '\0' ? 0 : -1;
 }
 
+int uci_parse_spin_option_value(const char *args, const char *option_name, int *value)
+{
+    const char *cursor = uci_skip_spaces(args);
+
+    if (value == NULL || option_name == NULL)
+    {
+        return -1;
+    }
+
+    if (!uci_starts_with_keyword(cursor, "name", &cursor))
+    {
+        return -1;
+    }
+
+    if (!uci_starts_with_keyword(cursor, option_name, &cursor))
+    {
+        return -1;
+    }
+
+    if (!uci_starts_with_keyword(cursor, "value", &cursor))
+    {
+        return -1;
+    }
+
+    int is_negative = 0;
+    if (*cursor == '-')
+    {
+        is_negative = 1;
+        cursor++;
+    }
+    else if (*cursor == '+')
+    {
+        cursor++;
+    }
+
+    unsigned u_val = 0;
+    if (parse_unsigned_token(cursor, &u_val, &cursor) != 0)
+    {
+        return -1;
+    }
+
+    *value = is_negative ? -(int)u_val : (int)u_val;
+    cursor = uci_skip_spaces(cursor);
+    return *cursor == '\0' ? 0 : -1;
+}
+
 int uci_parse_go_search_limits(const UciState *state,
                                const char *args,
                                SearchLimits *limits)

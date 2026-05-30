@@ -1,13 +1,14 @@
 #include "eval.h"
 #include "eval_mobility.h"
 #include "pawn_eval.h"
+#include "eval_constants.h"
 
-#define BISHOP_PAIR_BONUS 50
+#define BISHOP_PAIR_BONUS BISHOP_PAIR_BONUS_VAL
 
-static const int rook_open_file_mg = 20;
-static const int rook_open_file_eg = 15;
-static const int rook_semi_open_file_mg = 10;
-static const int rook_semi_open_file_eg = 7;
+static const int rook_open_file_mg = ROOK_OPEN_FILE_MG_VAL;
+static const int rook_open_file_eg = ROOK_OPEN_FILE_EG_VAL;
+static const int rook_semi_open_file_mg = ROOK_SEMI_OPEN_FILE_MG_VAL;
+static const int rook_semi_open_file_eg = ROOK_SEMI_OPEN_FILE_EG_VAL;
 
 static const uint64_t file_masks[8] = {
     0x0101010101010101ULL << 0,
@@ -131,17 +132,17 @@ int evaluate(const Position *pos) {
     uint64_t w_knights = pos->pieces[COLOR_IDX(WHITE)][KNIGHT];
     while (w_knights) {
         int sq = pop_lsb(&w_knights);
-        score += 320 + knight_table[sq];
+        score += PIECE_KNIGHT_VAL + knight_table[sq];
     }
     uint64_t w_bishops = pos->pieces[COLOR_IDX(WHITE)][BISHOP];
     while (w_bishops) {
         int sq = pop_lsb(&w_bishops);
-        score += 330 + bishop_table[sq];
+        score += PIECE_BISHOP_VAL + bishop_table[sq];
     }
     uint64_t w_rooks = pos->pieces[COLOR_IDX(WHITE)][ROOK];
     while (w_rooks) {
         int sq = pop_lsb(&w_rooks);
-        int item_score = 500 + rook_table[sq];
+        int item_score = PIECE_ROOK_VAL + rook_table[sq];
 
         // Rook on open/semi-open file evaluation
         int file = sq & 7;
@@ -158,7 +159,7 @@ int evaluate(const Position *pos) {
     uint64_t w_queens = pos->pieces[COLOR_IDX(WHITE)][QUEEN];
     while (w_queens) {
         int sq = pop_lsb(&w_queens);
-        score += 900 + queen_table[sq];
+        score += PIECE_QUEEN_VAL + queen_table[sq];
     }
     uint64_t w_king = pos->pieces[COLOR_IDX(WHITE)][KING];
     while (w_king) {
@@ -170,17 +171,17 @@ int evaluate(const Position *pos) {
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
     while (b_knights) {
         int sq = pop_lsb(&b_knights);
-        score -= 320 + knight_table[sq ^ 56];
+        score -= PIECE_KNIGHT_VAL + knight_table[sq ^ 56];
     }
     uint64_t b_bishops = pos->pieces[COLOR_IDX(BLACK)][BISHOP];
     while (b_bishops) {
         int sq = pop_lsb(&b_bishops);
-        score -= 330 + bishop_table[sq ^ 56];
+        score -= PIECE_BISHOP_VAL + bishop_table[sq ^ 56];
     }
     uint64_t b_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
     while (b_rooks) {
         int sq = pop_lsb(&b_rooks);
-        int item_score = 500 + rook_table[sq ^ 56];
+        int item_score = PIECE_ROOK_VAL + rook_table[sq ^ 56];
 
         // Rook on open/semi-open file evaluation
         int file = sq & 7;
@@ -197,7 +198,7 @@ int evaluate(const Position *pos) {
     uint64_t b_queens = pos->pieces[COLOR_IDX(BLACK)][QUEEN];
     while (b_queens) {
         int sq = pop_lsb(&b_queens);
-        score -= 900 + queen_table[sq ^ 56];
+        score -= PIECE_QUEEN_VAL + queen_table[sq ^ 56];
     }
     uint64_t b_king = pos->pieces[COLOR_IDX(BLACK)][KING];
     while (b_king) {

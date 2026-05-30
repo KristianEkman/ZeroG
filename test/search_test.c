@@ -5,6 +5,7 @@
 #include "search/search.h"
 #include "search/time_control.h"
 #include "uci/uci.h"
+#include "uci/uci_internal.h"
 #include <string.h>
 
 #define MATE_SCORE 29000
@@ -370,6 +371,86 @@ void test_search_history_heuristic(void)
     TEST_ASSERT_FALSE(has_history_after_reset);
 }
 
+void test_search_options(void)
+{
+    // Test direct search setters constraints
+    TEST_ASSERT_EQUAL_INT(-1, search_set_lmr_base(-1));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_lmr_base(21));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_base(0));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_base(5));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_base(20));
+
+    TEST_ASSERT_EQUAL_INT(-1, search_set_futility_margin(-1));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_futility_margin(501));
+    TEST_ASSERT_EQUAL_INT(0, search_set_futility_margin(0));
+    TEST_ASSERT_EQUAL_INT(0, search_set_futility_margin(100));
+    TEST_ASSERT_EQUAL_INT(0, search_set_futility_margin(500));
+
+    TEST_ASSERT_EQUAL_INT(-1, search_set_rfp_margin(-1));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_rfp_margin(301));
+    TEST_ASSERT_EQUAL_INT(0, search_set_rfp_margin(0));
+    TEST_ASSERT_EQUAL_INT(0, search_set_rfp_margin(120));
+    TEST_ASSERT_EQUAL_INT(0, search_set_rfp_margin(300));
+
+    TEST_ASSERT_EQUAL_INT(-1, search_set_nmp_min_depth(0));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_nmp_min_depth(11));
+    TEST_ASSERT_EQUAL_INT(0, search_set_nmp_min_depth(1));
+    TEST_ASSERT_EQUAL_INT(0, search_set_nmp_min_depth(3));
+    TEST_ASSERT_EQUAL_INT(0, search_set_nmp_min_depth(10));
+
+    TEST_ASSERT_EQUAL_INT(-1, search_set_singular_margin(-1));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_singular_margin(11));
+    TEST_ASSERT_EQUAL_INT(0, search_set_singular_margin(0));
+    TEST_ASSERT_EQUAL_INT(0, search_set_singular_margin(2));
+    TEST_ASSERT_EQUAL_INT(0, search_set_singular_margin(10));
+
+    TEST_ASSERT_EQUAL_INT(-1, search_set_aspiration_window(4));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_aspiration_window(201));
+    TEST_ASSERT_EQUAL_INT(0, search_set_aspiration_window(5));
+    TEST_ASSERT_EQUAL_INT(0, search_set_aspiration_window(40));
+    TEST_ASSERT_EQUAL_INT(0, search_set_aspiration_window(200));
+
+    TEST_ASSERT_EQUAL_INT(-1, search_set_lmr_min_depth(0));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_lmr_min_depth(16));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_min_depth(1));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_min_depth(5));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_min_depth(15));
+
+    TEST_ASSERT_EQUAL_INT(-1, search_set_futility_max_depth(0));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_futility_max_depth(6));
+    TEST_ASSERT_EQUAL_INT(0, search_set_futility_max_depth(1));
+    TEST_ASSERT_EQUAL_INT(0, search_set_futility_max_depth(2));
+    TEST_ASSERT_EQUAL_INT(0, search_set_futility_max_depth(5));
+
+    // Test parsing helpers
+    int val = -999;
+    // Valid cases
+    TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("name LMR_Base value 12", "LMR_Base", &val));
+    TEST_ASSERT_EQUAL_INT(12, val);
+
+    TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("name RFP_Margin value 150", "RFP_Margin", &val));
+    TEST_ASSERT_EQUAL_INT(150, val);
+
+    TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("name NMP_Min_Depth value 4", "NMP_Min_Depth", &val));
+    TEST_ASSERT_EQUAL_INT(4, val);
+
+    TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("name Singular_Margin value 3", "Singular_Margin", &val));
+    TEST_ASSERT_EQUAL_INT(3, val);
+
+    TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("  name   Futility_Margin   value   250  ", "Futility_Margin", &val));
+    TEST_ASSERT_EQUAL_INT(250, val);
+
+    // Negative option value (even if out of bounds for the search constraint, parser parses it correctly)
+    TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("name Futility_Margin value -10", "Futility_Margin", &val));
+    TEST_ASSERT_EQUAL_INT(-10, val);
+
+    // Invalid cases
+    TEST_ASSERT_EQUAL_INT(-1, uci_parse_spin_option_value("name LMR_Base value", "LMR_Base", &val));
+    TEST_ASSERT_EQUAL_INT(-1, uci_parse_spin_option_value("name LMR_Base value abc", "LMR_Base", &val));
+    TEST_ASSERT_EQUAL_INT(-1, uci_parse_spin_option_value("name LMR_Base value 12 extra", "LMR_Base", &val));
+    TEST_ASSERT_EQUAL_INT(-1, uci_parse_spin_option_value("name Futility_Margin value 100", "LMR_Base", &val)); // Name mismatch
+}
+
 int main(void)
 {
     bitboard_init();
@@ -389,6 +470,7 @@ int main(void)
     RUN_TEST(test_time_control_one_legal_move);
     RUN_TEST(test_time_control_calculations);
     RUN_TEST(test_search_history_heuristic);
+    RUN_TEST(test_search_options);
 
     return UNITY_END();
 }
