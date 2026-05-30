@@ -142,3 +142,51 @@ STS 15: Avoid Pointless Exchange
 4. STS 09, 38.7%, "Advancement of a/b/c Pawns"
 5. STS 15, 44.0%, "Avoid Pointless Exchange"
 
+STS Rating v14.2
+Engine: ChessAI2027 1.0.0
+Hash: 32, Threads: 1, time/pos: 0.064s
+
+Number of positions in ../STS-Rating/STS1-STS15_LAN_v3.epd: 1500
+Max score = 1500 x 10 = 15000
+Test duration: 00h:01m:36s
+Expected time to finish: 00h:02m:21s
+STS rating: 2289
+
+  STS ID   STS1   STS2   STS3   STS4   STS5   STS6   STS7   STS8   STS9  STS10  STS11  STS12  STS13  STS14  STS15    ALL
+  NumPos    100    100    100    100    100    100    100    100    100    100    100    100    100    100    100   1500
+ BestCnt     41     40     40     37     58     49     32     32     30     56     50     49     62     56     21    653
+   Score    533    481    526    506    693    714    489    469    419    664    579    593    736    695    434   8531
+Score(%)   53.3   48.1   52.6   50.6   69.3   71.4   48.9   46.9   41.9   66.4   57.9   59.3   73.6   69.5   43.4   56.9
+  Rating   2130   1899   2099   2010   2843   2936   1934   1845   1623   2713   2335   2397   3034   2851   1689   2289
+
+:: STS ID and Titles ::
+STS 01: Undermining
+STS 02: Open Files and Diagonals
+STS 03: Knight Outposts
+STS 04: Square Vacancy
+STS 05: Bishop vs Knight
+STS 06: Re-Capturing
+STS 07: Offer of Simplification
+STS 08: Advancement of f/g/h Pawns
+STS 09: Advancement of a/b/c Pawns
+STS 10: Simplification
+STS 11: Activity of the King
+STS 12: Center Control
+STS 13: Pawn Play in the Center
+STS 14: Queens and Rooks to the 7th rank
+STS 15: Avoid Pointless Exchange
+
+:: Top 5 STS with high result ::
+1. STS 13, 73.6%, "Pawn Play in the Center"
+2. STS 06, 71.4%, "Re-Capturing"
+3. STS 14, 69.5%, "Queens and Rooks to the 7th rank"
+4. STS 05, 69.3%, "Bishop vs Knight"
+5. STS 10, 66.4%, "Simplification"
+
+:: Top 5 STS with low result ::
+1. STS 09, 41.9%, "Advancement of a/b/c Pawns"
+2. STS 15, 43.4%, "Avoid Pointless Exchange"
+3. STS 08, 46.9%, "Advancement of f/g/h Pawns"
+4. STS 02, 48.1%, "Open Files and Diagonals"
+5. STS 07, 48.9%, "Offer of Simplification"
+

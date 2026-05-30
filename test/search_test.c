@@ -310,6 +310,66 @@ void test_time_control_calculations(void)
     TEST_ASSERT_TRUE(tc_override.soft_limit_ms > tc_mid.soft_limit_ms);
 }
 
+void test_search_history_heuristic(void)
+{
+    Position test_pos;
+    memset(&test_pos, 0, sizeof(Position));
+    int parse_res = fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &test_pos);
+    TEST_ASSERT_EQUAL_INT(0, parse_res);
+
+    SearchLimits limits = {
+        .depth = 5,
+        .soft_time_limit_ms = 0,
+        .hard_time_limit_ms = 0
+    };
+    SearchResult result;
+    memset(&result, 0, sizeof(SearchResult));
+
+    int search_res = search_best_move_with_limits(&test_pos, &limits, &result);
+    TEST_ASSERT_EQUAL_INT(0, search_res);
+
+    // Let's iterate over all possible from/to squares and find if any has a positive history score.
+    int found_history_score = 0;
+    for (int side = 0; side < 2; side++) {
+        Color color = (side == 0) ? WHITE : BLACK;
+        for (int from = 0; from < 64; from++) {
+            for (int to = 0; to < 64; to++) {
+                int score = search_get_history_score(color, from, to);
+                if (score > 0) {
+                    found_history_score = 1;
+                }
+            }
+        }
+    }
+    TEST_ASSERT_TRUE(found_history_score);
+
+    // Let's verify it gets reset. We search a checkmate position (no legal moves).
+    // The search should immediately return, and the history table should be reset to 0.
+    Position mate_pos;
+    memset(&mate_pos, 0, sizeof(Position));
+    parse_res = fen_parse("3rkr2/8/8/8/8/3p4/4q3/R3K2R w KQ - 0 1", &mate_pos);
+    TEST_ASSERT_EQUAL_INT(0, parse_res);
+
+    limits.depth = 1;
+    memset(&result, 0, sizeof(SearchResult));
+    search_res = search_best_move_with_limits(&mate_pos, &limits, &result);
+    TEST_ASSERT_EQUAL_INT(0, search_res);
+
+    // Now all history scores should be 0.
+    int has_history_after_reset = 0;
+    for (int side = 0; side < 2; side++) {
+        Color color = (side == 0) ? WHITE : BLACK;
+        for (int from = 0; from < 64; from++) {
+            for (int to = 0; to < 64; to++) {
+                if (search_get_history_score(color, from, to) > 0) {
+                    has_history_after_reset = 1;
+                }
+            }
+        }
+    }
+    TEST_ASSERT_FALSE(has_history_after_reset);
+}
+
 int main(void)
 {
     bitboard_init();
@@ -328,6 +388,7 @@ int main(void)
     RUN_TEST(test_search_pv_promotion_suffix);
     RUN_TEST(test_time_control_one_legal_move);
     RUN_TEST(test_time_control_calculations);
+    RUN_TEST(test_search_history_heuristic);
 
     return UNITY_END();
 }

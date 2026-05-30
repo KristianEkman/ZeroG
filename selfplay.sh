@@ -25,7 +25,7 @@ done
 ../cutechess/cutechess/build/cutechess-cli \
  -engine cmd=./builds/ChessAI2027_prev proto=uci name=OLD \
  -engine cmd=./builds/chessai2027 proto=uci name=NEW \
- -each tc=3+0.01 \
+ -each tc=10+0.01 \
  -games 300 \
  -openings file=./grand_master_openings.epd format=epd order=random \
  -repeat \

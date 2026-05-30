@@ -27,6 +27,7 @@ static unsigned hash_size = 16; /* default 16MB */
 static uint64_t node_count = 0;
 
 static Move killer_moves[2][MAX_DEPTH];
+static int history_scores[2][64][64];
 
 static int lmr_reductions[MAX_DEPTH][MAX_MOVES];
 static int lmr_initialized = 0;
@@ -80,6 +81,10 @@ int search_set_hash_size_mb(unsigned size_mb) {
         tt_initialized = 1;
     }
     return 0;
+}
+
+int search_get_history_score(Color side, Square from, Square to) {
+    return history_scores[COLOR_IDX(side)][from][to];
 }
 
 int search_compute_time_limits(const Position *board,
@@ -209,7 +214,7 @@ static int score_move(const Position *pos, Move m, Move pv_move, int ply) {
         return 10000;
     }
 
-    return 0;
+    return history_scores[COLOR_IDX(pos->sideToMove)][from][to];
 }
 
 /* Lazy/incremental move selection: picks the best move from the remaining unsorted range */
@@ -623,12 +628,21 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *p
         }
 
         if (alpha >= beta) {
-            // Save killer move if it is a quiet move
+            // Save killer move and update history score if it is a quiet move
             if (!move_is_capture_or_promo(pos, moves[i])) {
                 if (killer_moves[0][ply] != moves[i]) {
                     killer_moves[1][ply] = killer_moves[0][ply];
                     killer_moves[0][ply] = moves[i];
                 }
+
+                int from = MOVE_FROM(moves[i]);
+                int to = MOVE_TO(moves[i]);
+                int bonus = depth * depth;
+                if (bonus > 2000) {
+                    bonus = 2000;
+                }
+                int color_idx = COLOR_IDX(pos->sideToMove);
+                history_scores[color_idx][from][to] += bonus - history_scores[color_idx][from][to] * bonus / 20000;
             }
             break;
         }
@@ -682,6 +696,54 @@ static int search_aspiration_window(Position *pos, unsigned depth, int previous_
         }
     }
     return score;
+}static int reconstruct_pv_from_tt(const Position *pos, PVLine *pv, int max_depth) {
+    Position temp_pos = *pos;
+    pv->length = 0;
+    
+    uint64_t visited_keys[MAX_DEPTH];
+    int visited_count = 0;
+
+    for (int ply = 0; ply < max_depth && ply < MAX_DEPTH; ply++) {
+        TranspositionEntry entry;
+        int hit = transposition_table_lookup(&tt, temp_pos.hashKey, ply, &entry);
+        if (hit != 1 || entry.best_move == 0) {
+            break;
+        }
+
+        // Verify that entry.best_move is legal in the current position
+        Move moves[MAX_MOVES];
+        int count = movegen_legal(&temp_pos, moves);
+        int legal = 0;
+        for (int i = 0; i < count; i++) {
+            if (moves[i] == entry.best_move) {
+                legal = 1;
+                break;
+            }
+        }
+        if (!legal) {
+            break;
+        }
+
+        // Detect transposition/repetition cycles
+        int cycle = 0;
+        for (int i = 0; i < visited_count; i++) {
+            if (visited_keys[i] == temp_pos.hashKey) {
+                cycle = 1;
+                break;
+            }
+        }
+        if (cycle) {
+            break;
+        }
+        visited_keys[visited_count++] = temp_pos.hashKey;
+
+        pv->moves[ply] = entry.best_move;
+        pv->length = ply + 1;
+
+        Undo u;
+        apply_move(&temp_pos, entry.best_move, &u);
+    }
+    return pv->length;
 }
 
 /* Outputs UCI log information for the current depth */
@@ -734,6 +796,7 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
     }
 
     memset(killer_moves, 0, sizeof(killer_moves));
+    memset(history_scores, 0, sizeof(history_scores));
 
     Position pos = *board;
     Move moves[MAX_MOVES];
@@ -800,6 +863,14 @@ int search_best_move_with_limits(const Position *board, const SearchLimits *limi
             result->best_move = best_move_so_far;
             result->score = best_score_so_far;
             result->node_count = node_count;
+        }
+
+        // Reconstruct the PV from the transposition table to get a complete PV trace
+        PVLine tt_pv;
+        memset(&tt_pv, 0, sizeof(tt_pv));
+        reconstruct_pv_from_tt(&pos, &tt_pv, MAX_DEPTH);
+        if (tt_pv.length > 0) {
+            pv = tt_pv;
         }
 
         log_search_info(d, score, node_count, &pv, board);

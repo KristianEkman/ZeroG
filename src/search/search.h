@@ -32,5 +32,6 @@ int search_compute_time_limits(const Position *board,
                                unsigned movestogo,
                                SearchLimits *limits);
 int search_set_hash_size_mb(unsigned size_mb);
+int search_get_history_score(Color side, Square from, Square to);
 
 #endif /* SEARCH_H */
