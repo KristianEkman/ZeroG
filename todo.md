@@ -6,7 +6,7 @@ Evaluation
  king safety
  - [x] passed pawns
  - [x] isolated/doubled pawns
- rook on open file
+ - [x] rook on open file
  tempo bonus
  pawn shield
 

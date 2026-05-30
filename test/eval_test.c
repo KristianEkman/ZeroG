@@ -216,6 +216,52 @@ void test_eval_doubled_pawns(void)
     TEST_ASSERT_TRUE(score_doubled > score_tripled);
 }
 
+void test_eval_rook_open_files(void)
+{
+    Position pos_symmetric;
+    Position pos_open;
+    Position pos_semi_open;
+    Position pos_closed;
+
+    // 1. Symmetric position: both sides have a rook on an open file (D-file)
+    // FEN: 3rk3/ppp2ppp/8/8/8/8/PPP2PPP/3RK3 w - - 0 1
+    // D-file is completely open. Both sides have identical setups. Score must be exactly 0.
+    memset(&pos_symmetric, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("3rk3/ppp2ppp/8/8/8/8/PPP2PPP/3RK3 w - - 0 1", &pos_symmetric));
+    TEST_ASSERT_EQUAL_INT(0, evaluate(&pos_symmetric));
+
+    // 2. Rook on Open File (D1)
+    // FEN: 4k3/ppp1pppp/8/8/8/8/PPP2PPP/3RK3 w - - 0 1
+    // D-file has no White or Black pawns -> Open file for the Rook on D1.
+    memset(&pos_open, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/ppp1pppp/8/8/8/8/PPP2PPP/3RK3 w - - 0 1", &pos_open));
+    int score_open = evaluate(&pos_open);
+
+    // 3. Rook on Semi-Open File (E1)
+    // FEN: 4k3/ppp1pppp/8/8/8/8/PPP2PPP/3KR3 w - - 0 1
+    // E-file has no White pawns, but has Black pawn on E7 -> Semi-open file for the Rook on E1.
+    // King is on D1 (same PST score as E1 in endgame).
+    memset(&pos_semi_open, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/ppp1pppp/8/8/8/8/PPP2PPP/3KR3 w - - 0 1", &pos_semi_open));
+    int score_semi_open = evaluate(&pos_semi_open);
+
+    // 4. Rook on Closed File (F1)
+    // FEN: 4k3/ppp1pppp/8/8/8/8/PPP2PPP/4KR2 w - - 0 1
+    // F-file has White pawn on F2 -> Closed file for the Rook on F1.
+    memset(&pos_closed, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/ppp1pppp/8/8/8/8/PPP2PPP/4KR2 w - - 0 1", &pos_closed));
+    int score_closed = evaluate(&pos_closed);
+
+    // Rook on open file should evaluate higher than rook on semi-open file
+    TEST_ASSERT_TRUE(score_open > score_semi_open);
+
+    // Rook on semi-open file should evaluate higher than rook on closed file
+    TEST_ASSERT_TRUE(score_semi_open > score_closed);
+
+    // Rook on open file should evaluate higher than rook on closed file
+    TEST_ASSERT_TRUE(score_open > score_closed);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -235,6 +281,7 @@ int main(void)
     RUN_TEST(test_eval_passed_pawns);
     RUN_TEST(test_eval_isolated_pawns);
     RUN_TEST(test_eval_doubled_pawns);
+    RUN_TEST(test_eval_rook_open_files);
 
     return UNITY_END();
 }

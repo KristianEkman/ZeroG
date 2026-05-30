@@ -65,6 +65,12 @@ Scores a given board position statically.
   - *Protection*: Bonus if the passed pawn is defended by another friendly pawn.
   - *Blockade*: Reduces the bonus if any piece blockades the pawn on the square directly in front of it.
   - *Rook/Queen Alignment*: Grants a bonus if a friendly rook/queen supports the pawn from behind on the same file, or applies a penalty if an enemy rook/queen aligns behind it.
+- **Pawn Structure**: Assesses pawn weaknesses to reward healthy structures:
+  - *Isolated Pawns*: Applies a penalty if a pawn has no friendly pawns on adjacent files (with an increased penalty if the file is semi-open).
+  - *Doubled Pawns*: Applies a penalty if multiple friendly pawns occupy the same file.
+- **Rooks on Open & Semi-Open Files**: Awards positional bonuses to rooks placed on active files to encourage vertical penetration:
+  - *Open File*: A file with no pawns of either color (+20 cp in middlegame, +15 cp in endgame).
+  - *Semi-Open File*: A file with no friendly pawns but containing enemy pawns (+10 cp in middlegame, +7 cp in endgame).
 
 ### 7. UCI Protocol Engine (`src/uci/`)
 Implements the industry-standard Universal Chess Interface (UCI) protocol, enabling ChessAI2027 to interface with chess GUIs (like Arena, Cute Chess, or ChessBase).

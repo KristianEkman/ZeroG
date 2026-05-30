@@ -15,6 +15,11 @@ static const int isolated_pawn_eg = 8;
 static const int isolated_pawn_semi_open_mg = 10;
 static const int isolated_pawn_semi_open_eg = 15;
 
+static const int rook_open_file_mg = 20;
+static const int rook_open_file_eg = 15;
+static const int rook_semi_open_file_mg = 10;
+static const int rook_semi_open_file_eg = 7;
+
 static const uint64_t file_masks[8] = {
     0x0101010101010101ULL << 0,
     0x0101010101010101ULL << 1,
@@ -209,7 +214,19 @@ int evaluate(const Position *pos) {
     uint64_t w_rooks = pos->pieces[COLOR_IDX(WHITE)][ROOK];
     while (w_rooks) {
         int sq = pop_lsb(&w_rooks);
-        score += 500 + rook_table[sq];
+        int item_score = 500 + rook_table[sq];
+
+        // Rook on open/semi-open file evaluation
+        int file = sq & 7;
+        if (!(file_masks[file] & w_pawns_copy)) {
+            if (!(file_masks[file] & b_pawns_copy)) {
+                item_score += is_endgame ? rook_open_file_eg : rook_open_file_mg;
+            } else {
+                item_score += is_endgame ? rook_semi_open_file_eg : rook_semi_open_file_mg;
+            }
+        }
+
+        score += item_score;
     }
     uint64_t w_queens = pos->pieces[COLOR_IDX(WHITE)][QUEEN];
     while (w_queens) {
@@ -286,7 +303,19 @@ int evaluate(const Position *pos) {
     uint64_t b_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
     while (b_rooks) {
         int sq = pop_lsb(&b_rooks);
-        score -= 500 + rook_table[sq ^ 56];
+        int item_score = 500 + rook_table[sq ^ 56];
+
+        // Rook on open/semi-open file evaluation
+        int file = sq & 7;
+        if (!(file_masks[file] & b_pawns_copy)) {
+            if (!(file_masks[file] & w_pawns_copy)) {
+                item_score += is_endgame ? rook_open_file_eg : rook_open_file_mg;
+            } else {
+                item_score += is_endgame ? rook_semi_open_file_eg : rook_semi_open_file_mg;
+            }
+        }
+
+        score -= item_score;
     }
     uint64_t b_queens = pos->pieces[COLOR_IDX(BLACK)][QUEEN];
     while (b_queens) {
