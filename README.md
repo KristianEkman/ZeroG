@@ -131,6 +131,57 @@ The engine includes exhaustive tests built using the Unity C test framework.
 
 ---
 
+## Engine Tuning
+
+ChessAI2027 supports two distinct tuning methodologies to optimize its playing strength: offline **Texel Tuning** for static evaluation terms, and online **SPSA Tuning** for search parameters.
+
+### 1. Offline Evaluation Tuning (Texel Method)
+Texel tuning minimizes the mean squared error (MSE) between the static evaluation of quiet positions and the actual game outcomes ($1.0$ for White win, $0.5$ for draw, $0.0$ for Black win) using a Sigmoid function to map evaluation scores to win probabilities:
+
+$$E = \frac{1}{1 + 10^{-K \cdot S / 400}}$$
+
+#### Workflow:
+1. **Filter Quiet Positions**: Run a quiescence search (Q-search) to filter out tactical/non-quiet positions from raw training game data:
+   ```bash
+   ./builds/chessai2027 --tune-filter traindata.epd quiet_traindata.epd
+   ```
+2. **Export Features**: Extract evaluation counts/coefficients (pawns, rooks on open files, bishop pair, mobility, etc.) to a CSV for fast matrix operations:
+   ```bash
+   ./builds/chessai2027 --tune-export quiet_traindata.epd quiet_traindata_features.csv
+   ```
+3. **Run Optimization**: Optimize constants using L-BFGS-B gradient descent:
+   ```bash
+   python3 tune.py
+   ```
+   This script calculates the optimal scaling factor $K$, fits the parameters, normalizes them (so the pawn value is exactly 100), and outputs them directly to `src/eval/eval_constants.h`.
+
+---
+
+### 2. Online Search Parameter Tuning (SPSA)
+Simultaneous Perturbation Stochastic Approximation (SPSA) is used to tune search parameters (such as LMR reduction bases, pruning margins, and aspiration windows) through automated fast self-play matches.
+
+#### Workflow:
+1. **Run SPSA Script**: Execute SPSA optimization, which runs matches of candidate configurations using `cutechess-cli`:
+   ```bash
+   python3 spsa.py --games 100 --iterations 50 --concurrency 4 --tc 10+0.01
+   ```
+   - **Perturbations**: The script perturbs parameters by $\pm c_k$ to test Candidate A vs Candidate B.
+   - **Hyperparameters**: Automatically decays perturbation step size ($c_k$) and learning rate ($a_k$) across iterations.
+2. **Resumption**: In case of interruption, resume SPSA by passing the `--resume` flag:
+   ```bash
+   python3 spsa.py --resume --games 100 --iterations 50 --concurrency 4
+   ```
+   State is stored in `spsa_state.json`.
+3. **Apply Tuned Parameters**:
+   - Update the static variables at the top of [search.c](file:///Users/kristianekman/ChessAi2027/src/search/search.c).
+   - Update the reported option defaults in [uci_command.c](file:///Users/kristianekman/ChessAi2027/src/uci/uci_command.c).
+   - Recompile the engine:
+     ```bash
+     make clean && make
+     ```
+
+---
+
 ## Usage
 
 By default, when executed without arguments, ChessAI2027 automatically enters **UCI mode** and listens to standard input commands:
