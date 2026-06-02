@@ -5,6 +5,7 @@
 #include "transposition_table.h"
 #include "uci/uci.h"
 #include "zobrist.h"
+#include "see.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -304,9 +305,12 @@ static int score_move(const Position *pos, Move m, Move pv_move, int ply) {
   }
 
   if (is_cap) {
-    PieceType victim = PIECE_TYPE(victim_piece);
-    // MVV-LVA: Most Valuable Victim, Least Valuable Attacker
-    return 100000 + get_piece_value(victim) * 10 - get_piece_value(attacker);
+    int see_val = see(pos, m);
+    if (see_val >= 0) {
+      return 100000 + see_val;
+    } else {
+      return 35000 + see_val;
+    }
   }
 
   // Promotions
@@ -498,6 +502,18 @@ static int quiescence(Position *pos, int ply, int alpha, int beta,
     pick_best_move(moves, scores, count, i);
     if (is_illegal_castle(pos, moves[i])) {
       continue;
+    }
+
+    // SEE pruning: prune bad captures in quiescence search if not in check
+    if (!in_check) {
+      int to = MOVE_TO(moves[i]);
+      if (pos->board[to] != EMPTY || to == pos->enPassantSquare) {
+        int from = MOVE_FROM(moves[i]);
+        int is_promo = (PIECE_TYPE(pos->board[from]) == PAWN) && (RANK_OF(to) == 0 || RANK_OF(to) == 7);
+        if (!is_promo && see(pos, moves[i]) < 0) {
+          continue;
+        }
+      }
     }
 
     Undo u;

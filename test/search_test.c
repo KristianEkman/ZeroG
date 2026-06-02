@@ -6,6 +6,7 @@
 #include "search/time_control.h"
 #include "uci/uci.h"
 #include "uci/uci_internal.h"
+#include "see.h"
 #include <string.h>
 
 #define MATE_SCORE 29000
@@ -451,6 +452,41 @@ void test_search_options(void)
     TEST_ASSERT_EQUAL_INT(-1, uci_parse_spin_option_value("name Futility_Margin value 100", "LMR_Base", &val)); // Name mismatch
 }
 
+void test_see(void)
+{
+    Position pos;
+    Move m;
+    int score;
+
+    // Test 1: Simple undefended capture (White Rook on e1 captures Black Pawn on e4)
+    memset(&pos, 0, sizeof(Position));
+    fen_parse("8/8/8/8/4p3/8/8/4R1K1 w - - 0 1", &pos);
+    m = MOVE_BUILD(E1, E4, 0, MOVE_QUIET);
+    score = see(&pos, m);
+    TEST_ASSERT_EQUAL_INT(100, score);
+
+    // Test 2: Simple defended capture (losing) (White Knight on f3 captures Black Pawn on d4, defended by Black Pawn on e5)
+    memset(&pos, 0, sizeof(Position));
+    fen_parse("8/8/8/4p3/3p4/5N2/8/6K1 w - - 0 1", &pos);
+    m = MOVE_BUILD(F3, D4, 0, MOVE_QUIET);
+    score = see(&pos, m);
+    TEST_ASSERT_EQUAL_INT(-200, score);
+
+    // Test 3: Trade (equal exchange) (White Knight on f3 captures Black Bishop on d4, defended by Black Knight on f5)
+    memset(&pos, 0, sizeof(Position));
+    fen_parse("8/8/8/5n2/3b4/5N2/8/6K1 w - - 0 1", &pos);
+    m = MOVE_BUILD(F3, D4, 0, MOVE_QUIET);
+    score = see(&pos, m);
+    TEST_ASSERT_EQUAL_INT(0, score);
+
+    // Test 4: X-ray attack (White Bishop on b2 captures Black Knight on d4, defended by Black Pawn on e5. White Queen on a1 is X-raying behind Bishop)
+    memset(&pos, 0, sizeof(Position));
+    fen_parse("8/8/8/4p3/3n4/8/1B6/Q5K1 w - - 0 1", &pos);
+    m = MOVE_BUILD(B2, D4, 0, MOVE_QUIET);
+    score = see(&pos, m);
+    TEST_ASSERT_EQUAL_INT(100, score); // 300 (Knight) - 300 (Bishop) + 100 (Pawn) = 100
+}
+
 int main(void)
 {
     bitboard_init();
@@ -471,6 +507,7 @@ int main(void)
     RUN_TEST(test_time_control_calculations);
     RUN_TEST(test_search_history_heuristic);
     RUN_TEST(test_search_options);
+    RUN_TEST(test_see);
 
     return UNITY_END();
 }
