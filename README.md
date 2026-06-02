@@ -41,17 +41,19 @@ Determines the best move using search algorithm logic.
 - **Iterative Deepening**: Incrementally searches deeper plies, allowing the engine to return the best-move-so-far if time expires.
 - **Aspiration Windows**: Limits search scope around the previous depth's score, widening window boundaries only if search fails high or low.
 - **Principal Variation Search (PVS)**: Optimizes the alpha-beta search window by searching the principal variation (PV) first with a full window, and subsequent moves with a null/zero window.
-- **Quiescence Search**: Extends search at leaf nodes to evaluate only captures and promotions, preventing the horizon effect.
+- **Quiescence Search**: Extends search at leaf nodes to evaluate captures and promotions to prevent the horizon effect. Includes **SEE Pruning** to discard losing captures (SEE < 0) when not in check.
 - **Move Ordering**:
   - *PV / TT Move*: Searches the best move from the transposition table or previous iteration first.
-  - *MVV-LVA (Most Valuable Victim, Least Valuable Attacker)*: Prioritizes captures that win material.
+  - *Static Exchange Evaluation (SEE)*: Orders captures dynamically using SEE values to evaluate material exchange viability (promising exchanges first, bad captures deferred), replacing simple MVV-LVA ordering.
   - *Killer Moves*: Prioritizes quiet moves that caused a beta-cutoff in helper plies.
+  - *History Heuristics*: Orders quiet moves using a dynamically updated table of historical search cutoffs, rewarding moves causing beta-cutoffs and penalizing other tried quiet moves.
+  - *Castling*: Grants a minor bonus to castle moves to prioritize king safety.
 - **Pruning, Extensions & Safety Features**:
   - *Null-Move Pruning (NMP)*: Passes the move to detect quick fail-high branches, bypassing search branches if the opponent cannot exploit the pass.
-  - *Late Move Reductions (LMR)*: Reduces the search depth of quiet moves that appear late in the move list. If a reduced search fails high, it is re-searched at full depth. Reduces less in PV nodes and for killer moves, and bypasses reduction for tactical moves (captures/promotions), check-giving moves, and shallow depths ($d < 5$).
+  - *History-Based Late Move Reductions (HLMR)*: Reduces the search depth of quiet moves that appear late in the move list, dynamically adjusting the reduction based on history scores. Promising quiet moves are reduced less (or not at all), while moves with bad history are reduced more. Reductions are bypassed for tactical moves (captures/promotions), check-giving moves, and shallow depths ($d < 4$).
   - *Singular Extensions (SE)*: Extends the search depth by 1 ply when a move (typically the transposition table best move) is significantly better than all alternative moves. Run at depth $\ge 8$, a reduced-depth verification search ensures no other move can score within a depth-dependent margin of the best move.
   - *Reverse Futility Pruning (RFP)*: Prunes search branches at shallow depths ($d \le 3$) if the static evaluation minus a depth-dependent margin is still greater than or equal to beta.
-  - *Futility Pruning*: Prunes quiet moves at shallow depths ($d \le 2$) if the static evaluation plus a depth-dependent margin fails to exceed alpha.
+  - *Futility Pruning*: Prunes quiet moves at shallow depths ($d \le 1$) if the static evaluation plus a depth-dependent margin fails to exceed alpha.
   - *Mate Distance Pruning*: Speeds up search by capping alpha/beta boundaries when a forced mate is found.
   - *Draw & Repetition Detection*: Immediately returns draw evaluations (0) on repetition or 50-move rule limits.
 
@@ -76,6 +78,16 @@ Scores a given board position statically.
 Implements the industry-standard Universal Chess Interface (UCI) protocol, enabling ChessAI2027 to interface with chess GUIs (like Arena, Cute Chess, or ChessBase).
 - **Asynchronous Search Loop**: Spawns a background thread to process searching asynchronously, allowing the main loop to listen for standard `stop` and `quit` commands.
 - **Commands Handled**: Supports standard instructions including `uci`, `isready`, `ucinewgame`, `position`, `go` (including `wtime`, `btime`, `winc`, `binc`, `movestogo`), `setoption`, `stop`, and `quit`.
+- **Configurable Options**: Exposes engine internal variables as UCI spin/numeric options for search tuning (e.g., in cutechess-cli or SPSA scripts):
+  - `Hash`: Transposition table size (MB).
+  - `LMR_Base`: Controls LMR reduction aggressiveness.
+  - `LMR_Min_Depth`: Minimum remaining depth to apply LMR.
+  - `LMR_History_Divisor`: Scaling factor for history-based reduction adjustments.
+  - `Futility_Margin` & `Futility_Max_Depth`: Controls the margin and depth boundary of Futility Pruning.
+  - `RFP_Margin`: Margin for Reverse Futility Pruning.
+  - `NMP_Min_Depth`: Minimum remaining depth for Null-Move Pruning.
+  - `Singular_Margin`: Verification margin for Singular Extensions.
+  - `Aspiration_Window`: Margins for aspiration search boundaries.
 
 ### 8. Time Control (`src/search/time_control.h` / `src/search/time_control.c`)
 Manages search time budgets dynamically to optimize strength and prevent clock flag-outs.
