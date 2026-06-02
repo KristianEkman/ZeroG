@@ -289,12 +289,12 @@ int is_square_attacked(const Position *pos, int sq, Color attacker)
 
     /* Bishop / Queen diagonals */
     uint64_t sliders_diag = pos->pieces[a_idx][BISHOP] | pos->pieces[a_idx][QUEEN];
-    if (sliders_diag && (bishopAttacks(sq, occ) & sliders_diag))
+    if (sliders_diag && (bishopEmptyAttacks[sq] & sliders_diag) && (bishopAttacks(sq, occ) & sliders_diag))
         return 1;
 
     /* Rook / Queen orthogonals */
     uint64_t sliders_orth = pos->pieces[a_idx][ROOK] | pos->pieces[a_idx][QUEEN];
-    if (sliders_orth && (rookAttacks(sq, occ) & sliders_orth))
+    if (sliders_orth && (rookEmptyAttacks[sq] & sliders_orth) && (rookAttacks(sq, occ) & sliders_orth))
         return 1;
 
     /* King */

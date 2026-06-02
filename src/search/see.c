@@ -25,14 +25,18 @@ static uint64_t get_attackers(const Position *pos, int sq, uint64_t occ) {
     attackers |= knightAttacks[sq] & (pos->pieces[COLOR_IDX(WHITE)][KNIGHT] | pos->pieces[COLOR_IDX(BLACK)][KNIGHT]);
 
     /* Bishop & Queen diagonal attacks */
-    uint64_t bishop_attacks = bishopAttacks(sq, occ);
-    attackers |= bishop_attacks & (pos->pieces[COLOR_IDX(WHITE)][BISHOP] | pos->pieces[COLOR_IDX(BLACK)][BISHOP] |
-                                   pos->pieces[COLOR_IDX(WHITE)][QUEEN]  | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+    uint64_t diagonal_sliders = (pos->pieces[COLOR_IDX(WHITE)][BISHOP] | pos->pieces[COLOR_IDX(BLACK)][BISHOP] |
+                                 pos->pieces[COLOR_IDX(WHITE)][QUEEN]  | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+    if (bishopEmptyAttacks[sq] & diagonal_sliders) {
+        attackers |= bishopAttacks(sq, occ) & diagonal_sliders;
+    }
 
     /* Rook & Queen orthogonal attacks */
-    uint64_t rook_attacks = rookAttacks(sq, occ);
-    attackers |= rook_attacks & (pos->pieces[COLOR_IDX(WHITE)][ROOK]  | pos->pieces[COLOR_IDX(BLACK)][ROOK] |
-                                 pos->pieces[COLOR_IDX(WHITE)][QUEEN] | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+    uint64_t orthogonal_sliders = (pos->pieces[COLOR_IDX(WHITE)][ROOK]  | pos->pieces[COLOR_IDX(BLACK)][ROOK] |
+                                   pos->pieces[COLOR_IDX(WHITE)][QUEEN] | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+    if (rookEmptyAttacks[sq] & orthogonal_sliders) {
+        attackers |= rookAttacks(sq, occ) & orthogonal_sliders;
+    }
 
     /* King attacks */
     attackers |= kingAttacks[sq] & (pos->pieces[COLOR_IDX(WHITE)][KING] | pos->pieces[COLOR_IDX(BLACK)][KING]);

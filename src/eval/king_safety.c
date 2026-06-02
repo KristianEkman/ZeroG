@@ -18,6 +18,28 @@ static const int safety_table[16] = {
     350, 440, 540, 650, 770, 900, 1040, 1190
 };
 
+static uint64_t knight_attacks_to_king_zone[64];
+static uint64_t bishop_empty_attacks_to_king_zone[64];
+static uint64_t rook_empty_attacks_to_king_zone[64];
+
+void init_king_safety_tables(void) {
+    for (int sq = 0; sq < 64; sq++) {
+        uint64_t king_zone = kingAttacks[sq] | (1ULL << sq);
+        
+        knight_attacks_to_king_zone[sq] = 0ULL;
+        bishop_empty_attacks_to_king_zone[sq] = 0ULL;
+        rook_empty_attacks_to_king_zone[sq] = 0ULL;
+        
+        uint64_t temp = king_zone;
+        while (temp) {
+            int kz_sq = pop_lsb(&temp);
+            knight_attacks_to_king_zone[sq] |= knightAttacks[kz_sq];
+            bishop_empty_attacks_to_king_zone[sq] |= bishopEmptyAttacks[kz_sq];
+            rook_empty_attacks_to_king_zone[sq] |= rookEmptyAttacks[kz_sq];
+        }
+    }
+}
+
 int evaluate_king_safety(const Position *pos, Color color, int is_endgame) {
     if (is_endgame) {
         return 0;
@@ -75,21 +97,16 @@ int evaluate_king_safety(const Position *pos, Color color, int is_endgame) {
     int attack_weight = 0;
     uint64_t occ = pos->occAll;
 
+    // Knights (completely loop-free/branch-free)
+    int knight_attackers = bit_count(pos->pieces[enemy_side][KNIGHT] & knight_attacks_to_king_zone[king_sq]);
+    attacker_count += knight_attackers;
+    attack_weight += knight_attackers * KNIGHT_ATTACK_WEIGHT;
+
     // Define the King Zone as the 3x3 grid centered on the king's square
     uint64_t king_zone = kingAttacks[king_sq] | (1ULL << king_sq);
 
-    // Knights
-    uint64_t knights = pos->pieces[enemy_side][KNIGHT];
-    while (knights) {
-        int sq = pop_lsb(&knights);
-        if (knightAttacks[sq] & king_zone) {
-            attacker_count++;
-            attack_weight += KNIGHT_ATTACK_WEIGHT;
-        }
-    }
-
-    // Bishops
-    uint64_t bishops = pos->pieces[enemy_side][BISHOP];
+    // Bishops (filtered by line of sight to king zone)
+    uint64_t bishops = pos->pieces[enemy_side][BISHOP] & bishop_empty_attacks_to_king_zone[king_sq];
     while (bishops) {
         int sq = pop_lsb(&bishops);
         if (bishopAttacks(sq, occ) & king_zone) {
@@ -98,8 +115,8 @@ int evaluate_king_safety(const Position *pos, Color color, int is_endgame) {
         }
     }
 
-    // Rooks
-    uint64_t rooks = pos->pieces[enemy_side][ROOK];
+    // Rooks (filtered by line of sight to king zone)
+    uint64_t rooks = pos->pieces[enemy_side][ROOK] & rook_empty_attacks_to_king_zone[king_sq];
     while (rooks) {
         int sq = pop_lsb(&rooks);
         if (rookAttacks(sq, occ) & king_zone) {
@@ -108,8 +125,8 @@ int evaluate_king_safety(const Position *pos, Color color, int is_endgame) {
         }
     }
 
-    // Queens
-    uint64_t queens = pos->pieces[enemy_side][QUEEN];
+    // Queens (filtered by line of sight to king zone)
+    uint64_t queens = pos->pieces[enemy_side][QUEEN] & (bishop_empty_attacks_to_king_zone[king_sq] | rook_empty_attacks_to_king_zone[king_sq]);
     while (queens) {
         int sq = pop_lsb(&queens);
         if (queenAttacks(sq, occ) & king_zone) {

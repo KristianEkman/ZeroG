@@ -100,26 +100,26 @@ int evaluate(const Position *pos) {
     // Endgame detection criteria:
     // 1. Both sides have no queens OR
     // 2. Every side that has a queen has no other pieces, or at most one minor piece (no rooks and <= 1 minor piece)
-    int white_queens = bit_count(pos->pieces[COLOR_IDX(WHITE)][QUEEN]);
-    int black_queens = bit_count(pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+    uint64_t w_queen_bb = pos->pieces[COLOR_IDX(WHITE)][QUEEN];
+    uint64_t b_queen_bb = pos->pieces[COLOR_IDX(BLACK)][QUEEN];
 
     int is_endgame = 0;
-    if (white_queens == 0 && black_queens == 0) {
+    if (!w_queen_bb && !b_queen_bb) {
         is_endgame = 1;
     } else {
         int white_ok = 1;
-        if (white_queens > 0) {
-            int white_minors = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT]) + bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
-            int white_rooks = bit_count(pos->pieces[COLOR_IDX(WHITE)][ROOK]);
-            if (white_rooks > 0 || white_minors > 1) {
+        if (w_queen_bb) {
+            int white_minors = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT] | pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
+            uint64_t white_rooks = pos->pieces[COLOR_IDX(WHITE)][ROOK];
+            if (white_rooks || white_minors > 1) {
                 white_ok = 0;
             }
         }
         int black_ok = 1;
-        if (black_queens > 0) {
-            int black_minors = bit_count(pos->pieces[COLOR_IDX(BLACK)][KNIGHT]) + bit_count(pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
-            int black_rooks = bit_count(pos->pieces[COLOR_IDX(BLACK)][ROOK]);
-            if (black_rooks > 0 || black_minors > 1) {
+        if (b_queen_bb) {
+            int black_minors = bit_count(pos->pieces[COLOR_IDX(BLACK)][KNIGHT] | pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
+            uint64_t black_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
+            if (black_rooks || black_minors > 1) {
                 black_ok = 0;
             }
         }
@@ -162,11 +162,8 @@ int evaluate(const Position *pos) {
         int sq = pop_lsb(&w_queens);
         score += PIECE_QUEEN_VAL + queen_table[sq];
     }
-    uint64_t w_king = pos->pieces[COLOR_IDX(WHITE)][KING];
-    while (w_king) {
-        int sq = pop_lsb(&w_king);
-        score += 20000 + (is_endgame ? king_end_table[sq] : king_middle_table[sq]);
-    }
+    int w_king_sq = pos->kingSq[COLOR_IDX(WHITE)];
+    score += 20000 + (is_endgame ? king_end_table[w_king_sq] : king_middle_table[w_king_sq]);
     score += evaluate_king_safety(pos, WHITE, is_endgame);
 
     // Evaluate Black pieces
@@ -202,11 +199,8 @@ int evaluate(const Position *pos) {
         int sq = pop_lsb(&b_queens);
         score -= PIECE_QUEEN_VAL + queen_table[sq ^ 56];
     }
-    uint64_t b_king = pos->pieces[COLOR_IDX(BLACK)][KING];
-    while (b_king) {
-        int sq = pop_lsb(&b_king);
-        score -= 20000 + (is_endgame ? king_end_table[sq ^ 56] : king_middle_table[sq ^ 56]);
-    }
+    int b_king_sq = pos->kingSq[COLOR_IDX(BLACK)];
+    score -= 20000 + (is_endgame ? king_end_table[b_king_sq ^ 56] : king_middle_table[b_king_sq ^ 56]);
     score -= evaluate_king_safety(pos, BLACK, is_endgame);
 
     // Bishop pair evaluation
