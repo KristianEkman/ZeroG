@@ -45,16 +45,16 @@ int see(const Position *pos, Move m) {
     int to = MOVE_TO(m);
     int flag = MOVE_FLAG(m);
 
-    PieceType captured = NONE;
-    if (flag == MOVE_QUIET && to == pos->enPassantSquare) {
-        captured = PAWN;
-    } else {
-        captured = PIECE_TYPE(pos->board[to]);
-    }
-
     PieceType attacker = PIECE_TYPE(pos->board[from]);
     if (attacker == NONE) {
         return 0;
+    }
+
+    PieceType captured = NONE;
+    if (attacker == PAWN && flag == MOVE_QUIET && to == pos->enPassantSquare) {
+        captured = PAWN;
+    } else {
+        captured = PIECE_TYPE(pos->board[to]);
     }
 
     /* Handle pawn promotions: the attacker effectively becomes the promoted piece,

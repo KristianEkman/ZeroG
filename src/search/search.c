@@ -255,17 +255,7 @@ static int is_repetition(const Position *pos, const UndoNode *history,
   return 0;
 }
 
-static const int piece_values[8] = {0,     // NONE
-                                    100,   // PAWN
-                                    320,   // KNIGHT
-                                    330,   // BISHOP
-                                    500,   // ROOK
-                                    900,   // QUEEN
-                                    20000, // KING
-                                    0};
 
-/* Helper to get piece values for MVV-LVA move sorting */
-static inline int get_piece_value(PieceType pt) { return piece_values[pt]; }
 
 /* Check if move is capture or promotion */
 static int move_is_capture_or_promo(const Position *pos, Move m) {
@@ -457,6 +447,11 @@ static int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
 /* Quiescence Search */
 static int quiescence(Position *pos, int ply, int alpha, int beta,
                       uint64_t start_time, const SearchLimits *limits) {
+  if (ply >= MAX_DEPTH - 1) {
+    int eval = evaluate(pos);
+    return pos->sideToMove == WHITE ? eval : -eval;
+  }
+
   check_time_limit(start_time, limits);
   if (stop_requested) {
     return 0;
@@ -549,6 +544,12 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta,
                PVLine *pv, uint64_t start_time, const SearchLimits *limits,
                Move pv_move, const UndoNode *history, int allow_nmp,
                Move excluded_move) {
+  if (ply >= MAX_DEPTH - 1) {
+    pv->length = 0;
+    int eval = evaluate(pos);
+    return pos->sideToMove == WHITE ? eval : -eval;
+  }
+
   check_time_limit(start_time, limits);
   if (stop_requested) {
     return 0;

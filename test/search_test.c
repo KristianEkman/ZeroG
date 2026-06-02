@@ -485,6 +485,13 @@ void test_see(void)
     m = MOVE_BUILD(B2, D4, 0, MOVE_QUIET);
     score = see(&pos, m);
     TEST_ASSERT_EQUAL_INT(100, score); // 300 (Knight) - 300 (Bishop) + 100 (Pawn) = 100
+
+    // Test 5: Non-pawn move to en-passant square (White Knight on f4 moves to e6 when en-passant square is e6)
+    memset(&pos, 0, sizeof(Position));
+    fen_parse("8/8/8/3pp3/4PN2/8/8/4R1K1 w - e6 0 1", &pos);
+    m = MOVE_BUILD(F4, E6, 0, MOVE_QUIET);
+    score = see(&pos, m);
+    TEST_ASSERT_EQUAL_INT(0, score); // Quiet move, should be 0
 }
 
 int main(void)

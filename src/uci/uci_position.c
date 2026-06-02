@@ -84,6 +84,8 @@ int uci_state_init(UciState *state)
     }
 
     state->depth = UCI_DEFAULT_DEPTH;
+    state->history_count = 0;
+    memset(state->history_hashes, 0, sizeof(state->history_hashes));
     return 0;
 }
 
