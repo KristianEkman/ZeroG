@@ -183,8 +183,8 @@ def main():
         
         updated_parameters = {}
         for name, info in DEFAULT_PARAMS.items():
-            # Update formula: w_new = w_old + a_k * perf_diff * delta
-            change = a_k[name] * perf_diff * delta[name]
+            # Update formula: w_new = w_old + a_k * (perf_diff / (2.0 * c_k)) * delta
+            change = a_k[name] * (perf_diff / (2.0 * c_k[name])) * delta[name]
             new_val = parameters[name] + change
             # Clamp to parameter bounds
             updated_parameters[name] = max(info["min"], min(info["max"], new_val))

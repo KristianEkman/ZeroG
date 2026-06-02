@@ -253,6 +253,11 @@ int uci_parse_go_search_limits(const UciState *state,
     limits->soft_time_limit_ms = 0u;
     limits->hard_time_limit_ms = 0u;
     limits->is_time_controlled = 0;
+    limits->history_count = state->history_count;
+    if (limits->history_count > 1024) {
+        limits->history_count = 1024;
+    }
+    memcpy(limits->history_hashes, state->history_hashes, sizeof(uint64_t) * limits->history_count);
 
     if (options.has_movetime)
     {

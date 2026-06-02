@@ -76,7 +76,7 @@ int uci_handle_line(UciState *state, const char *line, FILE *output,
   }
 
   if (uci_starts_with_keyword(line, "position", &args)) {
-    return uci_apply_position(&state->board, args);
+    return uci_apply_position(state, args);
   }
 
   if (uci_starts_with_keyword(line, "go", &args)) {

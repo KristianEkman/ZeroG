@@ -127,7 +127,7 @@ static TranspositionTableSlot *transposition_table_find_replacement_slot(Transpo
 
     bucket_index = transposition_table_bucket_index(table, key);
     replacement_slot = transposition_table_bucket_slot(table, bucket_index, 0);
-    replacement_age = table->generation - replacement_slot->generation;
+    replacement_age = (uint16_t)(table->generation - replacement_slot->generation);
 
     for (size_t slot_index = 0; slot_index < TRANSPOSITION_TABLE_BUCKET_SIZE; ++slot_index) {
         TranspositionTableSlot *slot = transposition_table_bucket_slot(table, bucket_index, slot_index);
@@ -137,7 +137,7 @@ static TranspositionTableSlot *transposition_table_find_replacement_slot(Transpo
             return slot;
         }
 
-        slot_age = table->generation - slot->generation;
+        slot_age = (uint16_t)(table->generation - slot->generation);
         if (slot_age > replacement_age) {
             replacement_slot = slot;
             replacement_age = slot_age;

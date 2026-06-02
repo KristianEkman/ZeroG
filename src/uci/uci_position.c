@@ -193,16 +193,18 @@ int uci_parse_move(const Position *board, const char *text, Move *move)
     return -1;
 }
 
-int uci_apply_position(Position *board, const char *args)
+int uci_apply_position(UciState *state, const char *args)
 {
     const char *cursor;
 
-    if (board == NULL || args == NULL)
+    if (state == NULL || args == NULL)
     {
         return -1;
     }
 
+    Position *board = &state->board;
     cursor = uci_skip_spaces(args);
+    state->history_count = 0;
 
     if (uci_starts_with_keyword(cursor, "startpos", &cursor))
     {
@@ -249,6 +251,12 @@ int uci_apply_position(Position *board, const char *args)
         return -1;
     }
 
+    // Add initial position hash to history
+    if (state->history_count < 1024)
+    {
+        state->history_hashes[state->history_count++] = board->hashKey;
+    }
+
     if (*cursor == '\0')
     {
         return 0;
@@ -286,6 +294,12 @@ int uci_apply_position(Position *board, const char *args)
 
         Undo u;
         apply_move(board, move, &u);
+
+        // Add applied move position hash to history
+        if (state->history_count < 1024)
+        {
+            state->history_hashes[state->history_count++] = board->hashKey;
+        }
 
         cursor = uci_skip_spaces(cursor + move_length);
     }

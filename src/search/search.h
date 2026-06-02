@@ -12,6 +12,8 @@ typedef struct {
     unsigned increment_ms;
     unsigned movestogo;
     int is_time_controlled;
+    uint64_t history_hashes[1024];
+    int history_count;
 } SearchLimits;
 
 typedef struct {

@@ -24,14 +24,14 @@ typedef struct {
 static FILE *search_log_output = NULL;
 static int stop_requested = 0;
 static unsigned hash_size = 16; /* default 16MB */
-static int lmr_base = 4;
-static int futility_margin = 115;
-static int rfp_margin_base = 110;
+static int lmr_base = 2;
+static int futility_margin = 114;
+static int rfp_margin_base = 111;
 static int nmp_min_depth = 2;
 static int singular_margin = 2;
-static int aspiration_window = 37;
-static int lmr_min_depth = 4;
-static int futility_max_depth = 1;
+static int aspiration_window = 35;
+static int lmr_min_depth = 2;
+static int futility_max_depth = 4;
 static uint64_t node_count = 0;
 
 static Move killer_moves[2][MAX_DEPTH];
@@ -187,15 +187,43 @@ static uint64_t get_time_ms(void) {
 }
 
 /* Helper to check for basic draw states */
-static int is_draw(const Position *pos) {
-  if (pos->fiftyMoveCounter >= 100) {
+static int has_insufficient_material(const Position *pos) {
+  if (pos->pieces[COLOR_IDX(WHITE)][PAWN] ||
+      pos->pieces[COLOR_IDX(BLACK)][PAWN])
+    return 0;
+  if (pos->pieces[COLOR_IDX(WHITE)][ROOK] ||
+      pos->pieces[COLOR_IDX(BLACK)][ROOK])
+    return 0;
+  if (pos->pieces[COLOR_IDX(WHITE)][QUEEN] ||
+      pos->pieces[COLOR_IDX(BLACK)][QUEEN])
+    return 0;
+
+  int w_minors = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT] |
+                           pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
+  int b_minors = bit_count(pos->pieces[COLOR_IDX(BLACK)][KNIGHT] |
+                           pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
+
+  if (w_minors <= 1 && b_minors <= 1) {
     return 1;
   }
   return 0;
 }
 
-/* Helper to check for repetition within the current search path */
-static int is_repetition(const Position *pos, const UndoNode *history) {
+/* Helper to check for basic draw states */
+static int is_draw(const Position *pos) {
+  if (pos->fiftyMoveCounter >= 100) {
+    return 1;
+  }
+  if (has_insufficient_material(pos)) {
+    return 1;
+  }
+  return 0;
+}
+
+/* Helper to check for repetition within the current search path and game
+ * history */
+static int is_repetition(const Position *pos, const UndoNode *history,
+                         const SearchLimits *limits) {
   uint64_t current_hash = pos->hashKey;
   const UndoNode *curr = history;
   while (curr != NULL) {
@@ -207,6 +235,21 @@ static int is_repetition(const Position *pos, const UndoNode *history) {
       break;
     }
     curr = curr->parent;
+  }
+
+  if (limits != NULL) {
+    int check_count = pos->fiftyMoveCounter;
+    if (check_count > limits->history_count) {
+      check_count = limits->history_count;
+    }
+    for (int i = 0; i < check_count; i++) {
+      int idx = limits->history_count - 1 - i;
+      if (idx < 0)
+        break;
+      if (limits->history_hashes[idx] == current_hash) {
+        return 1;
+      }
+    }
   }
   return 0;
 }
@@ -495,7 +538,7 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta,
     return 0;
   }
 
-  if (ply > 0 && (is_draw(pos) || is_repetition(pos, history))) {
+  if (ply > 0 && (is_draw(pos) || is_repetition(pos, history, limits))) {
     pv->length = 0;
     return 0;
   }
