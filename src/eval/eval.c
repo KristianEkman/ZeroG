@@ -1,6 +1,7 @@
 #include "eval.h"
 #include "eval_mobility.h"
 #include "pawn_eval.h"
+#include "king_safety.h"
 #include "eval_constants.h"
 
 #define BISHOP_PAIR_BONUS BISHOP_PAIR_BONUS_VAL
@@ -166,6 +167,7 @@ int evaluate(const Position *pos) {
         int sq = pop_lsb(&w_king);
         score += 20000 + (is_endgame ? king_end_table[sq] : king_middle_table[sq]);
     }
+    score += evaluate_king_safety(pos, WHITE, is_endgame);
 
     // Evaluate Black pieces
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
@@ -205,6 +207,7 @@ int evaluate(const Position *pos) {
         int sq = pop_lsb(&b_king);
         score -= 20000 + (is_endgame ? king_end_table[sq ^ 56] : king_middle_table[sq ^ 56]);
     }
+    score -= evaluate_king_safety(pos, BLACK, is_endgame);
 
     // Bishop pair evaluation
     int w_bishops_count = bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP]);

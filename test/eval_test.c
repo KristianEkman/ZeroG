@@ -262,6 +262,54 @@ void test_eval_rook_open_files(void)
     TEST_ASSERT_TRUE(score_open > score_closed);
 }
 
+void test_eval_king_safety(void)
+{
+    Position pos_full_shield;
+    Position pos_missing_pawn;
+    Position pos_advanced_pawn;
+    Position pos_one_attacker;
+    Position pos_two_attackers;
+
+    // 1. Pawn Shield Tests
+    // Symmetric starting position with kings castled: FEN with intact pawn shields for both
+    memset(&pos_full_shield, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("5rk1/ppp2ppp/8/8/8/8/PPP2PPP/5RK1 w - - 0 1", &pos_full_shield));
+    int score_full = evaluate(&pos_full_shield);
+    TEST_ASSERT_EQUAL_INT(0, score_full); // symmetric should be 0
+
+    // White F2 pawn is missing (open file in front of king)
+    memset(&pos_missing_pawn, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("5rk1/ppp2ppp/8/8/8/8/P1P2PPP/5RK1 w - - 0 1", &pos_missing_pawn));
+    int score_missing = evaluate(&pos_missing_pawn);
+    // Missing shield pawn must result in a penalty, so score < 0
+    TEST_ASSERT_TRUE(score_missing < 0);
+
+    // White F2 pawn advanced to F3 (weaker shield than F2 but better than missing)
+    memset(&pos_advanced_pawn, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("5rk1/ppp2ppp/8/8/8/5P2/PP1P2PP/5RK1 w - - 0 1", &pos_advanced_pawn));
+    int score_advanced = evaluate(&pos_advanced_pawn);
+    // Shield with advanced pawn should be better than missing, but worse than full shield
+    TEST_ASSERT_TRUE(score_advanced < 0);
+    TEST_ASSERT_TRUE(score_missing < score_advanced);
+
+    // 2. King Attacks Tests
+    // One attacker (Black Queen on G6, Black Knight on D5 - too far to attack G1 zone)
+    memset(&pos_one_attacker, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("6k1/ppp2ppp/6q1/3n4/8/8/PPP2PPP/5RK1 w - - 0 1", &pos_one_attacker));
+    int score_one = evaluate(&pos_one_attacker);
+
+    // Two attackers (Black Queen on G6, Black Knight on E3 - attacks F1/G2 in G1 zone)
+    memset(&pos_two_attackers, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("6k1/ppp2ppp/6q1/8/8/4n3/PPP2PPP/5RK1 w - - 0 1", &pos_two_attackers));
+    int score_two = evaluate(&pos_two_attackers);
+
+    // Position with two attackers should have a lower evaluation (more negative) than one attacker due to king attacks penalty
+    // Subtracting Knight value from E3 vs D5 first (which is comparable or identical PST-wise)
+    // Knight at E3 PST is 5, Knight at D5 PST is 20. So Knight at E3 is slightly worse for Black, which would favor White.
+    // However, the King safety penalty for 2 attackers is much stronger, so score_two must be lower than score_one.
+    TEST_ASSERT_TRUE(score_two < score_one);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -282,6 +330,7 @@ int main(void)
     RUN_TEST(test_eval_isolated_pawns);
     RUN_TEST(test_eval_doubled_pawns);
     RUN_TEST(test_eval_rook_open_files);
+    RUN_TEST(test_eval_king_safety);
 
     return UNITY_END();
 }
