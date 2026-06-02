@@ -423,6 +423,12 @@ void test_search_options(void)
     TEST_ASSERT_EQUAL_INT(0, search_set_futility_max_depth(2));
     TEST_ASSERT_EQUAL_INT(0, search_set_futility_max_depth(5));
 
+    TEST_ASSERT_EQUAL_INT(-1, search_set_lmr_history_divisor(99));
+    TEST_ASSERT_EQUAL_INT(-1, search_set_lmr_history_divisor(100001));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_history_divisor(100));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_history_divisor(2000));
+    TEST_ASSERT_EQUAL_INT(0, search_set_lmr_history_divisor(100000));
+
     // Test parsing helpers
     int val = -999;
     // Valid cases
@@ -440,6 +446,9 @@ void test_search_options(void)
 
     TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("  name   Futility_Margin   value   250  ", "Futility_Margin", &val));
     TEST_ASSERT_EQUAL_INT(250, val);
+
+    TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("name LMR_History_Divisor value 9500", "LMR_History_Divisor", &val));
+    TEST_ASSERT_EQUAL_INT(9500, val);
 
     // Negative option value (even if out of bounds for the search constraint, parser parses it correctly)
     TEST_ASSERT_EQUAL_INT(0, uci_parse_spin_option_value("name Futility_Margin value -10", "Futility_Margin", &val));

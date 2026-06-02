@@ -19,6 +19,7 @@ DEFAULT_PARAMS = {
     "Aspiration_Window": {"default": 40.0, "min": 5, "max": 200, "c": 4.0, "a": 0.4},
     "LMR_Min_Depth": {"default": 5.0, "min": 1, "max": 15, "c": 0.5, "a": 0.05},
     "Futility_Max_Depth": {"default": 2.0, "min": 1, "max": 5, "c": 0.5, "a": 0.05},
+    "LMR_History_Divisor": {"default": 2000.0, "min": 100, "max": 100000, "c": 500.0, "a": 50.0},
 }
 
 # SPSA Hyperparameters
@@ -102,19 +103,24 @@ def main():
         print("Error: ./builds/chessai2027 not found. Please compile the engine first.")
         sys.exit(1)
 
+    # Initialize parameters with defaults
+    parameters = {name: info["default"] for name, info in DEFAULT_PARAMS.items()}
+
     # Initialize or load state
     if args.resume and os.path.exists(args.state_file):
         print(f"Resuming from state file: {args.state_file}")
         with open(args.state_file, "r") as f:
             state = json.load(f)
         current_iteration = state["iteration"]
-        parameters = state["parameters"]
+        # Merge loaded parameters with defaults for new parameter support
+        for name, val in state["parameters"].items():
+            if name in parameters:
+                parameters[name] = val
         history = state["history"]
         print(f"Resuming at iteration {current_iteration + 1} of {args.iterations}")
     else:
         print("Initializing SPSA parameters...")
         current_iteration = 0
-        parameters = {name: info["default"] for name, info in DEFAULT_PARAMS.items()}
         history = []
 
     # Run SPSA loop

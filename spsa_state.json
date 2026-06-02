@@ -1,14 +1,15 @@
 {
-    "iteration": 120,
+    "iteration": 152,
     "parameters": {
-        "LMR_Base": 1.9576395817569263,
-        "Futility_Margin": 113.58257427820809,
-        "RFP_Margin": 111.07854117820887,
-        "NMP_Min_Depth": 2.4032665906386765,
-        "Singular_Margin": 1.5861071971092657,
-        "Aspiration_Window": 35.372381260617594,
-        "LMR_Min_Depth": 1.654043103314061,
-        "Futility_Max_Depth": 3.669129970007267
+        "LMR_Base": 1.8685698050108122,
+        "Futility_Margin": 113.31138847544304,
+        "RFP_Margin": 111.33602411673337,
+        "NMP_Min_Depth": 2.201797259272593,
+        "Singular_Margin": 1.5707482530479235,
+        "Aspiration_Window": 35.19551883048743,
+        "LMR_Min_Depth": 1.5769311960710974,
+        "Futility_Max_Depth": 3.568622169921914,
+        "LMR_History_Divisor": 1999.9784660680677
     },
     "history": [
         {
@@ -5649,6 +5650,1638 @@
                 "Aspiration_Window": 0.021353353670702246,
                 "LMR_Min_Depth": 0.0026691692088377807,
                 "Futility_Max_Depth": 0.0026691692088377807
+            }
+        },
+        {
+            "iteration": 121,
+            "parameters": {
+                "LMR_Base": 1.9748897763312763,
+                "Futility_Margin": 113.56532408363374,
+                "RFP_Margin": 111.09579137278321,
+                "NMP_Min_Depth": 2.386016396064327,
+                "Singular_Margin": 1.5688570025349158,
+                "Aspiration_Window": 35.35513106604324,
+                "LMR_Min_Depth": 1.671293297888411,
+                "Futility_Max_Depth": 3.6863801645816165,
+                "LMR_History_Divisor": 2000.0172501945744
+            },
+            "wins_a": 31,
+            "wins_b": 27,
+            "draws": 42,
+            "perf_diff": 4,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30804111160927994,
+                "Futility_Margin": 6.160822232185599,
+                "RFP_Margin": 6.160822232185599,
+                "NMP_Min_Depth": 0.30804111160927994,
+                "Singular_Margin": 0.30804111160927994,
+                "Aspiration_Window": 2.4643288928742395,
+                "LMR_Min_Depth": 0.30804111160927994,
+                "Futility_Max_Depth": 0.30804111160927994,
+                "LMR_History_Divisor": 308.04111160927994
+            },
+            "a_k": {
+                "LMR_Base": 0.002656884556079564,
+                "Futility_Margin": 0.05313769112159128,
+                "RFP_Margin": 0.05313769112159128,
+                "NMP_Min_Depth": 0.002656884556079564,
+                "Singular_Margin": 0.002656884556079564,
+                "Aspiration_Window": 0.02125507644863651,
+                "LMR_Min_Depth": 0.002656884556079564,
+                "Futility_Max_Depth": 0.002656884556079564,
+                "LMR_History_Divisor": 2.656884556079564
+            }
+        },
+        {
+            "iteration": 122,
+            "parameters": {
+                "LMR_Base": 1.9662969341335863,
+                "Futility_Margin": 113.57391692583143,
+                "RFP_Margin": 111.08719853058552,
+                "NMP_Min_Depth": 2.377423553866637,
+                "Singular_Margin": 1.5774498447326057,
+                "Aspiration_Window": 35.34653822384555,
+                "LMR_Min_Depth": 1.679886140086101,
+                "Futility_Max_Depth": 3.6777873223839266,
+                "LMR_History_Divisor": 2000.0258430367721
+            },
+            "wins_a": 24,
+            "wins_b": 26,
+            "draws": 50,
+            "perf_diff": -2,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30778514946976193,
+                "Futility_Margin": 6.155702989395238,
+                "RFP_Margin": 6.155702989395238,
+                "NMP_Min_Depth": 0.30778514946976193,
+                "Singular_Margin": 0.30778514946976193,
+                "Aspiration_Window": 2.4622811957580955,
+                "LMR_Min_Depth": 0.30778514946976193,
+                "Futility_Max_Depth": 0.30778514946976193,
+                "LMR_History_Divisor": 307.78514946976196
+            },
+            "a_k": {
+                "LMR_Base": 0.002644749220186067,
+                "Futility_Margin": 0.05289498440372134,
+                "RFP_Margin": 0.05289498440372134,
+                "NMP_Min_Depth": 0.002644749220186067,
+                "Singular_Margin": 0.002644749220186067,
+                "Aspiration_Window": 0.021157993761488535,
+                "LMR_Min_Depth": 0.002644749220186067,
+                "Futility_Max_Depth": 0.002644749220186067,
+                "LMR_History_Divisor": 2.644749220186067
+            }
+        },
+        {
+            "iteration": 123,
+            "parameters": {
+                "LMR_Base": 1.996260243114811,
+                "Futility_Margin": 113.5439536168502,
+                "RFP_Margin": 111.11716183956675,
+                "NMP_Min_Depth": 2.4073868628478614,
+                "Singular_Margin": 1.547486535751381,
+                "Aspiration_Window": 35.37650153282677,
+                "LMR_Min_Depth": 1.7098494490673257,
+                "Futility_Max_Depth": 3.707750631365151,
+                "LMR_History_Divisor": 1999.995879727791
+            },
+            "wins_a": 25,
+            "wins_b": 32,
+            "draws": 43,
+            "perf_diff": -7,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3075314869314902,
+                "Futility_Margin": 6.150629738629803,
+                "RFP_Margin": 6.150629738629803,
+                "NMP_Min_Depth": 0.3075314869314902,
+                "Singular_Margin": 0.3075314869314902,
+                "Aspiration_Window": 2.4602518954519215,
+                "LMR_Min_Depth": 0.3075314869314902,
+                "Futility_Max_Depth": 0.3075314869314902,
+                "LMR_History_Divisor": 307.5314869314902
+            },
+            "a_k": {
+                "LMR_Base": 0.0026327602755382056,
+                "Futility_Margin": 0.0526552055107641,
+                "RFP_Margin": 0.0526552055107641,
+                "NMP_Min_Depth": 0.0026327602755382056,
+                "Singular_Margin": 0.0026327602755382056,
+                "Aspiration_Window": 0.021062082204305645,
+                "LMR_Min_Depth": 0.0026327602755382056,
+                "Futility_Max_Depth": 0.0026327602755382056,
+                "LMR_History_Divisor": 2.6327602755382054
+            }
+        },
+        {
+            "iteration": 124,
+            "parameters": {
+                "LMR_Base": 1.9877308427268028,
+                "Futility_Margin": 113.53542421646219,
+                "RFP_Margin": 111.10863243917873,
+                "NMP_Min_Depth": 2.4159162632358697,
+                "Singular_Margin": 1.5389571353633726,
+                "Aspiration_Window": 35.38503093321478,
+                "LMR_Min_Depth": 1.718378849455334,
+                "Futility_Max_Depth": 3.7162800317531595,
+                "LMR_History_Divisor": 1999.987350327403
+            },
+            "wins_a": 28,
+            "wins_b": 30,
+            "draws": 42,
+            "perf_diff": -2,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30728008488870323,
+                "Futility_Margin": 6.145601697774064,
+                "RFP_Margin": 6.145601697774064,
+                "NMP_Min_Depth": 0.30728008488870323,
+                "Singular_Margin": 0.30728008488870323,
+                "Aspiration_Window": 2.458240679109626,
+                "LMR_Min_Depth": 0.30728008488870323,
+                "Futility_Max_Depth": 0.30728008488870323,
+                "LMR_History_Divisor": 307.28008488870324
+            },
+            "a_k": {
+                "LMR_Base": 0.002620914875276927,
+                "Futility_Margin": 0.052418297505538544,
+                "RFP_Margin": 0.052418297505538544,
+                "NMP_Min_Depth": 0.002620914875276927,
+                "Singular_Margin": 0.002620914875276927,
+                "Aspiration_Window": 0.020967319002215417,
+                "LMR_Min_Depth": 0.002620914875276927,
+                "Futility_Max_Depth": 0.002620914875276927,
+                "LMR_History_Divisor": 2.620914875276927
+            }
+        },
+        {
+            "iteration": 125,
+            "parameters": {
+                "LMR_Base": 2.0089763444364412,
+                "Futility_Margin": 113.55666971817183,
+                "RFP_Margin": 111.12987794088838,
+                "NMP_Min_Depth": 2.394670761526231,
+                "Singular_Margin": 1.560202637073011,
+                "Aspiration_Window": 35.406276434924415,
+                "LMR_Min_Depth": 1.7396243511649725,
+                "Futility_Max_Depth": 3.737525533462798,
+                "LMR_History_Divisor": 1999.9661048256933
+            },
+            "wins_a": 34,
+            "wins_b": 29,
+            "draws": 37,
+            "perf_diff": 5,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.307030905209296,
+                "Futility_Margin": 6.14061810418592,
+                "RFP_Margin": 6.14061810418592,
+                "NMP_Min_Depth": 0.307030905209296,
+                "Singular_Margin": 0.307030905209296,
+                "Aspiration_Window": 2.456247241674368,
+                "LMR_Min_Depth": 0.307030905209296,
+                "Futility_Max_Depth": 0.307030905209296,
+                "LMR_History_Divisor": 307.030905209296
+            },
+            "a_k": {
+                "LMR_Base": 0.002609210248614377,
+                "Futility_Margin": 0.05218420497228754,
+                "RFP_Margin": 0.05218420497228754,
+                "NMP_Min_Depth": 0.002609210248614377,
+                "Singular_Margin": 0.002609210248614377,
+                "Aspiration_Window": 0.020873681988915017,
+                "LMR_Min_Depth": 0.002609210248614377,
+                "Futility_Max_Depth": 0.002609210248614377,
+                "LMR_History_Divisor": 2.609210248614377
+            }
+        },
+        {
+            "iteration": 126,
+            "parameters": {
+                "LMR_Base": 1.9412376239200149,
+                "Futility_Margin": 113.4889309976554,
+                "RFP_Margin": 111.19761666140481,
+                "NMP_Min_Depth": 2.3269320410098047,
+                "Singular_Margin": 1.4924639165565847,
+                "Aspiration_Window": 35.33853771440799,
+                "LMR_Min_Depth": 1.6718856306485461,
+                "Futility_Max_Depth": 3.6697868129463718,
+                "LMR_History_Divisor": 1999.8983661051768
+            },
+            "wins_a": 38,
+            "wins_b": 22,
+            "draws": 40,
+            "perf_diff": 16,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3067839107030155,
+                "Futility_Margin": 6.13567821406031,
+                "RFP_Margin": 6.13567821406031,
+                "NMP_Min_Depth": 0.3067839107030155,
+                "Singular_Margin": 0.3067839107030155,
+                "Aspiration_Window": 2.454271285624124,
+                "LMR_Min_Depth": 0.3067839107030155,
+                "Futility_Max_Depth": 0.3067839107030155,
+                "LMR_History_Divisor": 306.7839107030155
+            },
+            "a_k": {
+                "LMR_Base": 0.002597643698255987,
+                "Futility_Margin": 0.05195287396511974,
+                "RFP_Margin": 0.05195287396511974,
+                "NMP_Min_Depth": 0.002597643698255987,
+                "Singular_Margin": 0.002597643698255987,
+                "Aspiration_Window": 0.020781149586047896,
+                "LMR_Min_Depth": 0.002597643698255987,
+                "Futility_Max_Depth": 0.002597643698255987,
+                "LMR_History_Divisor": 2.597643698255987
+            }
+        },
+        {
+            "iteration": 127,
+            "parameters": {
+                "LMR_Base": 1.9876400923440147,
+                "Futility_Margin": 113.4425285292314,
+                "RFP_Margin": 111.24401912982881,
+                "NMP_Min_Depth": 2.280529572585805,
+                "Singular_Margin": 1.4460614481325849,
+                "Aspiration_Window": 35.29213524598399,
+                "LMR_Min_Depth": 1.6254831622245463,
+                "Futility_Max_Depth": 3.623384344522372,
+                "LMR_History_Divisor": 1999.8519636367528
+            },
+            "wins_a": 33,
+            "wins_b": 22,
+            "draws": 45,
+            "perf_diff": 11,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30653906509093837,
+                "Futility_Margin": 6.130781301818768,
+                "RFP_Margin": 6.130781301818768,
+                "NMP_Min_Depth": 0.30653906509093837,
+                "Singular_Margin": 0.30653906509093837,
+                "Aspiration_Window": 2.452312520727507,
+                "LMR_Min_Depth": 0.30653906509093837,
+                "Futility_Max_Depth": 0.30653906509093837,
+                "LMR_History_Divisor": 306.5390650909384
+            },
+            "a_k": {
+                "LMR_Base": 0.002586212597928126,
+                "Futility_Margin": 0.05172425195856251,
+                "RFP_Margin": 0.05172425195856251,
+                "NMP_Min_Depth": 0.002586212597928126,
+                "Singular_Margin": 0.002586212597928126,
+                "Aspiration_Window": 0.020689700783425007,
+                "LMR_Min_Depth": 0.002586212597928126,
+                "Futility_Max_Depth": 0.002586212597928126,
+                "LMR_History_Divisor": 2.5862125979281254
+            }
+        },
+        {
+            "iteration": 128,
+            "parameters": {
+                "LMR_Base": 1.9750301745318093,
+                "Futility_Margin": 113.4551384470436,
+                "RFP_Margin": 111.25662904764101,
+                "NMP_Min_Depth": 2.2679196547736,
+                "Singular_Margin": 1.4334515303203794,
+                "Aspiration_Window": 35.279525328171786,
+                "LMR_Min_Depth": 1.6380930800367517,
+                "Futility_Max_Depth": 3.6359942623345773,
+                "LMR_History_Divisor": 1999.864573554565
+            },
+            "wins_a": 27,
+            "wins_b": 30,
+            "draws": 43,
+            "perf_diff": -3,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.306296332976169,
+                "Futility_Margin": 6.12592665952338,
+                "RFP_Margin": 6.12592665952338,
+                "NMP_Min_Depth": 0.306296332976169,
+                "Singular_Margin": 0.306296332976169,
+                "Aspiration_Window": 2.450370663809352,
+                "LMR_Min_Depth": 0.306296332976169,
+                "Futility_Max_Depth": 0.306296332976169,
+                "LMR_History_Divisor": 306.29633297616897
+            },
+            "a_k": {
+                "LMR_Base": 0.0025749143900062614,
+                "Futility_Margin": 0.05149828780012523,
+                "RFP_Margin": 0.05149828780012523,
+                "NMP_Min_Depth": 0.0025749143900062614,
+                "Singular_Margin": 0.0025749143900062614,
+                "Aspiration_Window": 0.02059931512005009,
+                "LMR_Min_Depth": 0.0025749143900062614,
+                "Futility_Max_Depth": 0.0025749143900062614,
+                "LMR_History_Divisor": 2.574914390006261
+            }
+        },
+        {
+            "iteration": 129,
+            "parameters": {
+                "LMR_Base": 1.949899976803252,
+                "Futility_Margin": 113.43000824931504,
+                "RFP_Margin": 111.23149884991246,
+                "NMP_Min_Depth": 2.2427894570450424,
+                "Singular_Margin": 1.4083213325918222,
+                "Aspiration_Window": 35.25439513044323,
+                "LMR_Min_Depth": 1.6129628823081945,
+                "Futility_Max_Depth": 3.6611244600631347,
+                "LMR_History_Divisor": 1999.8897037522934
+            },
+            "wins_a": 28,
+            "wins_b": 34,
+            "draws": 38,
+            "perf_diff": -6,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3060556798157006,
+                "Futility_Margin": 6.121113596314012,
+                "RFP_Margin": 6.121113596314012,
+                "NMP_Min_Depth": 0.3060556798157006,
+                "Singular_Margin": 0.3060556798157006,
+                "Aspiration_Window": 2.4484454385256047,
+                "LMR_Min_Depth": 0.3060556798157006,
+                "Futility_Max_Depth": 0.3060556798157006,
+                "LMR_History_Divisor": 306.05567981570056
+            },
+            "a_k": {
+                "LMR_Base": 0.002563746583238855,
+                "Futility_Margin": 0.051274931664777104,
+                "RFP_Margin": 0.051274931664777104,
+                "NMP_Min_Depth": 0.002563746583238855,
+                "Singular_Margin": 0.002563746583238855,
+                "Aspiration_Window": 0.02050997266591084,
+                "LMR_Min_Depth": 0.002563746583238855,
+                "Futility_Max_Depth": 0.002563746583238855,
+                "LMR_History_Divisor": 2.563746583238855
+            }
+        },
+        {
+            "iteration": 130,
+            "parameters": {
+                "LMR_Base": 1.9415528079066366,
+                "Futility_Margin": 113.43835541821166,
+                "RFP_Margin": 111.23984601880908,
+                "NMP_Min_Depth": 2.251136625941658,
+                "Singular_Margin": 1.4166685014884377,
+                "Aspiration_Window": 35.26274229933984,
+                "LMR_Min_Depth": 1.604615713411579,
+                "Futility_Max_Depth": 3.6527772911665193,
+                "LMR_History_Divisor": 1999.89805092119
+            },
+            "wins_a": 30,
+            "wins_b": 28,
+            "draws": 42,
+            "perf_diff": 2,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3058170718933843,
+                "Futility_Margin": 6.116341437867686,
+                "RFP_Margin": 6.116341437867686,
+                "NMP_Min_Depth": 0.3058170718933843,
+                "Singular_Margin": 0.3058170718933843,
+                "Aspiration_Window": 2.4465365751470745,
+                "LMR_Min_Depth": 0.3058170718933843,
+                "Futility_Max_Depth": 0.3058170718933843,
+                "LMR_History_Divisor": 305.8170718933843
+            },
+            "a_k": {
+                "LMR_Base": 0.0025527067505624556,
+                "Futility_Margin": 0.05105413501124911,
+                "RFP_Margin": 0.05105413501124911,
+                "NMP_Min_Depth": 0.0025527067505624556,
+                "Singular_Margin": 0.0025527067505624556,
+                "Aspiration_Window": 0.020421654004499645,
+                "LMR_Min_Depth": 0.0025527067505624556,
+                "Futility_Max_Depth": 0.0025527067505624556,
+                "LMR_History_Divisor": 2.5527067505624554
+            }
+        },
+        {
+            "iteration": 131,
+            "parameters": {
+                "LMR_Base": 1.9457117655694924,
+                "Futility_Margin": 113.44251437587451,
+                "RFP_Margin": 111.23568706114622,
+                "NMP_Min_Depth": 2.255295583604514,
+                "Singular_Margin": 1.4208274591512935,
+                "Aspiration_Window": 35.25858334167699,
+                "LMR_Min_Depth": 1.6004567557487233,
+                "Futility_Max_Depth": 3.6486183335036633,
+                "LMR_History_Divisor": 1999.9022098788528
+            },
+            "wins_a": 32,
+            "wins_b": 31,
+            "draws": 37,
+            "perf_diff": 1,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30558047629395435,
+                "Futility_Margin": 6.1116095258790875,
+                "RFP_Margin": 6.1116095258790875,
+                "NMP_Min_Depth": 0.30558047629395435,
+                "Singular_Margin": 0.30558047629395435,
+                "Aspiration_Window": 2.444643810351635,
+                "LMR_Min_Depth": 0.30558047629395435,
+                "Futility_Max_Depth": 0.30558047629395435,
+                "LMR_History_Divisor": 305.58047629395435
+            },
+            "a_k": {
+                "LMR_Base": 0.00254179252700373,
+                "Futility_Margin": 0.0508358505400746,
+                "RFP_Margin": 0.0508358505400746,
+                "NMP_Min_Depth": 0.00254179252700373,
+                "Singular_Margin": 0.00254179252700373,
+                "Aspiration_Window": 0.02033434021602984,
+                "LMR_Min_Depth": 0.00254179252700373,
+                "Futility_Max_Depth": 0.00254179252700373,
+                "LMR_History_Divisor": 2.5417925270037296
+            }
+        },
+        {
+            "iteration": 132,
+            "parameters": {
+                "LMR_Base": 1.924989349352795,
+                "Futility_Margin": 113.42179195965781,
+                "RFP_Margin": 111.25640947736292,
+                "NMP_Min_Depth": 2.2345731673878166,
+                "Singular_Margin": 1.441549875367991,
+                "Aspiration_Window": 35.27930575789369,
+                "LMR_Min_Depth": 1.5797343395320258,
+                "Futility_Max_Depth": 3.6693407497203605,
+                "LMR_History_Divisor": 1999.9229322950694
+            },
+            "wins_a": 24,
+            "wins_b": 29,
+            "draws": 47,
+            "perf_diff": -5,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3053458608780605,
+                "Futility_Margin": 6.106917217561209,
+                "RFP_Margin": 6.106917217561209,
+                "NMP_Min_Depth": 0.3053458608780605,
+                "Singular_Margin": 0.3053458608780605,
+                "Aspiration_Window": 2.442766887024484,
+                "LMR_Min_Depth": 0.3053458608780605,
+                "Futility_Max_Depth": 0.3053458608780605,
+                "LMR_History_Divisor": 305.3458608780605
+            },
+            "a_k": {
+                "LMR_Base": 0.0025310016076643765,
+                "Futility_Margin": 0.05062003215328753,
+                "RFP_Margin": 0.05062003215328753,
+                "NMP_Min_Depth": 0.0025310016076643765,
+                "Singular_Margin": 0.0025310016076643765,
+                "Aspiration_Window": 0.02024801286131501,
+                "LMR_Min_Depth": 0.0025310016076643765,
+                "Futility_Max_Depth": 0.0025310016076643765,
+                "LMR_History_Divisor": 2.5310016076643764
+            }
+        },
+        {
+            "iteration": 133,
+            "parameters": {
+                "LMR_Base": 1.933249666484973,
+                "Futility_Margin": 113.41353164252563,
+                "RFP_Margin": 111.2646697944951,
+                "NMP_Min_Depth": 2.242833484519995,
+                "Singular_Margin": 1.449810192500169,
+                "Aspiration_Window": 35.287566075025865,
+                "LMR_Min_Depth": 1.5714740223998478,
+                "Futility_Max_Depth": 3.6610804325881823,
+                "LMR_History_Divisor": 1999.9311926122016
+            },
+            "wins_a": 30,
+            "wins_b": 28,
+            "draws": 42,
+            "perf_diff": 2,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3051131942582611,
+                "Futility_Margin": 6.102263885165223,
+                "RFP_Margin": 6.102263885165223,
+                "NMP_Min_Depth": 0.3051131942582611,
+                "Singular_Margin": 0.3051131942582611,
+                "Aspiration_Window": 2.440905554066089,
+                "LMR_Min_Depth": 0.3051131942582611,
+                "Futility_Max_Depth": 0.3051131942582611,
+                "LMR_History_Divisor": 305.1131942582611
+            },
+            "a_k": {
+                "LMR_Base": 0.0025203317457850884,
+                "Futility_Margin": 0.05040663491570176,
+                "RFP_Margin": 0.05040663491570176,
+                "NMP_Min_Depth": 0.0025203317457850884,
+                "Singular_Margin": 0.0025203317457850884,
+                "Aspiration_Window": 0.020162653966280707,
+                "LMR_Min_Depth": 0.0025203317457850884,
+                "Futility_Max_Depth": 0.0025203317457850884,
+                "LMR_History_Divisor": 2.5203317457850885
+            }
+        },
+        {
+            "iteration": 134,
+            "parameters": {
+                "LMR_Base": 1.986757420397251,
+                "Futility_Margin": 113.36002388861336,
+                "RFP_Margin": 111.31817754840738,
+                "NMP_Min_Depth": 2.1893257306077167,
+                "Singular_Margin": 1.5033179464124469,
+                "Aspiration_Window": 35.23405832111359,
+                "LMR_Min_Depth": 1.5179662684875699,
+                "Futility_Max_Depth": 3.7145881865004604,
+                "LMR_History_Divisor": 1999.8776848582893
+            },
+            "wins_a": 35,
+            "wins_b": 22,
+            "draws": 43,
+            "perf_diff": 13,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3048824457759339,
+                "Futility_Margin": 6.097648915518677,
+                "RFP_Margin": 6.097648915518677,
+                "NMP_Min_Depth": 0.3048824457759339,
+                "Singular_Margin": 0.3048824457759339,
+                "Aspiration_Window": 2.439059566207471,
+                "LMR_Min_Depth": 0.3048824457759339,
+                "Futility_Max_Depth": 0.3048824457759339,
+                "LMR_History_Divisor": 304.8824457759339
+            },
+            "a_k": {
+                "LMR_Base": 0.00250978075088494,
+                "Futility_Margin": 0.05019561501769879,
+                "RFP_Margin": 0.05019561501769879,
+                "NMP_Min_Depth": 0.00250978075088494,
+                "Singular_Margin": 0.00250978075088494,
+                "Aspiration_Window": 0.02007824600707952,
+                "LMR_Min_Depth": 0.00250978075088494,
+                "Futility_Max_Depth": 0.00250978075088494,
+                "LMR_History_Divisor": 2.5097807508849397
+            }
+        },
+        {
+            "iteration": 135,
+            "parameters": {
+                "LMR_Base": 1.9498398860977886,
+                "Futility_Margin": 113.3231063543139,
+                "RFP_Margin": 111.35509508270684,
+                "NMP_Min_Depth": 2.1524081963082544,
+                "Singular_Margin": 1.5402354807119092,
+                "Aspiration_Window": 35.197140786814124,
+                "LMR_Min_Depth": 1.4810487341881076,
+                "Futility_Max_Depth": 3.7515057207999227,
+                "LMR_History_Divisor": 1999.9146023925887
+            },
+            "wins_a": 37,
+            "wins_b": 28,
+            "draws": 35,
+            "perf_diff": 9,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30465358547906113,
+                "Futility_Margin": 6.093071709581222,
+                "RFP_Margin": 6.093071709581222,
+                "NMP_Min_Depth": 0.30465358547906113,
+                "Singular_Margin": 0.30465358547906113,
+                "Aspiration_Window": 2.437228683832489,
+                "LMR_Min_Depth": 0.30465358547906113,
+                "Futility_Max_Depth": 0.30465358547906113,
+                "LMR_History_Divisor": 304.6535854790611
+            },
+            "a_k": {
+                "LMR_Base": 0.002499346486972757,
+                "Futility_Margin": 0.04998692973945514,
+                "RFP_Margin": 0.04998692973945514,
+                "NMP_Min_Depth": 0.002499346486972757,
+                "Singular_Margin": 0.002499346486972757,
+                "Aspiration_Window": 0.019994771895782058,
+                "LMR_Min_Depth": 0.002499346486972757,
+                "Futility_Max_Depth": 0.002499346486972757,
+                "LMR_History_Divisor": 2.4993464869727573
+            }
+        },
+        {
+            "iteration": 136,
+            "parameters": {
+                "LMR_Base": 1.925311540012192,
+                "Futility_Margin": 113.3476347003995,
+                "RFP_Margin": 111.37962342879244,
+                "NMP_Min_Depth": 2.1769365423938507,
+                "Singular_Margin": 1.5157071346263127,
+                "Aspiration_Window": 35.17261244072853,
+                "LMR_Min_Depth": 1.456520388102511,
+                "Futility_Max_Depth": 3.7269773747143264,
+                "LMR_History_Divisor": 1999.9391307386743
+            },
+            "wins_a": 32,
+            "wins_b": 26,
+            "draws": 42,
+            "perf_diff": 6,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30442658410085155,
+                "Futility_Margin": 6.088531682017031,
+                "RFP_Margin": 6.088531682017031,
+                "NMP_Min_Depth": 0.30442658410085155,
+                "Singular_Margin": 0.30442658410085155,
+                "Aspiration_Window": 2.4354126728068124,
+                "LMR_Min_Depth": 0.30442658410085155,
+                "Futility_Max_Depth": 0.30442658410085155,
+                "LMR_History_Divisor": 304.4265841008515
+            },
+            "a_k": {
+                "LMR_Base": 0.0024890268708272103,
+                "Futility_Margin": 0.0497805374165442,
+                "RFP_Margin": 0.0497805374165442,
+                "NMP_Min_Depth": 0.0024890268708272103,
+                "Singular_Margin": 0.0024890268708272103,
+                "Aspiration_Window": 0.019912214966617683,
+                "LMR_Min_Depth": 0.0024890268708272103,
+                "Futility_Max_Depth": 0.0024890268708272103,
+                "LMR_History_Divisor": 2.4890268708272103
+            }
+        },
+        {
+            "iteration": 137,
+            "parameters": {
+                "LMR_Base": 1.8764198564612657,
+                "Futility_Margin": 113.39652638395042,
+                "RFP_Margin": 111.33073174524152,
+                "NMP_Min_Depth": 2.225828225944777,
+                "Singular_Margin": 1.4668154510753864,
+                "Aspiration_Window": 35.1237207571776,
+                "LMR_Min_Depth": 1.5054120716534374,
+                "Futility_Max_Depth": 3.6780856911634,
+                "LMR_History_Divisor": 1999.8902390551234
+            },
+            "wins_a": 28,
+            "wins_b": 16,
+            "draws": 56,
+            "perf_diff": 12,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30420141303916054,
+                "Futility_Margin": 6.08402826078321,
+                "RFP_Margin": 6.08402826078321,
+                "NMP_Min_Depth": 0.30420141303916054,
+                "Singular_Margin": 0.30420141303916054,
+                "Aspiration_Window": 2.4336113043132843,
+                "LMR_Min_Depth": 0.30420141303916054,
+                "Futility_Max_Depth": 0.30420141303916054,
+                "LMR_History_Divisor": 304.2014130391605
+            },
+            "a_k": {
+                "LMR_Base": 0.0024788198703425417,
+                "Futility_Margin": 0.04957639740685083,
+                "RFP_Margin": 0.04957639740685083,
+                "NMP_Min_Depth": 0.0024788198703425417,
+                "Singular_Margin": 0.0024788198703425417,
+                "Aspiration_Window": 0.019830558962740334,
+                "LMR_Min_Depth": 0.0024788198703425417,
+                "Futility_Max_Depth": 0.0024788198703425417,
+                "LMR_History_Divisor": 2.4788198703425417
+            }
+        },
+        {
+            "iteration": 138,
+            "parameters": {
+                "LMR_Base": 1.8520556938291508,
+                "Futility_Margin": 113.42089054658253,
+                "RFP_Margin": 111.30636758260941,
+                "NMP_Min_Depth": 2.201464063312662,
+                "Singular_Margin": 1.4911796137075013,
+                "Aspiration_Window": 35.14808491980972,
+                "LMR_Min_Depth": 1.5297762342855523,
+                "Futility_Max_Depth": 3.7024498537955153,
+                "LMR_History_Divisor": 1999.8658748924913
+            },
+            "wins_a": 25,
+            "wins_b": 31,
+            "draws": 44,
+            "perf_diff": -6,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3039780443366735,
+                "Futility_Margin": 6.079560886733471,
+                "RFP_Margin": 6.079560886733471,
+                "NMP_Min_Depth": 0.3039780443366735,
+                "Singular_Margin": 0.3039780443366735,
+                "Aspiration_Window": 2.431824354693388,
+                "LMR_Min_Depth": 0.3039780443366735,
+                "Futility_Max_Depth": 0.3039780443366735,
+                "LMR_History_Divisor": 303.9780443366735
+            },
+            "a_k": {
+                "LMR_Base": 0.002468723502936993,
+                "Futility_Margin": 0.049374470058739864,
+                "RFP_Margin": 0.049374470058739864,
+                "NMP_Min_Depth": 0.002468723502936993,
+                "Singular_Margin": 0.002468723502936993,
+                "Aspiration_Window": 0.019749788023495946,
+                "LMR_Min_Depth": 0.002468723502936993,
+                "Futility_Max_Depth": 0.002468723502936993,
+                "LMR_History_Divisor": 2.468723502936993
+            }
+        },
+        {
+            "iteration": 139,
+            "parameters": {
+                "LMR_Base": 1.8237251829862555,
+                "Futility_Margin": 113.39256003573963,
+                "RFP_Margin": 111.27803707176652,
+                "NMP_Min_Depth": 2.173133552469767,
+                "Singular_Margin": 1.5195101245503966,
+                "Aspiration_Window": 35.17641543065261,
+                "LMR_Min_Depth": 1.5581067451284476,
+                "Futility_Max_Depth": 3.67411934295262,
+                "LMR_History_Divisor": 1999.8942054033341
+            },
+            "wins_a": 36,
+            "wins_b": 29,
+            "draws": 35,
+            "perf_diff": 7,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3037564506618193,
+                "Futility_Margin": 6.075129013236385,
+                "RFP_Margin": 6.075129013236385,
+                "NMP_Min_Depth": 0.3037564506618193,
+                "Singular_Margin": 0.3037564506618193,
+                "Aspiration_Window": 2.430051605294554,
+                "LMR_Min_Depth": 0.3037564506618193,
+                "Futility_Max_Depth": 0.3037564506618193,
+                "LMR_History_Divisor": 303.75645066181926
+            },
+            "a_k": {
+                "LMR_Base": 0.0024587358340211547,
+                "Futility_Margin": 0.04917471668042309,
+                "RFP_Margin": 0.04917471668042309,
+                "NMP_Min_Depth": 0.0024587358340211547,
+                "Singular_Margin": 0.0024587358340211547,
+                "Aspiration_Window": 0.019669886672169238,
+                "LMR_Min_Depth": 0.0024587358340211547,
+                "Futility_Max_Depth": 0.0024587358340211547,
+                "LMR_History_Divisor": 2.4587358340211547
+            }
+        },
+        {
+            "iteration": 140,
+            "parameters": {
+                "LMR_Base": 1.8398606666995354,
+                "Futility_Margin": 113.40869551945292,
+                "RFP_Margin": 111.26190158805323,
+                "NMP_Min_Depth": 2.1892690361830467,
+                "Singular_Margin": 1.5356456082636765,
+                "Aspiration_Window": 35.19255091436589,
+                "LMR_Min_Depth": 1.5742422288417275,
+                "Futility_Max_Depth": 3.6902548266659,
+                "LMR_History_Divisor": 1999.9103408870474
+            },
+            "wins_a": 26,
+            "wins_b": 30,
+            "draws": 44,
+            "perf_diff": -4,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30353660529038046,
+                "Futility_Margin": 6.070732105807609,
+                "RFP_Margin": 6.070732105807609,
+                "NMP_Min_Depth": 0.30353660529038046,
+                "Singular_Margin": 0.30353660529038046,
+                "Aspiration_Window": 2.4282928423230437,
+                "LMR_Min_Depth": 0.30353660529038046,
+                "Futility_Max_Depth": 0.30353660529038046,
+                "LMR_History_Divisor": 303.53660529038046
+            },
+            "a_k": {
+                "LMR_Base": 0.0024488549755235906,
+                "Futility_Margin": 0.048977099510471814,
+                "RFP_Margin": 0.048977099510471814,
+                "NMP_Min_Depth": 0.0024488549755235906,
+                "Singular_Margin": 0.0024488549755235906,
+                "Aspiration_Window": 0.019590839804188725,
+                "LMR_Min_Depth": 0.0024488549755235906,
+                "Futility_Max_Depth": 0.0024488549755235906,
+                "LMR_History_Divisor": 2.4488549755235907
+            }
+        },
+        {
+            "iteration": 141,
+            "parameters": {
+                "LMR_Base": 1.8800672355126655,
+                "Futility_Margin": 113.44890208826605,
+                "RFP_Margin": 111.30210815686637,
+                "NMP_Min_Depth": 2.2294756049961766,
+                "Singular_Margin": 1.4954390394505463,
+                "Aspiration_Window": 35.152344345552756,
+                "LMR_Min_Depth": 1.5340356600285974,
+                "Futility_Max_Depth": 3.73046139547903,
+                "LMR_History_Divisor": 1999.9505474558605
+            },
+            "wins_a": 23,
+            "wins_b": 33,
+            "draws": 44,
+            "perf_diff": -10,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30331848208777207,
+                "Futility_Margin": 6.066369641755441,
+                "RFP_Margin": 6.066369641755441,
+                "NMP_Min_Depth": 0.30331848208777207,
+                "Singular_Margin": 0.30331848208777207,
+                "Aspiration_Window": 2.4265478567021765,
+                "LMR_Min_Depth": 0.30331848208777207,
+                "Futility_Max_Depth": 0.30331848208777207,
+                "LMR_History_Divisor": 303.31848208777205
+            },
+            "a_k": {
+                "LMR_Base": 0.0024390790844712354,
+                "Futility_Margin": 0.0487815816894247,
+                "RFP_Margin": 0.0487815816894247,
+                "NMP_Min_Depth": 0.0024390790844712354,
+                "Singular_Margin": 0.0024390790844712354,
+                "Aspiration_Window": 0.019512632675769883,
+                "LMR_Min_Depth": 0.0024390790844712354,
+                "Futility_Max_Depth": 0.0024390790844712354,
+                "LMR_History_Divisor": 2.4390790844712353
+            }
+        },
+        {
+            "iteration": 142,
+            "parameters": {
+                "LMR_Base": 1.9041126649408402,
+                "Futility_Margin": 113.47294751769422,
+                "RFP_Margin": 111.2780627274382,
+                "NMP_Min_Depth": 2.205430175568002,
+                "Singular_Margin": 1.519484468878721,
+                "Aspiration_Window": 35.12829891612458,
+                "LMR_Min_Depth": 1.5099902306004227,
+                "Futility_Max_Depth": 3.7064159660508555,
+                "LMR_History_Divisor": 1999.9745928852888
+            },
+            "wins_a": 26,
+            "wins_b": 32,
+            "draws": 42,
+            "perf_diff": -6,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.30310205549195796,
+                "Futility_Margin": 6.06204110983916,
+                "RFP_Margin": 6.06204110983916,
+                "NMP_Min_Depth": 0.30310205549195796,
+                "Singular_Margin": 0.30310205549195796,
+                "Aspiration_Window": 2.4248164439356636,
+                "LMR_Min_Depth": 0.30310205549195796,
+                "Futility_Max_Depth": 0.30310205549195796,
+                "LMR_History_Divisor": 303.10205549195797
+            },
+            "a_k": {
+                "LMR_Base": 0.0024294063616221826,
+                "Futility_Margin": 0.04858812723244365,
+                "RFP_Margin": 0.04858812723244365,
+                "NMP_Min_Depth": 0.0024294063616221826,
+                "Singular_Margin": 0.0024294063616221826,
+                "Aspiration_Window": 0.01943525089297746,
+                "LMR_Min_Depth": 0.0024294063616221826,
+                "Futility_Max_Depth": 0.0024294063616221826,
+                "LMR_History_Divisor": 2.4294063616221826
+            }
+        },
+        {
+            "iteration": 143,
+            "parameters": {
+                "LMR_Base": 1.908107277864819,
+                "Futility_Margin": 113.46895290477025,
+                "RFP_Margin": 111.27406811451422,
+                "NMP_Min_Depth": 2.2014355626440234,
+                "Singular_Margin": 1.5154898559547423,
+                "Aspiration_Window": 35.124304303200596,
+                "LMR_Min_Depth": 1.505995617676444,
+                "Futility_Max_Depth": 3.7104105789748343,
+                "LMR_History_Divisor": 1999.9785874982128
+            },
+            "wins_a": 28,
+            "wins_b": 29,
+            "draws": 43,
+            "perf_diff": -1,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3028873004969794,
+                "Futility_Margin": 6.057746009939588,
+                "RFP_Margin": 6.057746009939588,
+                "NMP_Min_Depth": 0.3028873004969794,
+                "Singular_Margin": 0.3028873004969794,
+                "Aspiration_Window": 2.423098403975835,
+                "LMR_Min_Depth": 0.3028873004969794,
+                "Futility_Max_Depth": 0.3028873004969794,
+                "LMR_History_Divisor": 302.8873004969794
+            },
+            "a_k": {
+                "LMR_Base": 0.002419835050148595,
+                "Futility_Margin": 0.0483967010029719,
+                "RFP_Margin": 0.0483967010029719,
+                "NMP_Min_Depth": 0.002419835050148595,
+                "Singular_Margin": 0.002419835050148595,
+                "Aspiration_Window": 0.01935868040118876,
+                "LMR_Min_Depth": 0.002419835050148595,
+                "Futility_Max_Depth": 0.002419835050148595,
+                "LMR_History_Divisor": 2.419835050148595
+            }
+        },
+        {
+            "iteration": 144,
+            "parameters": {
+                "LMR_Base": 1.8643077098424536,
+                "Futility_Margin": 113.42515333674788,
+                "RFP_Margin": 111.23026854649186,
+                "NMP_Min_Depth": 2.2452351306663885,
+                "Singular_Margin": 1.5592894239771076,
+                "Aspiration_Window": 35.16810387122296,
+                "LMR_Min_Depth": 1.5497951856988093,
+                "Futility_Max_Depth": 3.666611010952469,
+                "LMR_History_Divisor": 1999.9347879301904
+            },
+            "wins_a": 37,
+            "wins_b": 26,
+            "draws": 37,
+            "perf_diff": 11,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3026741926370683,
+                "Futility_Margin": 6.0534838527413655,
+                "RFP_Margin": 6.0534838527413655,
+                "NMP_Min_Depth": 0.3026741926370683,
+                "Singular_Margin": 0.3026741926370683,
+                "Aspiration_Window": 2.4213935410965464,
+                "LMR_Min_Depth": 0.3026741926370683,
+                "Futility_Max_Depth": 0.3026741926370683,
+                "LMR_History_Divisor": 302.67419263706824
+            },
+            "a_k": {
+                "LMR_Base": 0.002410363434367589,
+                "Futility_Margin": 0.04820726868735178,
+                "RFP_Margin": 0.04820726868735178,
+                "NMP_Min_Depth": 0.002410363434367589,
+                "Singular_Margin": 0.002410363434367589,
+                "Aspiration_Window": 0.019282907474940714,
+                "LMR_Min_Depth": 0.002410363434367589,
+                "Futility_Max_Depth": 0.002410363434367589,
+                "LMR_History_Divisor": 2.410363434367589
+            }
+        },
+        {
+            "iteration": 145,
+            "parameters": {
+                "LMR_Base": 1.884153047591874,
+                "Futility_Margin": 113.40530799899847,
+                "RFP_Margin": 111.25011388424127,
+                "NMP_Min_Depth": 2.2253897929169684,
+                "Singular_Margin": 1.5394440862276872,
+                "Aspiration_Window": 35.187949208972384,
+                "LMR_Min_Depth": 1.529949847949389,
+                "Futility_Max_Depth": 3.646765673203049,
+                "LMR_History_Divisor": 1999.95463326794
+            },
+            "wins_a": 26,
+            "wins_b": 31,
+            "draws": 43,
+            "perf_diff": -5,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3024627079713213,
+                "Futility_Margin": 6.049254159426426,
+                "RFP_Margin": 6.049254159426426,
+                "NMP_Min_Depth": 0.3024627079713213,
+                "Singular_Margin": 0.3024627079713213,
+                "Aspiration_Window": 2.4197016637705704,
+                "LMR_Min_Depth": 0.3024627079713213,
+                "Futility_Max_Depth": 0.3024627079713213,
+                "LMR_History_Divisor": 302.4627079713213
+            },
+            "a_k": {
+                "LMR_Base": 0.0024009898385180506,
+                "Futility_Margin": 0.048019796770361015,
+                "RFP_Margin": 0.048019796770361015,
+                "NMP_Min_Depth": 0.0024009898385180506,
+                "Singular_Margin": 0.0024009898385180506,
+                "Aspiration_Window": 0.019207918708144405,
+                "LMR_Min_Depth": 0.0024009898385180506,
+                "Futility_Max_Depth": 0.0024009898385180506,
+                "LMR_History_Divisor": 2.4009898385180506
+            }
+        },
+        {
+            "iteration": 146,
+            "parameters": {
+                "LMR_Base": 1.872283616888313,
+                "Futility_Margin": 113.41717742970202,
+                "RFP_Margin": 111.23824445353772,
+                "NMP_Min_Depth": 2.213520362213407,
+                "Singular_Margin": 1.5275746555241263,
+                "Aspiration_Window": 35.17607977826882,
+                "LMR_Min_Depth": 1.518080417245828,
+                "Futility_Max_Depth": 3.6586351039066103,
+                "LMR_History_Divisor": 1999.9665026986436
+            },
+            "wins_a": 32,
+            "wins_b": 35,
+            "draws": 33,
+            "perf_diff": -3,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3022528230689114,
+                "Futility_Margin": 6.045056461378228,
+                "RFP_Margin": 6.045056461378228,
+                "NMP_Min_Depth": 0.3022528230689114,
+                "Singular_Margin": 0.3022528230689114,
+                "Aspiration_Window": 2.418022584551291,
+                "LMR_Min_Depth": 0.3022528230689114,
+                "Futility_Max_Depth": 0.3022528230689114,
+                "LMR_History_Divisor": 302.25282306891137
+            },
+            "a_k": {
+                "LMR_Base": 0.002391712625581427,
+                "Futility_Margin": 0.04783425251162854,
+                "RFP_Margin": 0.04783425251162854,
+                "NMP_Min_Depth": 0.002391712625581427,
+                "Singular_Margin": 0.002391712625581427,
+                "Aspiration_Window": 0.019133701004651418,
+                "LMR_Min_Depth": 0.002391712625581427,
+                "Futility_Max_Depth": 0.002391712625581427,
+                "LMR_History_Divisor": 2.391712625581427
+            }
+        },
+        {
+            "iteration": 147,
+            "parameters": {
+                "LMR_Base": 1.8801716270254465,
+                "Futility_Margin": 113.40928941956489,
+                "RFP_Margin": 111.23035644340058,
+                "NMP_Min_Depth": 2.2056323520762735,
+                "Singular_Margin": 1.5354626656612598,
+                "Aspiration_Window": 35.168191768131685,
+                "LMR_Min_Depth": 1.5101924071086945,
+                "Futility_Max_Depth": 3.666523114043744,
+                "LMR_History_Divisor": 1999.9586146885065
+            },
+            "wins_a": 30,
+            "wins_b": 32,
+            "draws": 38,
+            "perf_diff": -2,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3020445149948134,
+                "Futility_Margin": 6.040890299896267,
+                "RFP_Margin": 6.040890299896267,
+                "NMP_Min_Depth": 0.3020445149948134,
+                "Singular_Margin": 0.3020445149948134,
+                "Aspiration_Window": 2.416356119958507,
+                "LMR_Min_Depth": 0.3020445149948134,
+                "Futility_Max_Depth": 0.3020445149948134,
+                "LMR_History_Divisor": 302.04451499481337
+            },
+            "a_k": {
+                "LMR_Base": 0.002382530196144651,
+                "Futility_Margin": 0.04765060392289302,
+                "RFP_Margin": 0.04765060392289302,
+                "NMP_Min_Depth": 0.002382530196144651,
+                "Singular_Margin": 0.002382530196144651,
+                "Aspiration_Window": 0.01906024156915721,
+                "LMR_Min_Depth": 0.002382530196144651,
+                "Futility_Max_Depth": 0.002382530196144651,
+                "LMR_History_Divisor": 2.3825301961446512
+            }
+        },
+        {
+            "iteration": 148,
+            "parameters": {
+                "LMR_Base": 1.864445026237577,
+                "Futility_Margin": 113.39356281877701,
+                "RFP_Margin": 111.24608304418845,
+                "NMP_Min_Depth": 2.189905751288404,
+                "Singular_Margin": 1.5197360648733902,
+                "Aspiration_Window": 35.15246516734381,
+                "LMR_Min_Depth": 1.525919007896564,
+                "Futility_Max_Depth": 3.6507965132558744,
+                "LMR_History_Divisor": 1999.9743412892944
+            },
+            "wins_a": 32,
+            "wins_b": 36,
+            "draws": 32,
+            "perf_diff": -4,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": 1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3018377612960238,
+                "Futility_Margin": 6.036755225920476,
+                "RFP_Margin": 6.036755225920476,
+                "NMP_Min_Depth": 0.3018377612960238,
+                "Singular_Margin": 0.3018377612960238,
+                "Aspiration_Window": 2.4147020903681904,
+                "LMR_Min_Depth": 0.3018377612960238,
+                "Futility_Max_Depth": 0.3018377612960238,
+                "LMR_History_Divisor": 301.8377612960238
+            },
+            "a_k": {
+                "LMR_Base": 0.0023734409873034344,
+                "Futility_Margin": 0.04746881974606869,
+                "RFP_Margin": 0.04746881974606869,
+                "NMP_Min_Depth": 0.0023734409873034344,
+                "Singular_Margin": 0.0023734409873034344,
+                "Aspiration_Window": 0.018987527898427475,
+                "LMR_Min_Depth": 0.0023734409873034344,
+                "Futility_Max_Depth": 0.0023734409873034344,
+                "LMR_History_Divisor": 2.3734409873034346
+            }
+        },
+        {
+            "iteration": 149,
+            "parameters": {
+                "LMR_Base": 1.9114779518966518,
+                "Futility_Margin": 113.34652989311793,
+                "RFP_Margin": 111.29311596984753,
+                "NMP_Min_Depth": 2.236938676947479,
+                "Singular_Margin": 1.566768990532465,
+                "Aspiration_Window": 35.19949809300289,
+                "LMR_Min_Depth": 1.572951933555639,
+                "Futility_Max_Depth": 3.6037635875967995,
+                "LMR_History_Divisor": 2000.0213742149535
+            },
+            "wins_a": 18,
+            "wins_b": 30,
+            "draws": 52,
+            "perf_diff": -12,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": -1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": -1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3016325399882535,
+                "Futility_Margin": 6.0326507997650705,
+                "RFP_Margin": 6.0326507997650705,
+                "NMP_Min_Depth": 0.3016325399882535,
+                "Singular_Margin": 0.3016325399882535,
+                "Aspiration_Window": 2.413060319906028,
+                "LMR_Min_Depth": 0.3016325399882535,
+                "Futility_Max_Depth": 0.3016325399882535,
+                "LMR_History_Divisor": 301.6325399882535
+            },
+            "a_k": {
+                "LMR_Base": 0.0023644434716042456,
+                "Futility_Margin": 0.047288869432084914,
+                "RFP_Margin": 0.047288869432084914,
+                "NMP_Min_Depth": 0.0023644434716042456,
+                "Singular_Margin": 0.0023644434716042456,
+                "Aspiration_Window": 0.018915547772833965,
+                "LMR_Min_Depth": 0.0023644434716042456,
+                "Futility_Max_Depth": 0.0023644434716042456,
+                "LMR_History_Divisor": 2.3644434716042455
+            }
+        },
+        {
+            "iteration": 150,
+            "parameters": {
+                "LMR_Base": 1.8880342471960028,
+                "Futility_Margin": 113.32308618841728,
+                "RFP_Margin": 111.31655967454819,
+                "NMP_Min_Depth": 2.2134949722468296,
+                "Singular_Margin": 1.5902126952331141,
+                "Aspiration_Window": 35.17605438830224,
+                "LMR_Min_Depth": 1.596395638256288,
+                "Futility_Max_Depth": 3.58031988289615,
+                "LMR_History_Divisor": 1999.997930510253
+            },
+            "wins_a": 29,
+            "wins_b": 23,
+            "draws": 48,
+            "perf_diff": 6,
+            "deltas": {
+                "LMR_Base": -1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": 1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": -1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3014288295430742,
+                "Futility_Margin": 6.0285765908614835,
+                "RFP_Margin": 6.0285765908614835,
+                "NMP_Min_Depth": 0.3014288295430742,
+                "Singular_Margin": 0.3014288295430742,
+                "Aspiration_Window": 2.4114306363445936,
+                "LMR_Min_Depth": 0.3014288295430742,
+                "Futility_Max_Depth": 0.3014288295430742,
+                "LMR_History_Divisor": 301.4288295430742
+            },
+            "a_k": {
+                "LMR_Base": 0.00235553615602338,
+                "Futility_Margin": 0.0471107231204676,
+                "RFP_Margin": 0.0471107231204676,
+                "NMP_Min_Depth": 0.00235553615602338,
+                "Singular_Margin": 0.00235553615602338,
+                "Aspiration_Window": 0.01884428924818704,
+                "LMR_Min_Depth": 0.00235553615602338,
+                "Futility_Max_Depth": 0.00235553615602338,
+                "LMR_History_Divisor": 2.3555361560233803
+            }
+        },
+        {
+            "iteration": 151,
+            "parameters": {
+                "LMR_Base": 1.8724531696162892,
+                "Futility_Margin": 113.30750511083757,
+                "RFP_Margin": 111.3321407521279,
+                "NMP_Min_Depth": 2.197913894667116,
+                "Singular_Margin": 1.5746316176534005,
+                "Aspiration_Window": 35.19163546588195,
+                "LMR_Min_Depth": 1.5808145606765744,
+                "Futility_Max_Depth": 3.564738805316437,
+                "LMR_History_Divisor": 1999.9823494326731
+            },
+            "wins_a": 31,
+            "wins_b": 35,
+            "draws": 34,
+            "perf_diff": -4,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": 1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": 1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": 1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3012266088755006,
+                "Futility_Margin": 6.024532177510013,
+                "RFP_Margin": 6.024532177510013,
+                "NMP_Min_Depth": 0.3012266088755006,
+                "Singular_Margin": 0.3012266088755006,
+                "Aspiration_Window": 2.409812871004005,
+                "LMR_Min_Depth": 0.3012266088755006,
+                "Futility_Max_Depth": 0.3012266088755006,
+                "LMR_History_Divisor": 301.22660887550063
+            },
+            "a_k": {
+                "LMR_Base": 0.0023467175809815995,
+                "Futility_Margin": 0.046934351619631984,
+                "RFP_Margin": 0.046934351619631984,
+                "NMP_Min_Depth": 0.0023467175809815995,
+                "Singular_Margin": 0.0023467175809815995,
+                "Aspiration_Window": 0.018773740647852796,
+                "LMR_Min_Depth": 0.0023467175809815995,
+                "Futility_Max_Depth": 0.0023467175809815995,
+                "LMR_History_Divisor": 2.346717580981599
+            }
+        },
+        {
+            "iteration": 152,
+            "parameters": {
+                "LMR_Base": 1.8685698050108122,
+                "Futility_Margin": 113.31138847544304,
+                "RFP_Margin": 111.33602411673337,
+                "NMP_Min_Depth": 2.201797259272593,
+                "Singular_Margin": 1.5707482530479235,
+                "Aspiration_Window": 35.19551883048743,
+                "LMR_Min_Depth": 1.5769311960710974,
+                "Futility_Max_Depth": 3.568622169921914,
+                "LMR_History_Divisor": 1999.9784660680677
+            },
+            "wins_a": 31,
+            "wins_b": 32,
+            "draws": 37,
+            "perf_diff": -1,
+            "deltas": {
+                "LMR_Base": 1.0,
+                "Futility_Margin": -1.0,
+                "RFP_Margin": -1.0,
+                "NMP_Min_Depth": -1.0,
+                "Singular_Margin": 1.0,
+                "Aspiration_Window": -1.0,
+                "LMR_Min_Depth": 1.0,
+                "Futility_Max_Depth": -1.0,
+                "LMR_History_Divisor": 1.0
+            },
+            "c_k": {
+                "LMR_Base": 0.3010258573319908,
+                "Futility_Margin": 6.020517146639816,
+                "RFP_Margin": 6.020517146639816,
+                "NMP_Min_Depth": 0.3010258573319908,
+                "Singular_Margin": 0.3010258573319908,
+                "Aspiration_Window": 2.408206858655926,
+                "LMR_Min_Depth": 0.3010258573319908,
+                "Futility_Max_Depth": 0.3010258573319908,
+                "LMR_History_Divisor": 301.0258573319908
+            },
+            "a_k": {
+                "LMR_Base": 0.0023379863193928848,
+                "Futility_Margin": 0.04675972638785769,
+                "RFP_Margin": 0.04675972638785769,
+                "NMP_Min_Depth": 0.0023379863193928848,
+                "Singular_Margin": 0.0023379863193928848,
+                "Aspiration_Window": 0.018703890555143078,
+                "LMR_Min_Depth": 0.0023379863193928848,
+                "Futility_Max_Depth": 0.0023379863193928848,
+                "LMR_History_Divisor": 2.3379863193928845
             }
         }
     ]

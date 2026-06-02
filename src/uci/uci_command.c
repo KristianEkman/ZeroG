@@ -32,6 +32,8 @@ static int write_uci_handshake(FILE *output) {
           output,
           "option name Futility_Max_Depth type spin default 1 min 1 max 5\n") <
           0 ||
+      fprintf(output, "option name LMR_History_Divisor type spin default 2000 min 100 max 100000\n") <
+          0 ||
       fprintf(output, "uciok\n") < 0) {
     return -1;
   }
@@ -124,6 +126,9 @@ int uci_handle_line(UciState *state, const char *line, FILE *output,
     } else if (uci_parse_spin_option_value(args, "Futility_Max_Depth",
                                            &spin_val) == 0) {
       return search_set_futility_max_depth(spin_val);
+    } else if (uci_parse_spin_option_value(args, "LMR_History_Divisor",
+                                           &spin_val) == 0) {
+      return search_set_lmr_history_divisor(spin_val);
     }
 
     return -1;

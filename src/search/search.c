@@ -33,6 +33,7 @@ static int singular_margin = 2;
 static int aspiration_window = 35;
 static int lmr_min_depth = 2;
 static int futility_max_depth = 4;
+static int lmr_history_divisor = 2000;
 static uint64_t node_count = 0;
 
 static Move killer_moves[2][MAX_DEPTH];
@@ -159,6 +160,14 @@ int search_set_futility_max_depth(int depth) {
     return -1;
   }
   futility_max_depth = depth;
+  return 0;
+}
+
+int search_set_lmr_history_divisor(int divisor) {
+  if (divisor < 100 || divisor > 100000) {
+    return -1;
+  }
+  lmr_history_divisor = divisor;
   return 0;
 }
 
@@ -706,8 +715,15 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta,
           moves[i] == killer_moves[1][ply]) {
         reduction--;
       }
+      
+      int hist = history_scores[COLOR_IDX(pos->sideToMove)][MOVE_FROM(moves[i])][MOVE_TO(moves[i])];
+      int hist_adj = (hist + (hist > 0 ? lmr_history_divisor / 2 : -lmr_history_divisor / 2)) / lmr_history_divisor;
+      reduction -= hist_adj;
+
       if (reduction < 0) {
         reduction = 0;
+      } else if (reduction >= depth) {
+        reduction = depth - 1;
       }
     }
 
@@ -800,6 +816,15 @@ static int pvs(Position *pos, int depth, int ply, int alpha, int beta,
         int color_idx = COLOR_IDX(pos->sideToMove);
         history_scores[color_idx][from][to] +=
             bonus - history_scores[color_idx][from][to] * bonus / 20000;
+
+        for (int j = 0; j < i; j++) {
+          if (!move_is_capture_or_promo(pos, moves[j])) {
+            int prev_from = MOVE_FROM(moves[j]);
+            int prev_to = MOVE_TO(moves[j]);
+            history_scores[color_idx][prev_from][prev_to] -=
+                bonus + history_scores[color_idx][prev_from][prev_to] * bonus / 20000;
+          }
+        }
       }
       break;
     }

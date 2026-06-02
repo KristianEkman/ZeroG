@@ -42,6 +42,7 @@ int search_set_singular_margin(int margin);
 int search_set_aspiration_window(int window);
 int search_set_lmr_min_depth(int depth);
 int search_set_futility_max_depth(int depth);
+int search_set_lmr_history_divisor(int divisor);
 int search_get_history_score(Color side, Square from, Square to);
 int search_run_quiescence_only(const Position *board);
 
