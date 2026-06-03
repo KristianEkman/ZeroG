@@ -199,6 +199,10 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta,
   int in_check = is_square_attacked(
       pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
 
+  if (in_check) {
+    depth++;
+  }
+
   int static_eval = 0;
   if (!in_check) {
     static_eval = evaluate(pos);

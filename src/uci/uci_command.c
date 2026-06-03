@@ -32,8 +32,7 @@ static int write_uci_handshake(FILE *output) {
           output,
           "option name Futility_Max_Depth type spin default 1 min 1 max 5\n") <
           0 ||
-      fprintf(output, "option name LMR_History_Divisor type spin default 2000 min 100 max 100000\n") <
-          0 ||
+      fprintf(output, "option name LMR_History_Divisor type spin default 2000 min 100 max 100000\n") < 0 ||
       fprintf(output, "uciok\n") < 0) {
     return -1;
   }
