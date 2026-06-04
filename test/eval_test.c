@@ -78,7 +78,7 @@ void test_eval_endgame_transition(void)
     // Plus White has slightly different mobility.
     memset(&test_pos, 0, sizeof(Position));
     TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/ppp2ppp/2n5/8/8/2N5/PPP1KPPP/8 w - - 0 1", &test_pos));
-    TEST_ASSERT_EQUAL_INT(25, evaluate(&test_pos));
+    TEST_ASSERT_EQUAL_INT(22, evaluate(&test_pos));
 }
 
 void test_eval_bishop_pair(void)

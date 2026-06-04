@@ -40,8 +40,8 @@ void init_king_safety_tables(void) {
     }
 }
 
-int evaluate_king_safety(const Position *pos, Color color, int is_endgame) {
-    if (is_endgame) {
+int evaluate_king_safety(const Position *pos, Color color, int phase) {
+    if (phase == 0) {
         return 0;
     }
 
@@ -148,5 +148,6 @@ int evaluate_king_safety(const Position *pos, Color color, int is_endgame) {
         }
     }
 
-    return shield_score - penalty;
+    int safety_score = shield_score - penalty;
+    return (safety_score * phase) / 24;
 }

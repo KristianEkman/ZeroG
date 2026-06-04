@@ -4,6 +4,6 @@
 #include "boards.h"
 
 void init_king_safety_tables(void);
-int evaluate_king_safety(const Position *pos, Color color, int is_endgame);
+int evaluate_king_safety(const Position *pos, Color color, int phase);
 
 #endif /* KING_SAFETY_H */

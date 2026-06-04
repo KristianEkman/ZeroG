@@ -212,45 +212,18 @@ static const int king_end_table[64] = {
     -50,-40,-30,-20,-20,-30,-40,-50 
 };
 
-/* Replicates standard is_endgame logic */
-static int get_is_endgame(const Position *pos) {
-    int white_queens = bit_count(pos->pieces[COLOR_IDX(WHITE)][QUEEN]);
-    int black_queens = bit_count(pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
 
-    if (white_queens == 0 && black_queens == 0) {
-        return 1;
-    } else {
-        int white_ok = 1;
-        if (white_queens > 0) {
-            int white_minors = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT]) + bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
-            int white_rooks = bit_count(pos->pieces[COLOR_IDX(WHITE)][ROOK]);
-            if (white_rooks > 0 || white_minors > 1) {
-                white_ok = 0;
-            }
-        }
-        int black_ok = 1;
-        if (black_queens > 0) {
-            int black_minors = bit_count(pos->pieces[COLOR_IDX(BLACK)][KNIGHT]) + bit_count(pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
-            int black_rooks = bit_count(pos->pieces[COLOR_IDX(BLACK)][ROOK]);
-            if (black_rooks > 0 || black_minors > 1) {
-                black_ok = 0;
-            }
-        }
-        if (white_ok && black_ok) {
-            return 1;
-        }
-    }
-    return 0;
-}
 
 /* Performs exact feature coefficient extraction */
 void evaluate_extract_features(const Position *pos, double *features, int *const_score) {
     memset(features, 0, sizeof(double) * NUM_PARAMS);
     *const_score = 0;
 
-    int is_endgame = get_is_endgame(pos);
     int phase = get_game_phase(pos);
     if (phase > 24) phase = 24;
+
+    double mg_scale = (double)phase / 24.0;
+    double eg_scale = (double)(24 - phase) / 24.0;
 
     uint64_t w_pawns_copy = pos->pieces[COLOR_IDX(WHITE)][PAWN];
     uint64_t b_pawns_copy = pos->pieces[COLOR_IDX(BLACK)][PAWN];
@@ -268,16 +241,14 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
         // Isolated
         if (!(adjacentFilesMask[sq] & w_pawns_copy)) {
             int is_semi_open = !(file_masks[sq & 7] & b_pawns_copy);
-            if (is_endgame) {
-                features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_EG : PARAM_ISOLATED_PAWN_EG] -= 1.0;
-            } else {
-                features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_MG : PARAM_ISOLATED_PAWN_MG] -= 1.0;
-            }
+            features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_MG : PARAM_ISOLATED_PAWN_MG] -= mg_scale;
+            features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_EG : PARAM_ISOLATED_PAWN_EG] -= eg_scale;
         }
 
         // Doubled
         if (fileBehindMasks[0][sq] & w_pawns_copy) {
-            features[is_endgame ? PARAM_DOUBLE_PAWN_EG : PARAM_DOUBLE_PAWN_MG] -= 1.0;
+            features[PARAM_DOUBLE_PAWN_MG] -= mg_scale;
+            features[PARAM_DOUBLE_PAWN_EG] -= eg_scale;
         }
 
         // Passed
@@ -290,28 +261,19 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
 
             double scale = blocked ? 0.7 : 1.0;
 
-            if (is_endgame) {
-                features[PARAM_PASSED_PAWN_EG_R1 + rank - 1] += scale;
-                if (defended) {
-                    features[PARAM_PASSED_PAWN_DEFENDED_EG] += scale;
-                }
-                if (friendly_behind) {
-                    features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG] += 1.0;
-                }
-                if (enemy_behind) {
-                    features[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG] += 1.0;
-                }
-            } else {
-                features[PARAM_PASSED_PAWN_MG_R1 + rank - 1] += scale;
-                if (defended) {
-                    features[PARAM_PASSED_PAWN_DEFENDED_MG] += scale;
-                }
-                if (friendly_behind) {
-                    features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG] += 1.0;
-                }
-                if (enemy_behind) {
-                    features[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG] += 1.0;
-                }
+            features[PARAM_PASSED_PAWN_MG_R1 + rank - 1] += scale * mg_scale;
+            features[PARAM_PASSED_PAWN_EG_R1 + rank - 1] += scale * eg_scale;
+            if (defended) {
+                features[PARAM_PASSED_PAWN_DEFENDED_MG] += scale * mg_scale;
+                features[PARAM_PASSED_PAWN_DEFENDED_EG] += scale * eg_scale;
+            }
+            if (friendly_behind) {
+                features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG] += mg_scale;
+                features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG] += eg_scale;
+            }
+            if (enemy_behind) {
+                features[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG] += mg_scale;
+                features[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG] += eg_scale;
             }
         }
     }
@@ -326,16 +288,14 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
         // Isolated
         if (!(adjacentFilesMask[sq] & b_pawns_copy)) {
             int is_semi_open = !(file_masks[sq & 7] & w_pawns_copy);
-            if (is_endgame) {
-                features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_EG : PARAM_ISOLATED_PAWN_EG] += 1.0;
-            } else {
-                features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_MG : PARAM_ISOLATED_PAWN_MG] += 1.0;
-            }
+            features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_MG : PARAM_ISOLATED_PAWN_MG] += mg_scale;
+            features[is_semi_open ? PARAM_ISOLATED_PAWN_SEMI_OPEN_EG : PARAM_ISOLATED_PAWN_EG] += eg_scale;
         }
 
         // Doubled
         if (fileBehindMasks[1][sq] & b_pawns_copy) {
-            features[is_endgame ? PARAM_DOUBLE_PAWN_EG : PARAM_DOUBLE_PAWN_MG] += 1.0;
+            features[PARAM_DOUBLE_PAWN_MG] += mg_scale;
+            features[PARAM_DOUBLE_PAWN_EG] += eg_scale;
         }
 
         // Passed
@@ -348,28 +308,19 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
 
             double scale = blocked ? 0.7 : 1.0;
 
-            if (is_endgame) {
-                features[PARAM_PASSED_PAWN_EG_R1 + rank - 1] -= scale;
-                if (defended) {
-                    features[PARAM_PASSED_PAWN_DEFENDED_EG] -= scale;
-                }
-                if (friendly_behind) {
-                    features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG] -= 1.0;
-                }
-                if (enemy_behind) {
-                    features[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG] -= 1.0;
-                }
-            } else {
-                features[PARAM_PASSED_PAWN_MG_R1 + rank - 1] -= scale;
-                if (defended) {
-                    features[PARAM_PASSED_PAWN_DEFENDED_MG] -= scale;
-                }
-                if (friendly_behind) {
-                    features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG] -= 1.0;
-                }
-                if (enemy_behind) {
-                    features[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG] -= 1.0;
-                }
+            features[PARAM_PASSED_PAWN_MG_R1 + rank - 1] -= scale * mg_scale;
+            features[PARAM_PASSED_PAWN_EG_R1 + rank - 1] -= scale * eg_scale;
+            if (defended) {
+                features[PARAM_PASSED_PAWN_DEFENDED_MG] -= scale * mg_scale;
+                features[PARAM_PASSED_PAWN_DEFENDED_EG] -= scale * eg_scale;
+            }
+            if (friendly_behind) {
+                features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG] -= mg_scale;
+                features[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG] -= eg_scale;
+            }
+            if (enemy_behind) {
+                features[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG] -= mg_scale;
+                features[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG] -= eg_scale;
             }
         }
     }
@@ -412,9 +363,11 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
         int file = sq & 7;
         if (!(file_masks[file] & w_pawns_copy)) {
             if (!(file_masks[file] & b_pawns_copy)) {
-                features[is_endgame ? PARAM_ROOK_OPEN_FILE_EG : PARAM_ROOK_OPEN_FILE_MG] += 1.0;
+                features[PARAM_ROOK_OPEN_FILE_MG] += mg_scale;
+                features[PARAM_ROOK_OPEN_FILE_EG] += eg_scale;
             } else {
-                features[is_endgame ? PARAM_ROOK_SEMI_OPEN_FILE_EG : PARAM_ROOK_SEMI_OPEN_FILE_MG] += 1.0;
+                features[PARAM_ROOK_SEMI_OPEN_FILE_MG] += mg_scale;
+                features[PARAM_ROOK_SEMI_OPEN_FILE_EG] += eg_scale;
             }
         }
     }
@@ -427,9 +380,11 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
         int file = sq & 7;
         if (!(file_masks[file] & b_pawns_copy)) {
             if (!(file_masks[file] & w_pawns_copy)) {
-                features[is_endgame ? PARAM_ROOK_OPEN_FILE_EG : PARAM_ROOK_OPEN_FILE_MG] -= 1.0;
+                features[PARAM_ROOK_OPEN_FILE_MG] -= mg_scale;
+                features[PARAM_ROOK_OPEN_FILE_EG] -= eg_scale;
             } else {
-                features[is_endgame ? PARAM_ROOK_SEMI_OPEN_FILE_EG : PARAM_ROOK_SEMI_OPEN_FILE_MG] -= 1.0;
+                features[PARAM_ROOK_SEMI_OPEN_FILE_MG] -= mg_scale;
+                features[PARAM_ROOK_SEMI_OPEN_FILE_EG] -= eg_scale;
             }
         }
     }
@@ -452,12 +407,12 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
     uint64_t w_king = pos->pieces[COLOR_IDX(WHITE)][KING];
     while (w_king) {
         int sq = pop_lsb(&w_king);
-        *const_score += 20000 + (is_endgame ? king_end_table[sq] : king_middle_table[sq]);
+        *const_score += 20000 + (king_middle_table[sq] * phase + king_end_table[sq] * (24 - phase)) / 24;
     }
     uint64_t b_king = pos->pieces[COLOR_IDX(BLACK)][KING];
     while (b_king) {
         int sq = pop_lsb(&b_king);
-        *const_score -= 20000 + (is_endgame ? king_end_table[sq ^ 56] : king_middle_table[sq ^ 56]);
+        *const_score -= 20000 + (king_middle_table[sq ^ 56] * phase + king_end_table[sq ^ 56] * (24 - phase)) / 24;
     }
 
     // --- Bishop Pair ---
@@ -471,8 +426,6 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
     }
 
     // --- Mobility ---
-    double mg_scale = (double)phase / 24.0;
-    double eg_scale = (double)(24 - phase) / 24.0;
     uint64_t occ = pos->occAll;
 
     // White Mobility
@@ -591,8 +544,8 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
  * mirroring exact integer division roundoff in mobility.
  */
 int evaluate_replicated(const Position *pos, const int *params) {
-    int score = 0;
-    int is_endgame = get_is_endgame(pos);
+    int mg_score = 0;
+    int eg_score = 0;
     int phase = get_game_phase(pos);
     if (phase > 24) phase = 24;
 
@@ -606,189 +559,225 @@ int evaluate_replicated(const Position *pos, const int *params) {
     uint64_t w_pawns = w_pawns_copy;
     while (w_pawns) {
         int sq = pop_lsb(&w_pawns);
-        int item_score = params[PARAM_PIECE_PAWN] + pawn_table[sq];
+        int item_score_mg = params[PARAM_PIECE_PAWN] + pawn_table[sq];
+        int item_score_eg = params[PARAM_PIECE_PAWN] + pawn_table[sq];
 
         // Isolated
         if (!(adjacentFilesMask[sq] & w_pawns_copy)) {
             int is_semi_open = !(file_masks[sq & 7] & b_pawns_copy);
-            if (is_endgame) {
-                item_score -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_EG] : params[PARAM_ISOLATED_PAWN_EG];
-            } else {
-                item_score -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_MG] : params[PARAM_ISOLATED_PAWN_MG];
-            }
+            item_score_mg -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_MG] : params[PARAM_ISOLATED_PAWN_MG];
+            item_score_eg -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_EG] : params[PARAM_ISOLATED_PAWN_EG];
         }
 
         // Doubled
         if (fileBehindMasks[0][sq] & w_pawns_copy) {
-            item_score -= is_endgame ? params[PARAM_DOUBLE_PAWN_EG] : params[PARAM_DOUBLE_PAWN_MG];
+            item_score_mg -= params[PARAM_DOUBLE_PAWN_MG];
+            item_score_eg -= params[PARAM_DOUBLE_PAWN_EG];
         }
 
         // Passed
         if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
             int rank = RANK_OF(sq);
-            int bp = is_endgame ? params[PARAM_PASSED_PAWN_EG_R1 + rank - 1] : params[PARAM_PASSED_PAWN_MG_R1 + rank - 1];
+            int bp_mg = params[PARAM_PASSED_PAWN_MG_R1 + rank - 1];
+            int bp_eg = params[PARAM_PASSED_PAWN_EG_R1 + rank - 1];
 
             if (pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) {
-                bp += is_endgame ? params[PARAM_PASSED_PAWN_DEFENDED_EG] : params[PARAM_PASSED_PAWN_DEFENDED_MG];
+                bp_mg += params[PARAM_PASSED_PAWN_DEFENDED_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_DEFENDED_EG];
             }
 
             int front_sq = sq + 8;
             if (pos->occAll & (1ULL << front_sq)) {
-                bp = (bp * 7) / 10;
+                bp_mg = (bp_mg * 7) / 10;
+                bp_eg = (bp_eg * 7) / 10;
             }
 
             if (fileBehindMasks[COLOR_IDX(WHITE)][sq] & w_rooks_queens) {
-                bp += is_endgame ? params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG] : params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG];
+                bp_mg += params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG];
             }
 
             if (fileBehindMasks[COLOR_IDX(WHITE)][sq] & b_rooks_queens) {
-                bp += is_endgame ? params[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG] : params[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG];
+                bp_mg += params[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG];
             }
 
-            item_score += bp;
+            item_score_mg += bp_mg;
+            item_score_eg += bp_eg;
         }
-        score += item_score;
+        mg_score += item_score_mg;
+        eg_score += item_score_eg;
     }
 
     // Black Pawns
     uint64_t b_pawns = b_pawns_copy;
     while (b_pawns) {
         int sq = pop_lsb(&b_pawns);
-        int item_score = params[PARAM_PIECE_PAWN] + pawn_table[sq ^ 56];
+        int item_score_mg = params[PARAM_PIECE_PAWN] + pawn_table[sq ^ 56];
+        int item_score_eg = params[PARAM_PIECE_PAWN] + pawn_table[sq ^ 56];
 
         // Isolated
         if (!(adjacentFilesMask[sq] & b_pawns_copy)) {
             int is_semi_open = !(file_masks[sq & 7] & w_pawns_copy);
-            if (is_endgame) {
-                item_score -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_EG] : params[PARAM_ISOLATED_PAWN_EG];
-            } else {
-                item_score -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_MG] : params[PARAM_ISOLATED_PAWN_MG];
-            }
+            item_score_mg -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_MG] : params[PARAM_ISOLATED_PAWN_MG];
+            item_score_eg -= is_semi_open ? params[PARAM_ISOLATED_PAWN_SEMI_OPEN_EG] : params[PARAM_ISOLATED_PAWN_EG];
         }
 
         // Doubled
         if (fileBehindMasks[1][sq] & b_pawns_copy) {
-            item_score -= is_endgame ? params[PARAM_DOUBLE_PAWN_EG] : params[PARAM_DOUBLE_PAWN_MG];
+            item_score_mg -= params[PARAM_DOUBLE_PAWN_MG];
+            item_score_eg -= params[PARAM_DOUBLE_PAWN_EG];
         }
 
         // Passed
         if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
             int rank = 7 - RANK_OF(sq);
-            int bp = is_endgame ? params[PARAM_PASSED_PAWN_EG_R1 + rank - 1] : params[PARAM_PASSED_PAWN_MG_R1 + rank - 1];
+            int bp_mg = params[PARAM_PASSED_PAWN_MG_R1 + rank - 1];
+            int bp_eg = params[PARAM_PASSED_PAWN_EG_R1 + rank - 1];
 
             if (pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) {
-                bp += is_endgame ? params[PARAM_PASSED_PAWN_DEFENDED_EG] : params[PARAM_PASSED_PAWN_DEFENDED_MG];
+                bp_mg += params[PARAM_PASSED_PAWN_DEFENDED_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_DEFENDED_EG];
             }
 
             int front_sq = sq - 8;
             if (pos->occAll & (1ULL << front_sq)) {
-                bp = (bp * 7) / 10;
+                bp_mg = (bp_mg * 7) / 10;
+                bp_eg = (bp_eg * 7) / 10;
             }
 
             if (fileBehindMasks[COLOR_IDX(BLACK)][sq] & b_rooks_queens) {
-                bp += is_endgame ? params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG] : params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG];
+                bp_mg += params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_FRIENDLY_BEHIND_EG];
             }
 
             if (fileBehindMasks[COLOR_IDX(BLACK)][sq] & w_rooks_queens) {
-                bp += is_endgame ? params[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG] : params[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG];
+                bp_mg += params[PARAM_PASSED_PAWN_ENEMY_BEHIND_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_ENEMY_BEHIND_EG];
             }
 
-            item_score += bp;
+            item_score_mg += bp_mg;
+            item_score_eg += bp_eg;
         }
-        score -= item_score;
+        mg_score -= item_score_mg;
+        eg_score -= item_score_eg;
     }
 
     // --- Knights ---
     uint64_t w_knights = pos->pieces[COLOR_IDX(WHITE)][KNIGHT];
     while (w_knights) {
         int sq = pop_lsb(&w_knights);
-        score += params[PARAM_PIECE_KNIGHT] + knight_table[sq];
+        int val = params[PARAM_PIECE_KNIGHT] + knight_table[sq];
+        mg_score += val;
+        eg_score += val;
     }
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
     while (b_knights) {
         int sq = pop_lsb(&b_knights);
-        score -= params[PARAM_PIECE_KNIGHT] + knight_table[sq ^ 56];
+        int val = params[PARAM_PIECE_KNIGHT] + knight_table[sq ^ 56];
+        mg_score -= val;
+        eg_score -= val;
     }
 
     // --- Bishops ---
     uint64_t w_bishops = pos->pieces[COLOR_IDX(WHITE)][BISHOP];
     while (w_bishops) {
         int sq = pop_lsb(&w_bishops);
-        score += params[PARAM_PIECE_BISHOP] + bishop_table[sq];
+        int val = params[PARAM_PIECE_BISHOP] + bishop_table[sq];
+        mg_score += val;
+        eg_score += val;
     }
     uint64_t b_bishops = pos->pieces[COLOR_IDX(BLACK)][BISHOP];
     while (b_bishops) {
         int sq = pop_lsb(&b_bishops);
-        score -= params[PARAM_PIECE_BISHOP] + bishop_table[sq ^ 56];
+        int val = params[PARAM_PIECE_BISHOP] + bishop_table[sq ^ 56];
+        mg_score -= val;
+        eg_score -= val;
     }
 
     // --- Rooks ---
     uint64_t w_rooks = pos->pieces[COLOR_IDX(WHITE)][ROOK];
     while (w_rooks) {
         int sq = pop_lsb(&w_rooks);
-        int item_score = params[PARAM_PIECE_ROOK] + rook_table[sq];
+        int item_score_mg = params[PARAM_PIECE_ROOK] + rook_table[sq];
+        int item_score_eg = params[PARAM_PIECE_ROOK] + rook_table[sq];
 
         int file = sq & 7;
         if (!(file_masks[file] & w_pawns_copy)) {
             if (!(file_masks[file] & b_pawns_copy)) {
-                item_score += is_endgame ? params[PARAM_ROOK_OPEN_FILE_EG] : params[PARAM_ROOK_OPEN_FILE_MG];
+                item_score_mg += params[PARAM_ROOK_OPEN_FILE_MG];
+                item_score_eg += params[PARAM_ROOK_OPEN_FILE_EG];
             } else {
-                item_score += is_endgame ? params[PARAM_ROOK_SEMI_OPEN_FILE_EG] : params[PARAM_ROOK_SEMI_OPEN_FILE_MG];
+                item_score_mg += params[PARAM_ROOK_SEMI_OPEN_FILE_MG];
+                item_score_eg += params[PARAM_ROOK_SEMI_OPEN_FILE_EG];
             }
         }
-        score += item_score;
+        mg_score += item_score_mg;
+        eg_score += item_score_eg;
     }
     uint64_t b_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
     while (b_rooks) {
         int sq = pop_lsb(&b_rooks);
-        int item_score = params[PARAM_PIECE_ROOK] + rook_table[sq ^ 56];
+        int item_score_mg = params[PARAM_PIECE_ROOK] + rook_table[sq ^ 56];
+        int item_score_eg = params[PARAM_PIECE_ROOK] + rook_table[sq ^ 56];
 
         int file = sq & 7;
         if (!(file_masks[file] & b_pawns_copy)) {
             if (!(file_masks[file] & w_pawns_copy)) {
-                item_score += is_endgame ? params[PARAM_ROOK_OPEN_FILE_EG] : params[PARAM_ROOK_OPEN_FILE_MG];
+                item_score_mg += params[PARAM_ROOK_OPEN_FILE_MG];
+                item_score_eg += params[PARAM_ROOK_OPEN_FILE_EG];
             } else {
-                item_score += is_endgame ? params[PARAM_ROOK_SEMI_OPEN_FILE_EG] : params[PARAM_ROOK_SEMI_OPEN_FILE_MG];
+                item_score_mg += params[PARAM_ROOK_SEMI_OPEN_FILE_MG];
+                item_score_eg += params[PARAM_ROOK_SEMI_OPEN_FILE_EG];
             }
         }
-        score -= item_score;
+        mg_score -= item_score_mg;
+        eg_score -= item_score_eg;
     }
 
     // --- Queens ---
     uint64_t w_queens = pos->pieces[COLOR_IDX(WHITE)][QUEEN];
     while (w_queens) {
         int sq = pop_lsb(&w_queens);
-        score += params[PARAM_PIECE_QUEEN] + queen_table[sq];
+        int val = params[PARAM_PIECE_QUEEN] + queen_table[sq];
+        mg_score += val;
+        eg_score += val;
     }
     uint64_t b_queens = pos->pieces[COLOR_IDX(BLACK)][QUEEN];
     while (b_queens) {
         int sq = pop_lsb(&b_queens);
-        score -= params[PARAM_PIECE_QUEEN] + queen_table[sq ^ 56];
+        int val = params[PARAM_PIECE_QUEEN] + queen_table[sq ^ 56];
+        mg_score -= val;
+        eg_score -= val;
     }
 
     // --- Kings ---
     uint64_t w_king = pos->pieces[COLOR_IDX(WHITE)][KING];
     while (w_king) {
         int sq = pop_lsb(&w_king);
-        score += 20000 + (is_endgame ? king_end_table[sq] : king_middle_table[sq]);
+        mg_score += 20000 + king_middle_table[sq];
+        eg_score += 20000 + king_end_table[sq];
     }
     uint64_t b_king = pos->pieces[COLOR_IDX(BLACK)][KING];
     while (b_king) {
         int sq = pop_lsb(&b_king);
-        score -= 20000 + (is_endgame ? king_end_table[sq ^ 56] : king_middle_table[sq ^ 56]);
+        mg_score -= 20000 + king_middle_table[sq ^ 56];
+        eg_score -= 20000 + king_end_table[sq ^ 56];
     }
 
     // --- Bishop Pair ---
     int w_bishops_count = bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
     if (w_bishops_count >= 2) {
-        score += params[PARAM_BISHOP_PAIR_BONUS];
+        mg_score += params[PARAM_BISHOP_PAIR_BONUS];
+        eg_score += params[PARAM_BISHOP_PAIR_BONUS];
     }
     int b_bishops_count = bit_count(pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
     if (b_bishops_count >= 2) {
-        score -= params[PARAM_BISHOP_PAIR_BONUS];
+        mg_score -= params[PARAM_BISHOP_PAIR_BONUS];
+        eg_score -= params[PARAM_BISHOP_PAIR_BONUS];
     }
 
-    // --- Mobility ---
+    // --- Bishop Pair and Mobility ---
     uint64_t occ = pos->occAll;
 
     // White
@@ -897,12 +886,10 @@ int evaluate_replicated(const Position *pos, const int *params) {
         }
     }
 
-    int white_mob = (white_mob_mg * phase + white_mob_eg * (24 - phase)) / 24;
-    int black_mob = (black_mob_mg * phase + black_mob_eg * (24 - phase)) / 24;
+    mg_score += white_mob_mg - black_mob_mg;
+    eg_score += white_mob_eg - black_mob_eg;
 
-    score += white_mob - black_mob;
-
-    return score;
+    return (mg_score * phase + eg_score * (24 - phase)) / 24;
 }
 
 int run_tune_export(const char *input_path, const char *output_path) {

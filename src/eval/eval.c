@@ -97,39 +97,11 @@ int evaluate(const Position *pos) {
     uint64_t w_pawns_copy = pos->pieces[COLOR_IDX(WHITE)][PAWN];
     uint64_t b_pawns_copy = pos->pieces[COLOR_IDX(BLACK)][PAWN];
 
-    // Endgame detection criteria:
-    // 1. Both sides have no queens OR
-    // 2. Every side that has a queen has no other pieces, or at most one minor piece (no rooks and <= 1 minor piece)
-    uint64_t w_queen_bb = pos->pieces[COLOR_IDX(WHITE)][QUEEN];
-    uint64_t b_queen_bb = pos->pieces[COLOR_IDX(BLACK)][QUEEN];
-
-    int is_endgame = 0;
-    if (!w_queen_bb && !b_queen_bb) {
-        is_endgame = 1;
-    } else {
-        int white_ok = 1;
-        if (w_queen_bb) {
-            int white_minors = bit_count(pos->pieces[COLOR_IDX(WHITE)][KNIGHT] | pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
-            uint64_t white_rooks = pos->pieces[COLOR_IDX(WHITE)][ROOK];
-            if (white_rooks || white_minors > 1) {
-                white_ok = 0;
-            }
-        }
-        int black_ok = 1;
-        if (b_queen_bb) {
-            int black_minors = bit_count(pos->pieces[COLOR_IDX(BLACK)][KNIGHT] | pos->pieces[COLOR_IDX(BLACK)][BISHOP]);
-            uint64_t black_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
-            if (black_rooks || black_minors > 1) {
-                black_ok = 0;
-            }
-        }
-        if (white_ok && black_ok) {
-            is_endgame = 1;
-        }
-    }
+    int phase = get_game_phase(pos);
+    if (phase > 24) phase = 24;
 
     // Evaluate White pieces
-    score += evaluate_pawns(pos, is_endgame);
+    score += evaluate_pawns(pos, phase);
     uint64_t w_knights = pos->pieces[COLOR_IDX(WHITE)][KNIGHT];
     while (w_knights) {
         int sq = pop_lsb(&w_knights);
@@ -149,9 +121,9 @@ int evaluate(const Position *pos) {
         int file = sq & 7;
         if (!(file_masks[file] & w_pawns_copy)) {
             if (!(file_masks[file] & b_pawns_copy)) {
-                item_score += is_endgame ? rook_open_file_eg : rook_open_file_mg;
+                item_score += (rook_open_file_mg * phase + rook_open_file_eg * (24 - phase)) / 24;
             } else {
-                item_score += is_endgame ? rook_semi_open_file_eg : rook_semi_open_file_mg;
+                item_score += (rook_semi_open_file_mg * phase + rook_semi_open_file_eg * (24 - phase)) / 24;
             }
         }
 
@@ -163,8 +135,8 @@ int evaluate(const Position *pos) {
         score += PIECE_QUEEN_VAL + queen_table[sq];
     }
     int w_king_sq = pos->kingSq[COLOR_IDX(WHITE)];
-    score += 20000 + (is_endgame ? king_end_table[w_king_sq] : king_middle_table[w_king_sq]);
-    score += evaluate_king_safety(pos, WHITE, is_endgame);
+    score += 20000 + (king_middle_table[w_king_sq] * phase + king_end_table[w_king_sq] * (24 - phase)) / 24;
+    score += evaluate_king_safety(pos, WHITE, phase);
 
     // Evaluate Black pieces
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
@@ -186,9 +158,9 @@ int evaluate(const Position *pos) {
         int file = sq & 7;
         if (!(file_masks[file] & b_pawns_copy)) {
             if (!(file_masks[file] & w_pawns_copy)) {
-                item_score += is_endgame ? rook_open_file_eg : rook_open_file_mg;
+                item_score += (rook_open_file_mg * phase + rook_open_file_eg * (24 - phase)) / 24;
             } else {
-                item_score += is_endgame ? rook_semi_open_file_eg : rook_semi_open_file_mg;
+                item_score += (rook_semi_open_file_mg * phase + rook_semi_open_file_eg * (24 - phase)) / 24;
             }
         }
 
@@ -200,8 +172,8 @@ int evaluate(const Position *pos) {
         score -= PIECE_QUEEN_VAL + queen_table[sq ^ 56];
     }
     int b_king_sq = pos->kingSq[COLOR_IDX(BLACK)];
-    score -= 20000 + (is_endgame ? king_end_table[b_king_sq ^ 56] : king_middle_table[b_king_sq ^ 56]);
-    score -= evaluate_king_safety(pos, BLACK, is_endgame);
+    score -= 20000 + (king_middle_table[b_king_sq ^ 56] * phase + king_end_table[b_king_sq ^ 56] * (24 - phase)) / 24;
+    score -= evaluate_king_safety(pos, BLACK, phase);
 
     // Bishop pair evaluation
     int w_bishops_count = bit_count(pos->pieces[COLOR_IDX(WHITE)][BISHOP]);
