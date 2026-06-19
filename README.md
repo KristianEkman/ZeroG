@@ -232,3 +232,93 @@ To quit the engine:
 ```text
 quit
 ```
+
+---
+
+## Neural Network Training Data Generation
+The engine supports a complete pipeline for generating and labeling training data to train the custom evaluation neural network. This pipeline consists of the following steps: position harvesting during self-play, concatenating and deduplicating harvested positions, labeling unique positions using Stockfish, and training the neural network.
+
+### Step 1: Harvesting Quiet Positions (Self-Play)
+During engine self-play matches, quiet (non-tactical) positions visited are automatically recorded if the `SaveQuietPositionsFile` option is set.
+
+The `selfplay.sh` script acts as an entry point for `selfplay.py`, which manages the `cutechess-cli` tournament and outputs a real-time progress dashboard.
+
+Run the self-play script with the `--savefen` flag pointing to the output EPD file:
+```bash
+./selfplay.sh --savefen quiet_training_positions.epd
+```
+This launches a match of `NEW` vs `OLD` using `cutechess-cli`, appending valid quiet positions to the specified file with the engine's original search score.
+
+#### Key self-play options:
+* `--savefen <file>`: Save harvested quiet training positions.
+* `--pgnout <file>`: Output PGN file containing all games played.
+* `-games`, `--games <int>`: Total number of games to play (default: `20000`).
+* `-concurrency`, `--concurrency <int>`: Concurrency level / thread count (default: `4`).
+* `-tc`, `--tc <str>`: Time control configuration (default: `3+0.01`).
+
+### Step 2: Concatenating and Deduplicating Positions
+If you have harvested training positions across multiple runs (e.g., `quiet_training_positions.epd` and `quiet_training_positions_2.epd`), you can concatenate them and remove duplicate positions.
+
+1. **Concatenate EPD files**:
+   ```bash
+   cat quiet_training_positions.epd quiet_training_positions_2.epd > quiet_training_positions_combined.epd
+   ```
+
+2. **Deduplicate the combined positions** (requires compiling `epd_dedup` first):
+   ```bash
+   # Compile the tool
+   make epd_dedup
+
+   # Run deduplication
+   ./builds/epd_dedup -i quiet_training_positions_combined.epd -o traindata.epd
+   ```
+   *Alternatively, you can run the default Makefile rule:*
+   ```bash
+   make dedup
+   ```
+
+#### Deduplication CLI Options:
+* `-i`, `--input <file>`: Input EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-o`, `--output <file>`: Output deduplicated EPD file (default: `quiet_training_positions_evaluated_dedup.epd`).
+
+### Step 3: Labeling Positions with Stockfish
+Once you have generated/deduplicated an EPD file (e.g. `traindata.epd`), run the `evaluate_epd.py` script to evaluate and label all positions using Stockfish. This runs multiple Stockfish processes in parallel to process the file rapidly:
+
+```bash
+./evaluate_epd.py -i traindata.epd -o traindata_evaluated.epd -d 10 -c 4
+```
+
+#### Key Script Options:
+* `-i`, `--input`: Path to the input harvested EPD file (default: `quiet_training_positions.epd`).
+* `-o`, `--output`: Path to save the labeled EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-d`, `--depth`: Target search depth for Stockfish (default: `10`).
+* `-t`, `--movetime`: Search time limit in milliseconds per position (optional, overrides depth).
+* `-c`, `--concurrency`: Number of concurrent Stockfish instances to run (default: number of CPU cores).
+* `-p`, `--perspective`: Evaluation score perspective: `side` (side-to-move, default) or `white` (normalized to White's perspective).
+* `--mate-to-cp`: Automatically converts mate scores to high centipawn values (e.g. mate in 2 -> `29998` score).
+
+### Step 4: Training the Neural Network (C Trainer)
+Once positions are harvested and labeled, train the custom feedforward neural network directly in C99 using the standalone training executable.
+
+1. **Compile the trainer target**:
+   ```bash
+   make nn_trainer
+   ```
+
+2. **Run the training process on the labeled EPD file**:
+   ```bash
+   ./builds/nn_trainer -i traindata_evaluated.epd -o nn_weights.bin -e 30
+   ```
+   *Alternatively, run the default training rule (uses default filenames):*
+   ```bash
+   make train_nn
+   ```
+
+#### Trainer CLI Options:
+* `-i`, `--input <file>`: Path to the centipawn-labeled EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-o`, `--output <file>`: Destination path for the trained binary weights file (default: `nn_weights.bin`).
+* `-e`, `--epochs <num>`: Total training epochs (default: `30`).
+* `-l`, `--lr <value>`: Initial Stochastic Gradient Descent (SGD) learning rate (default: `0.01`).
+* `-v`, `--val-split <val>`: Validation dataset fraction between `0.0` and `1.0` (default: `0.1` / 10%).
+* `-h`, `--help`: Prints command line options help menu.
+

@@ -310,6 +310,22 @@ void test_eval_king_safety(void)
     TEST_ASSERT_TRUE(score_two < score_one);
 }
 
+void test_eval_nn(void)
+{
+    if (!eval_nn)
+    {
+        TEST_IGNORE_MESSAGE("NN weights not loaded, skipping NN test");
+    }
+    use_nn = true;
+    Position test_pos;
+    memset(&test_pos, 0, sizeof(Position));
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &test_pos));
+    int score = evaluate(&test_pos);
+    // Symmetric startpos should evaluate close to 0 (within 50cp)
+    TEST_ASSERT_INT_WITHIN(50, 0, score);
+    use_nn = false;
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -331,6 +347,9 @@ int main(void)
     RUN_TEST(test_eval_doubled_pawns);
     RUN_TEST(test_eval_rook_open_files);
     RUN_TEST(test_eval_king_safety);
+    RUN_TEST(test_eval_nn);
 
-    return UNITY_END();
+    int result = UNITY_END();
+    eval_free();
+    return result;
 }

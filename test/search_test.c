@@ -3,6 +3,7 @@
 #include "fen.h"
 #include "movegen.h"
 #include "search/search.h"
+#include "eval.h"
 #include "search/time_control.h"
 #include "uci/uci.h"
 #include "uci/uci_internal.h"
@@ -525,5 +526,7 @@ int main(void)
     RUN_TEST(test_search_options);
     RUN_TEST(test_see);
 
-    return UNITY_END();
+    int result = UNITY_END();
+    eval_free();
+    return result;
 }

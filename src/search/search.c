@@ -1,4 +1,5 @@
 #include "search/search_internal.h"
+#include "nn.h"
 
 int reconstruct_pv_from_tt(const Position *pos, PVLine *pv, int max_depth) {
   Position temp_pos = *pos;
@@ -87,6 +88,7 @@ int search_best_move_with_limits(const Position *board,
                                  SearchResult *result) {
   search_reset_stop_request();
   node_count = 0;
+  result->depth = 0;
   uint64_t start_time = get_time_ms();
 
   if (!lmr_initialized) {
@@ -106,6 +108,9 @@ int search_best_move_with_limits(const Position *board,
   memset(history_scores, 0, sizeof(history_scores));
 
   Position pos = *board;
+  if (use_nn && eval_nn) {
+      nnue_refresh_accumulator(eval_nn, &pos);
+  }
   Move moves[MAX_MOVES];
   int count = movegen_legal(&pos, moves);
 
@@ -175,6 +180,8 @@ int search_best_move_with_limits(const Position *board,
       result->score = best_score_so_far;
       result->node_count = node_count;
     }
+
+    result->depth = d;
 
     // Reconstruct the PV from the transposition table to get a complete PV trace
     PVLine tt_pv;

@@ -36,5 +36,7 @@ int uci_parse_go_parameters(const UciState *state,
                             unsigned *time_limit_ms);
 int uci_parse_hash_option_value(const char *args, unsigned *value);
 int uci_parse_spin_option_value(const char *args, const char *option_name, int *value);
+int uci_parse_string_option_value(const char *args, const char *option_name, char *value_buf, size_t buf_size);
+const char* uci_get_save_quiet_positions_file(void);
 
 #endif

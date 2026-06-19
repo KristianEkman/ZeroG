@@ -3,6 +3,34 @@
 #include "pawn_eval.h"
 #include "king_safety.h"
 #include "eval_constants.h"
+#include <stdio.h>
+#include <math.h>
+
+NeuralNetwork *eval_nn = NULL;
+bool use_nn = false;
+
+void eval_init(void) {
+    int sizes[] = {768, 64, 32, 1};
+    eval_nn = nn_init(sizes, 4);
+    if (eval_nn) {
+        if (nn_load(eval_nn, "nn_weights.bin")) {
+            use_nn = false; // Keep default off!
+            printf("info string Loaded NN weights from nn_weights.bin (default off)\n");
+            fflush(stdout);
+        } else {
+            printf("info string Warning: Could not load nn_weights.bin, using classical evaluation\n");
+            fflush(stdout);
+        }
+    }
+}
+
+void eval_free(void) {
+    if (eval_nn) {
+        nn_free(eval_nn);
+        eval_nn = NULL;
+        use_nn = false;
+    }
+}
 
 #define BISHOP_PAIR_BONUS BISHOP_PAIR_BONUS_VAL
 
@@ -91,6 +119,19 @@ static const int king_end_table[64] = {
 };
 
 int evaluate(const Position *pos) {
+    if (use_nn && eval_nn) {
+        int32_t output = nnue_evaluate_accumulator(eval_nn, pos);
+        int32_t val = output * 100;
+        int score = (val + (val >= 0 ? 4096 : -4096)) / 8192;
+        
+        // The network evaluates from the side-to-move's perspective.
+        // We must return the evaluation from White's perspective.
+        if (pos->sideToMove == BLACK) {
+            score = -score;
+        }
+        return score;
+    }
+
     int score = 0;
 
     // Cache pawn bitboards for fast rook file evaluation

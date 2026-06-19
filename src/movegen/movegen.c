@@ -1,5 +1,7 @@
 #include "movegen.h"
 #include "zobrist.h"
+#include "eval.h"
+#include "nn.h"
 #include <string.h>
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -58,6 +60,9 @@ void apply_move(Position *pos, Move m, Undo *u)
     u->old_castling = pos->castlingRights;
     u->old_fifty    = pos->fiftyMoveCounter;
     u->old_hash     = pos->hashKey;
+    if (use_nn && eval_nn) {
+        memcpy(u->accum, pos->accum, sizeof(pos->accum));
+    }
 
     /* Captured piece (handle EP capture separately) */
     if (pt == PAWN && to == pos->enPassantSquare) {
@@ -169,6 +174,10 @@ void apply_move(Position *pos, Move m, Undo *u)
     /* ── 12. Switch side to move ──────────────────────────────────────── */
     pos->sideToMove = them;
     pos->hashKey   ^= zobrist_side_to_move_key();
+
+    if (use_nn && eval_nn) {
+        nnue_update_accumulator(eval_nn, pos, m, u);
+    }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -266,6 +275,10 @@ void undo_move(Position *pos, const Undo *u)
 
     /* ── 9. Restore side to move ──────────────────────────────────────── */
     pos->sideToMove = us;
+
+    if (use_nn && eval_nn) {
+        memcpy(pos->accum, u->accum, sizeof(pos->accum));
+    }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

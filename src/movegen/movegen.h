@@ -8,7 +8,7 @@
 
 /* ── undo state ──────────────────────────────────────────────────────────── */
 
-typedef struct {
+typedef struct Undo {
     Move     move;
     Piece    moving;        /* piece on the source square before the move     */
     Piece    captured;      /* captured piece, or EMPTY                       */
@@ -17,6 +17,7 @@ typedef struct {
     uint8_t  old_castling;  /* castling rights before the move                */
     int      old_fifty;     /* halfmove clock before the move                 */
     uint64_t old_hash;      /* Zobrist hash key before the move               */
+    int16_t  accum[2][64];   /* Cached accumulators before the move            */
 } Undo;
 
 /* ── make / unmake a move on a position ──────────────────────────────────── */

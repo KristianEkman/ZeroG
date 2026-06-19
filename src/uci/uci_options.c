@@ -322,3 +322,44 @@ int uci_parse_go_parameters(const UciState *state,
     *time_limit_ms = limits.hard_time_limit_ms;
     return 0;
 }
+
+int uci_parse_string_option_value(const char *args, const char *option_name, char *value_buf, size_t buf_size)
+{
+    const char *cursor = uci_skip_spaces(args);
+
+    if (value_buf == NULL || buf_size == 0)
+    {
+        return -1;
+    }
+
+    if (!uci_starts_with_keyword(cursor, "name", &cursor))
+    {
+        return -1;
+    }
+
+    if (!uci_starts_with_keyword(cursor, option_name, &cursor))
+    {
+        return -1;
+    }
+
+    if (!uci_starts_with_keyword(cursor, "value", &cursor))
+    {
+        value_buf[0] = '\0';
+        return 0;
+    }
+
+    size_t len = strlen(cursor);
+    while (len > 0 && isspace((unsigned char)cursor[len - 1]))
+    {
+        len--;
+    }
+
+    if (len >= buf_size)
+    {
+        return -1;
+    }
+
+    memcpy(value_buf, cursor, len);
+    value_buf[len] = '\0';
+    return 0;
+}

@@ -2,6 +2,7 @@
 #include "uci.h"
 #include "tune_filter.h"
 #include "eval/tune_export.h"
+#include "eval.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -26,5 +27,6 @@ int main(int argc, char *argv[])
     }
 
     uci_run(stdin, stdout);
+    eval_free();
     return 0;
 }

@@ -1,6 +1,14 @@
 #include "uci/uci_internal.h"
-
+#include "eval.h"
 #include <stdio.h>
+#include <string.h>
+
+static char uci_save_quiet_positions_file[512] = "";
+
+const char* uci_get_save_quiet_positions_file(void)
+{
+    return uci_save_quiet_positions_file;
+}
 
 static int write_uci_handshake(FILE *output) {
   if (fprintf(output, "id name ChessAI2027 1.0.0\n") < 0 ||
@@ -33,6 +41,8 @@ static int write_uci_handshake(FILE *output) {
           "option name Futility_Max_Depth type spin default 1 min 1 max 5\n") <
           0 ||
       fprintf(output, "option name LMR_History_Divisor type spin default 2000 min 100 max 100000\n") < 0 ||
+      fprintf(output, "option name SaveQuietPositionsFile type string default <empty>\n") < 0 ||
+      fprintf(output, "option name UseNN type check default false\n") < 0 ||
       fprintf(output, "uciok\n") < 0) {
     return -1;
   }
@@ -128,6 +138,26 @@ int uci_handle_line(UciState *state, const char *line, FILE *output,
     } else if (uci_parse_spin_option_value(args, "LMR_History_Divisor",
                                            &spin_val) == 0) {
       return search_set_lmr_history_divisor(spin_val);
+    }
+
+    char path_buf[512];
+    if (uci_parse_string_option_value(args, "SaveQuietPositionsFile", path_buf, sizeof(path_buf)) == 0) {
+      if (strcmp(path_buf, "<empty>") == 0) {
+        uci_save_quiet_positions_file[0] = '\0';
+      } else {
+        strncpy(uci_save_quiet_positions_file, path_buf, sizeof(uci_save_quiet_positions_file));
+        uci_save_quiet_positions_file[sizeof(uci_save_quiet_positions_file) - 1] = '\0';
+      }
+      return 0;
+    }
+
+    if (uci_parse_string_option_value(args, "UseNN", path_buf, sizeof(path_buf)) == 0) {
+      if (strcmp(path_buf, "true") == 0) {
+        if (eval_nn) use_nn = true;
+      } else if (strcmp(path_buf, "false") == 0) {
+        use_nn = false;
+      }
+      return 0;
     }
 
     return -1;
