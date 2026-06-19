@@ -104,7 +104,7 @@ def main():
     )
     parser.add_argument("--pgnout", help="Path to write the PGN output file.")
     parser.add_argument("--savefen", help="Path to save quiet training positions in EPD format.")
-    parser.add_argument("-games", "--games", type=int, default=20000, help="Total number of games to play.")
+    parser.add_argument("-games", "--games", type=int, default=300, help="Total number of games to play.")
     parser.add_argument("-concurrency", "--concurrency", type=int, default=4, help="Number of concurrent games.")
     parser.add_argument("-tc", "--tc", default="3+0.01", help="Time control for each engine.")
     parser.add_argument("--cutechess", help="Custom path to the cutechess-cli executable.")
@@ -121,7 +121,7 @@ def main():
 
     # 2. Check engine executables
     engines = [
-        ("./builds/ChessAI2027_prev", "OLD"),
+        ("./ChessAI2027_prev", "OLD"),
         ("./builds/ChessAI2027", "NEW")
     ]
     for path, name in engines:
@@ -133,7 +133,7 @@ def main():
     # 3. Construct cutechess-cli command
     cmd = [
         cutechess_path,
-        "-engine", "cmd=./builds/ChessAI2027_prev", "proto=uci", "name=OLD",
+        "-engine", "cmd=./ChessAI2027_prev", "proto=uci", "name=OLD",
     ]
 
     new_engine_args = ["cmd=./builds/ChessAI2027", "proto=uci", "name=NEW"]

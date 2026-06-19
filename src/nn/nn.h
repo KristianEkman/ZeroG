@@ -150,6 +150,6 @@ void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const str
 /**
  * @brief Evaluates the position starting from the cached accumulators.
  */
-float nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos);
+int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos);
 
 #endif /* NN_H */

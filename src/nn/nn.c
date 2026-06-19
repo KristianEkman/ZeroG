@@ -552,11 +552,13 @@ void nn_quantize(NeuralNetwork *nn) {
     int n_in = nn->sizes[0];
     int n_out = nn->sizes[1];
     
-    for (int i = 0; i < n_out * n_in; i++) {
-        float val = nn->weights[1][i] * 128.0f;
-        if (val > 32767.0f) val = 32767.0f;
-        if (val < -32768.0f) val = -32768.0f;
-        nn->quant_weight_buffer[i] = (int16_t)roundf(val);
+    for (int i = 0; i < n_out; i++) {
+        for (int j = 0; j < n_in; j++) {
+            float val = nn->weights[1][i * n_in + j] * 128.0f;
+            if (val > 32767.0f) val = 32767.0f;
+            if (val < -32768.0f) val = -32768.0f;
+            nn->quant_weights[1][j * n_out + i] = (int16_t)roundf(val);
+        }
     }
     for (int i = 0; i < n_out; i++) {
         nn->quant_biases[1][i] = (int32_t)roundf(nn->biases[1][i] * 128.0f);
@@ -599,7 +601,6 @@ void nnue_refresh_accumulator(NeuralNetwork *nn, Position *pos) {
     int hidden_size = nn->sizes[1];
     const int32_t *bias = nn->quant_biases[1];
     const int16_t *weights = nn->quant_weights[1];
-    int n_in = nn->sizes[0];
     
     for (int i = 0; i < hidden_size; i++) {
         pos->accum[0][i] = (int16_t)bias[i];
@@ -612,16 +613,36 @@ void nnue_refresh_accumulator(NeuralNetwork *nn, Position *pos) {
         
         int w_idx = nnue_feature_index(WHITE, p, sq);
         if (w_idx >= 0) {
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] += weights[i * n_in + w_idx];
+            const int16_t *w_col = &weights[w_idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int16_t *accum_ptr = &pos->accum[0][0];
+            for (int i = 0; i < 64; i += 8) {
+                int16x8_t a = vld1q_s16(&accum_ptr[i]);
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                vst1q_s16(&accum_ptr[i], vaddq_s16(a, w));
             }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] += w_col[i];
+            }
+#endif
         }
         
         int b_idx = nnue_feature_index(BLACK, p, sq);
         if (b_idx >= 0) {
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] += weights[i * n_in + b_idx];
+            const int16_t *w_col = &weights[b_idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int16_t *accum_ptr = &pos->accum[1][0];
+            for (int i = 0; i < 64; i += 8) {
+                int16x8_t a = vld1q_s16(&accum_ptr[i]);
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                vst1q_s16(&accum_ptr[i], vaddq_s16(a, w));
             }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] += w_col[i];
+            }
+#endif
         }
     }
 }
@@ -683,23 +704,42 @@ void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const str
     
     const int16_t *weights = nn->quant_weights[1];
     int hidden_size = nn->sizes[1];
-    int n_in = nn->sizes[0];
     
     // Update White accumulator (index 0)
     for (int r = 0; r < num_removals; r++) {
         int idx = nnue_feature_index(WHITE, removals[r].piece, removals[r].sq);
         if (idx >= 0) {
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] -= weights[i * n_in + idx];
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int16_t *accum_ptr = &pos->accum[0][0];
+            for (int i = 0; i < 64; i += 8) {
+                int16x8_t a = vld1q_s16(&accum_ptr[i]);
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                vst1q_s16(&accum_ptr[i], vsubq_s16(a, w));
             }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] -= w_col[i];
+            }
+#endif
         }
     }
     for (int a = 0; a < num_additions; a++) {
         int idx = nnue_feature_index(WHITE, additions[a].piece, additions[a].sq);
         if (idx >= 0) {
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] += weights[i * n_in + idx];
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int16_t *accum_ptr = &pos->accum[0][0];
+            for (int i = 0; i < 64; i += 8) {
+                int16x8_t a = vld1q_s16(&accum_ptr[i]);
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                vst1q_s16(&accum_ptr[i], vaddq_s16(a, w));
             }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] += w_col[i];
+            }
+#endif
         }
     }
     
@@ -707,30 +747,65 @@ void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const str
     for (int r = 0; r < num_removals; r++) {
         int idx = nnue_feature_index(BLACK, removals[r].piece, removals[r].sq);
         if (idx >= 0) {
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] -= weights[i * n_in + idx];
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int16_t *accum_ptr = &pos->accum[1][0];
+            for (int i = 0; i < 64; i += 8) {
+                int16x8_t a = vld1q_s16(&accum_ptr[i]);
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                vst1q_s16(&accum_ptr[i], vsubq_s16(a, w));
             }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] -= w_col[i];
+            }
+#endif
         }
     }
     for (int a = 0; a < num_additions; a++) {
         int idx = nnue_feature_index(BLACK, additions[a].piece, additions[a].sq);
         if (idx >= 0) {
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] += weights[i * n_in + idx];
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int16_t *accum_ptr = &pos->accum[1][0];
+            for (int i = 0; i < 64; i += 8) {
+                int16x8_t a = vld1q_s16(&accum_ptr[i]);
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                vst1q_s16(&accum_ptr[i], vaddq_s16(a, w));
             }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] += w_col[i];
+            }
+#endif
         }
     }
 }
 
-float nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
-    if (!nn || !pos) return 0.0f;
+int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
+    if (!nn || !pos) return 0;
     
     int accum_idx = (pos->sideToMove == WHITE) ? 0 : 1;
     const int16_t *accum = pos->accum[accum_idx];
     
     int h1_size = nn->sizes[1];
     int32_t *act1 = nn->quant_activations[1];
-    for (int i = 0; i < h1_size; i++) {
+    
+    int i = 0;
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+    int16x8_t zero_vec_s16 = vdupq_n_s16(0);
+    for (; i <= h1_size - 8; i += 8) {
+        int16x8_t acc = vld1q_s16(&accum[i]);
+        int16x8_t relu = vmaxq_s16(acc, zero_vec_s16);
+        int16x4_t low = vget_low_s16(relu);
+        int16x4_t high = vget_high_s16(relu);
+        int32x4_t low_32 = vmovl_s16(low);
+        int32x4_t high_32 = vmovl_s16(high);
+        vst1q_s32(&act1[i], low_32);
+        vst1q_s32(&act1[i + 4], high_32);
+    }
+#endif
+    for (; i < h1_size; i++) {
         act1[i] = (accum[i] > 0) ? accum[i] : 0;
     }
     
@@ -744,10 +819,19 @@ float nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
         const int16_t *__restrict__ w = nn->quant_weights[l];
 
         for (int i = 0; i < n_out; i++) {
-            int32_t sum = b[i];
             const int16_t *__restrict__ w_row = &w[i * n_in];
-            
             int j = 0;
+            int32_t sum = b[i];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int32x4_t sum_vec = vdupq_n_s32(0);
+            for (; j <= n_in - 4; j += 4) {
+                int16x4_t w_val = vld1_s16(&w_row[j]);
+                int32x4_t w_promoted = vmovl_s16(w_val);
+                int32x4_t act_val = vld1q_s32(&prev_act[j]);
+                sum_vec = vmlaq_s32(sum_vec, w_promoted, act_val);
+            }
+            sum += vaddvq_s32(sum_vec);
+#endif
             for (; j < n_in; j++) {
                 sum += w_row[j] * prev_act[j];
             }
@@ -760,8 +844,7 @@ float nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
         }
     }
     
-    int32_t final_val = nn->quant_activations[nn->num_layers - 1][0];
-    return (float)final_val / 8192.0f;
+    return nn->quant_activations[nn->num_layers - 1][0];
 }
 
 

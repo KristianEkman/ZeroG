@@ -317,7 +317,8 @@ void test_nnue_incremental_correctness(void)
     float features[768];
     nn_extract_features(&pos, features);
     float full_output = nn_forward(nn, features);
-    float accum_output = nnue_evaluate_accumulator(nn, &pos);
+    int32_t accum_output_raw = nnue_evaluate_accumulator(nn, &pos);
+    float accum_output = (float)accum_output_raw / 8192.0f;
     TEST_ASSERT_FLOAT_WITHIN(0.2f, full_output, accum_output);
 
     // Make some moves and verify incremental update matches full refresh at each step
@@ -355,9 +356,9 @@ void test_nnue_incremental_correctness(void)
         }
 
         // Compare evaluate outputs
-        float output_auto = nnue_evaluate_accumulator(nn, &next_pos_auto);
-        float output_refreshed = nnue_evaluate_accumulator(nn, &next_pos_refreshed);
-        TEST_ASSERT_EQUAL_FLOAT(output_refreshed, output_auto);
+        int32_t output_auto = nnue_evaluate_accumulator(nn, &next_pos_auto);
+        int32_t output_refreshed = nnue_evaluate_accumulator(nn, &next_pos_refreshed);
+        TEST_ASSERT_EQUAL_INT(output_refreshed, output_auto);
     }
 
     nn_free(nn);

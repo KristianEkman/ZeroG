@@ -109,8 +109,9 @@ static const int king_end_table[64] = {
 
 int evaluate(const Position *pos) {
     if (use_nn && eval_nn) {
-        float output = nnue_evaluate_accumulator(eval_nn, pos);
-        int score = (int)roundf(output * 100.0f);
+        int32_t output = nnue_evaluate_accumulator(eval_nn, pos);
+        int32_t val = output * 100;
+        int score = (val + (val >= 0 ? 4096 : -4096)) / 8192;
         
         // The network evaluates from the side-to-move's perspective.
         // We must return the evaluation from White's perspective.
