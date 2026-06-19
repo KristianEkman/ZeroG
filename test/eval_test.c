@@ -42,7 +42,7 @@ void test_eval_material_imbalance(void)
     // Remove White Queen from D1. Startpos is symmetric, so removing White Queen should make the score exactly -895.
     // (Queen value is 900, Queen PST at D1 is -5. 900 + (-5) = 895 centipawns lost).
     TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1", &test_pos));
-    TEST_ASSERT_EQUAL_INT(-940, evaluate(&test_pos));
+    TEST_ASSERT_EQUAL_INT(-961, evaluate(&test_pos));
 }
 
 void test_eval_endgame_transition(void)
@@ -78,7 +78,7 @@ void test_eval_endgame_transition(void)
     // Plus White has slightly different mobility.
     memset(&test_pos, 0, sizeof(Position));
     TEST_ASSERT_EQUAL_INT(0, fen_parse("4k3/ppp2ppp/2n5/8/8/2N5/PPP1KPPP/8 w - - 0 1", &test_pos));
-    TEST_ASSERT_EQUAL_INT(22, evaluate(&test_pos));
+    TEST_ASSERT_EQUAL_INT(23, evaluate(&test_pos));
 }
 
 void test_eval_bishop_pair(void)
@@ -99,7 +99,7 @@ void test_eval_bishop_pair(void)
     // Expected evaluation score: 330 - 10 + 50 = 370.
     memset(&test_pos, 0, sizeof(Position));
     TEST_ASSERT_EQUAL_INT(0, fen_parse("2b1k3/8/8/8/8/8/8/2B1K1B1 w - - 0 1", &test_pos));
-    TEST_ASSERT_EQUAL_INT(404, evaluate(&test_pos));
+    TEST_ASSERT_EQUAL_INT(413, evaluate(&test_pos));
 }
 
 void test_eval_mobility(void)

@@ -227,7 +227,7 @@ int evaluate(const Position *pos) {
     }
 
     // Mobility evaluation
-    score += evaluate_mobility(pos);
+    score += evaluate_mobility(pos, phase);
 
     return score;
 }

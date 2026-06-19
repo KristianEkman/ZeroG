@@ -138,10 +138,7 @@ static inline int evaluate_color_mobility(const Position *pos, Color us, int pha
     return (score_mg * phase + score_eg * (24 - phase)) / 24;
 }
 
-int evaluate_mobility(const Position *pos) {
-    int phase = get_game_phase(pos);
-    if (phase > 24) phase = 24;
-    
+int evaluate_mobility(const Position *pos, int phase) {
     int white_mob = evaluate_color_mobility(pos, WHITE, phase);
     int black_mob = evaluate_color_mobility(pos, BLACK, phase);
     

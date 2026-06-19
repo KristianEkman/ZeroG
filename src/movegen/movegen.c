@@ -281,41 +281,7 @@ void undo_move(Position *pos, const Undo *u)
     }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * is_square_attacked
- * ──────────────────────────────────────────────────────────────────────────── */
 
-int is_square_attacked(const Position *pos, int sq, Color attacker)
-{
-    int a_idx = COLOR_IDX(attacker);
-    uint64_t occ = pos->occAll;
-
-    /* Pawn attacks: a pawn of `attacker` would attack `sq` */
-    uint64_t pawns = pos->pieces[a_idx][PAWN];
-    if (pawns && (pawnAttacks[COLOR_IDX(OPPOSITE(attacker))][sq] & pawns))
-        return 1;
-
-    /* Knight */
-    uint64_t knights = pos->pieces[a_idx][KNIGHT];
-    if (knights && (knightAttacks[sq] & knights))
-        return 1;
-
-    /* Bishop / Queen diagonals */
-    uint64_t sliders_diag = pos->pieces[a_idx][BISHOP] | pos->pieces[a_idx][QUEEN];
-    if (sliders_diag && (bishopEmptyAttacks[sq] & sliders_diag) && (bishopAttacks(sq, occ) & sliders_diag))
-        return 1;
-
-    /* Rook / Queen orthogonals */
-    uint64_t sliders_orth = pos->pieces[a_idx][ROOK] | pos->pieces[a_idx][QUEEN];
-    if (sliders_orth && (rookEmptyAttacks[sq] & sliders_orth) && (rookAttacks(sq, occ) & sliders_orth))
-        return 1;
-
-    /* King */
-    if (kingAttacks[sq] & pos->pieces[a_idx][KING])
-        return 1;
-
-    return 0;
-}
 
 
 /* ─────────────────────────────────────────────────────────────────────────────

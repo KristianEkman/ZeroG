@@ -42,9 +42,36 @@ int movegen_pseudo_legal(const Position *pos, Move *moves);
  * `moves` must have room for at least MAX_MOVES entries. */
 int movegen_legal(const Position *pos, Move *moves);
 
-/* Test whether `sq` is attacked by `attacker` in `pos`.
- * Useful externally (e.g., for castling legality, check detection). */
-int is_square_attacked(const Position *pos, int sq, Color attacker);
+static inline int is_square_attacked(const Position *pos, int sq, Color attacker)
+{
+    int a_idx = COLOR_IDX(attacker);
+
+    /* Pawn attacks: a pawn of `attacker` would attack `sq` */
+    if (pawnAttacks[COLOR_IDX(OPPOSITE(attacker))][sq] & pos->pieces[a_idx][PAWN])
+        return 1;
+
+    /* Knight */
+    if (knightAttacks[sq] & pos->pieces[a_idx][KNIGHT])
+        return 1;
+
+    /* King */
+    if (kingAttacks[sq] & pos->pieces[a_idx][KING])
+        return 1;
+
+    uint64_t occ = pos->occAll;
+
+    /* Bishop / Queen diagonals */
+    uint64_t sliders_diag = pos->pieces[a_idx][BISHOP] | pos->pieces[a_idx][QUEEN];
+    if ((bishopEmptyAttacks[sq] & sliders_diag) && (bishopAttacks(sq, occ) & sliders_diag))
+        return 1;
+
+    /* Rook / Queen orthogonals */
+    uint64_t sliders_orth = pos->pieces[a_idx][ROOK] | pos->pieces[a_idx][QUEEN];
+    if ((rookEmptyAttacks[sq] & sliders_orth) && (rookAttacks(sq, occ) & sliders_orth))
+        return 1;
+
+    return 0;
+}
 
 /* ── perft (performance test) ───────────────────────────────────────────── */
 

@@ -12,38 +12,6 @@ static const int see_values[] = {
     0
 };
 
-/* Computes a bitboard of all pieces attacking the given square,
-   taking into account the current board occupancy. */
-static uint64_t get_attackers(const Position *pos, int sq, uint64_t occ) {
-    uint64_t attackers = 0;
-
-    /* Pawn attacks: pawns of either color that can attack sq */
-    attackers |= pawnAttacks[COLOR_IDX(BLACK)][sq] & pos->pieces[COLOR_IDX(WHITE)][PAWN];
-    attackers |= pawnAttacks[COLOR_IDX(WHITE)][sq] & pos->pieces[COLOR_IDX(BLACK)][PAWN];
-
-    /* Knight attacks */
-    attackers |= knightAttacks[sq] & (pos->pieces[COLOR_IDX(WHITE)][KNIGHT] | pos->pieces[COLOR_IDX(BLACK)][KNIGHT]);
-
-    /* Bishop & Queen diagonal attacks */
-    uint64_t diagonal_sliders = (pos->pieces[COLOR_IDX(WHITE)][BISHOP] | pos->pieces[COLOR_IDX(BLACK)][BISHOP] |
-                                 pos->pieces[COLOR_IDX(WHITE)][QUEEN]  | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
-    if (bishopEmptyAttacks[sq] & diagonal_sliders) {
-        attackers |= bishopAttacks(sq, occ) & diagonal_sliders;
-    }
-
-    /* Rook & Queen orthogonal attacks */
-    uint64_t orthogonal_sliders = (pos->pieces[COLOR_IDX(WHITE)][ROOK]  | pos->pieces[COLOR_IDX(BLACK)][ROOK] |
-                                   pos->pieces[COLOR_IDX(WHITE)][QUEEN] | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
-    if (rookEmptyAttacks[sq] & orthogonal_sliders) {
-        attackers |= rookAttacks(sq, occ) & orthogonal_sliders;
-    }
-
-    /* King attacks */
-    attackers |= kingAttacks[sq] & (pos->pieces[COLOR_IDX(WHITE)][KING] | pos->pieces[COLOR_IDX(BLACK)][KING]);
-
-    return attackers;
-}
-
 int see(const Position *pos, Move m) {
     int from = MOVE_FROM(m);
     int to = MOVE_TO(m);
@@ -95,7 +63,27 @@ int see(const Position *pos, Move m) {
     Color us = OPPOSITE(pos->sideToMove);
     int current_val = see_values[attacker];
 
-    uint64_t attackers = get_attackers(pos, to, occ);
+    /* Cache constant slider lists and static attackers once at the start */
+    uint64_t diagonal_sliders = (pos->pieces[COLOR_IDX(WHITE)][BISHOP] | pos->pieces[COLOR_IDX(BLACK)][BISHOP] |
+                                 pos->pieces[COLOR_IDX(WHITE)][QUEEN]  | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+    uint64_t orthogonal_sliders = (pos->pieces[COLOR_IDX(WHITE)][ROOK]  | pos->pieces[COLOR_IDX(BLACK)][ROOK] |
+                                   pos->pieces[COLOR_IDX(WHITE)][QUEEN] | pos->pieces[COLOR_IDX(BLACK)][QUEEN]);
+
+    /* Pawns, knights, and kings attacks are static and only filtered by active occupancy */
+    uint64_t static_attackers = 0;
+    static_attackers |= pawnAttacks[COLOR_IDX(BLACK)][to] & pos->pieces[COLOR_IDX(WHITE)][PAWN];
+    static_attackers |= pawnAttacks[COLOR_IDX(WHITE)][to] & pos->pieces[COLOR_IDX(BLACK)][PAWN];
+    static_attackers |= knightAttacks[to] & (pos->pieces[COLOR_IDX(WHITE)][KNIGHT] | pos->pieces[COLOR_IDX(BLACK)][KNIGHT]);
+    static_attackers |= kingAttacks[to] & (pos->pieces[COLOR_IDX(WHITE)][KING] | pos->pieces[COLOR_IDX(BLACK)][KING]);
+
+    /* Initial attackers set */
+    uint64_t attackers = static_attackers;
+    if (bishopEmptyAttacks[to] & diagonal_sliders) {
+        attackers |= bishopAttacks(to, occ) & diagonal_sliders;
+    }
+    if (rookEmptyAttacks[to] & orthogonal_sliders) {
+        attackers |= rookAttacks(to, occ) & orthogonal_sliders;
+    }
 
     while (1) {
         /* Filter attackers to just the active side that are still occupied in occ */
@@ -125,9 +113,18 @@ int see(const Position *pos, Move m) {
         gain[depth] = current_val;
         current_val = see_values[next_type];
 
-        /* Update occupancy and attackers */
+        /* Update occupancy */
         occ &= ~(1ULL << next_sq);
-        attackers = get_attackers(pos, to, occ);
+
+        /* Update only sliding attacks from the new occupancy */
+        uint64_t slider_attacks = 0;
+        if (bishopEmptyAttacks[to] & diagonal_sliders) {
+            slider_attacks |= bishopAttacks(to, occ) & diagonal_sliders;
+        }
+        if (rookEmptyAttacks[to] & orthogonal_sliders) {
+            slider_attacks |= rookAttacks(to, occ) & orthogonal_sliders;
+        }
+        attackers = static_attackers | slider_attacks;
 
         /* Swap sides */
         us = OPPOSITE(us);

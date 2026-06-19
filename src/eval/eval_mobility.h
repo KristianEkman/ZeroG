@@ -7,6 +7,6 @@
  * Evaluates piece mobility for both colors and returns the difference
  * (White mobility score - Black mobility score) in centipawns.
  */
-int evaluate_mobility(const Position *pos);
+int evaluate_mobility(const Position *pos, int phase);
 
 #endif /* EVAL_MOBILITY_H */
