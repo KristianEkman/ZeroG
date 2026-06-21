@@ -1,9 +1,8 @@
 #include "search/search_internal.h"
 
 int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
-                                 uint64_t start_time,
-                                 const SearchLimits *limits,
-                                 const UndoNode *history) {
+                          uint64_t start_time, const SearchLimits *limits,
+                          const UndoNode *history) {
   uint64_t non_pawns = pos->pieces[COLOR_IDX(pos->sideToMove)][KNIGHT] |
                        pos->pieces[COLOR_IDX(pos->sideToMove)][BISHOP] |
                        pos->pieces[COLOR_IDX(pos->sideToMove)][ROOK] |
@@ -43,8 +42,8 @@ int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
   return score;
 }
 
-int quiescence(Position *pos, int ply, int alpha, int beta,
-                      uint64_t start_time, const SearchLimits *limits) {
+int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
+               const SearchLimits *limits) {
   if (ply >= MAX_DEPTH - 1) {
     int eval = evaluate(pos);
     return pos->sideToMove == WHITE ? eval : -eval;
@@ -102,7 +101,8 @@ int quiescence(Position *pos, int ply, int alpha, int beta,
       int to = MOVE_TO(moves[i]);
       if (pos->board[to] != EMPTY || to == pos->enPassantSquare) {
         int from = MOVE_FROM(moves[i]);
-        int is_promo = (PIECE_TYPE(pos->board[from]) == PAWN) && (RANK_OF(to) == 0 || RANK_OF(to) == 7);
+        int is_promo = (PIECE_TYPE(pos->board[from]) == PAWN) &&
+                       (RANK_OF(to) == 0 || RANK_OF(to) == 7);
         if (!is_promo && see(pos, moves[i]) < 0) {
           continue;
         }
@@ -137,10 +137,9 @@ int quiescence(Position *pos, int ply, int alpha, int beta,
   return alpha;
 }
 
-int pvs(Position *pos, int depth, int ply, int alpha, int beta,
-               PVLine *pv, uint64_t start_time, const SearchLimits *limits,
-               Move pv_move, const UndoNode *history, int allow_nmp,
-               Move excluded_move) {
+int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
+        uint64_t start_time, const SearchLimits *limits, Move pv_move,
+        const UndoNode *history, int allow_nmp, Move excluded_move) {
   if (ply >= MAX_DEPTH - 1) {
     pv->length = 0;
     int eval = evaluate(pos);
@@ -307,9 +306,12 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta,
           moves[i] == killer_moves[1][ply]) {
         reduction--;
       }
-      
-      int hist = history_scores[COLOR_IDX(pos->sideToMove)][MOVE_FROM(moves[i])][MOVE_TO(moves[i])];
-      int hist_adj = (hist + (hist > 0 ? lmr_history_divisor / 2 : -lmr_history_divisor / 2)) / lmr_history_divisor;
+
+      int hist = history_scores[COLOR_IDX(pos->sideToMove)][MOVE_FROM(moves[i])]
+                               [MOVE_TO(moves[i])];
+      int hist_adj = (hist + (hist > 0 ? lmr_history_divisor / 2
+                                       : -lmr_history_divisor / 2)) /
+                     lmr_history_divisor;
       reduction -= hist_adj;
 
       if (reduction < 0) {
@@ -410,17 +412,16 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta,
       bound = TT_BOUND_LOWER;
     }
     transposition_table_store(&tt, pos->hashKey, depth, ply, best_score, bound,
-                               best_move);
+                              best_move);
   }
 
   return best_score;
 }
 
-int search_aspiration_window(Position *pos, unsigned depth,
-                                    int previous_score, PVLine *pv,
-                                    uint64_t start_time,
-                                    const SearchLimits *limits,
-                                    Move best_move_so_far) {
+int search_aspiration_window(Position *pos, unsigned depth, int previous_score,
+                             PVLine *pv, uint64_t start_time,
+                             const SearchLimits *limits,
+                             Move best_move_so_far) {
   int delta = aspiration_window; // centipawns window
   int alpha = previous_score - delta;
   int beta = previous_score + delta;

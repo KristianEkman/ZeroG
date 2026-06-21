@@ -105,7 +105,11 @@ int search_best_move_with_limits(const Position *board,
   }
 
   memset(killer_moves, 0, sizeof(killer_moves));
-  memset(history_scores, 0, sizeof(history_scores));
+  // Age history scores (halve) instead of clearing — preserves learned move ordering
+  for (int c = 0; c < 2; c++)
+    for (int f = 0; f < 64; f++)
+      for (int t = 0; t < 64; t++)
+        history_scores[c][f][t] /= 2;
 
   Position pos = *board;
   if (use_nn && eval_nn) {

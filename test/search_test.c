@@ -346,31 +346,46 @@ void test_search_history_heuristic(void)
     }
     TEST_ASSERT_TRUE(found_history_score);
 
-    // Let's verify it gets reset. We search a checkmate position (no legal moves).
-    // The search should immediately return, and the history table should be reset to 0.
+    // Let's verify it gets aged (halved), not cleared.
+    // We search a checkmate position (no legal moves) which returns immediately.
+    // The history scores from the previous search should be halved, not zeroed.
     Position mate_pos;
     memset(&mate_pos, 0, sizeof(Position));
     parse_res = fen_parse("3rkr2/8/8/8/8/3p4/4q3/R3K2R w KQ - 0 1", &mate_pos);
     TEST_ASSERT_EQUAL_INT(0, parse_res);
+
+    // Record max history score before
+    int max_before = 0;
+    for (int side = 0; side < 2; side++) {
+        Color color = (side == 0) ? WHITE : BLACK;
+        for (int from = 0; from < 64; from++) {
+            for (int to = 0; to < 64; to++) {
+                int s = search_get_history_score(color, from, to);
+                if (s > max_before) max_before = s;
+            }
+        }
+    }
 
     limits.depth = 1;
     memset(&result, 0, sizeof(SearchResult));
     search_res = search_best_move_with_limits(&mate_pos, &limits, &result);
     TEST_ASSERT_EQUAL_INT(0, search_res);
 
-    // Now all history scores should be 0.
-    int has_history_after_reset = 0;
+    // History scores should be aged (halved), so still present but smaller.
+    int max_after = 0;
     for (int side = 0; side < 2; side++) {
         Color color = (side == 0) ? WHITE : BLACK;
         for (int from = 0; from < 64; from++) {
             for (int to = 0; to < 64; to++) {
-                if (search_get_history_score(color, from, to) > 0) {
-                    has_history_after_reset = 1;
-                }
+                int s = search_get_history_score(color, from, to);
+                if (s > max_after) max_after = s;
             }
         }
     }
-    TEST_ASSERT_FALSE(has_history_after_reset);
+    // After aging, scores should be smaller but may still exist
+    TEST_ASSERT_TRUE(max_after <= max_before);
+    // After aging once, max should be roughly halved (allow some rounding)
+    TEST_ASSERT_TRUE(max_after <= (max_before / 2) + 1);
 }
 
 void test_search_options(void)
