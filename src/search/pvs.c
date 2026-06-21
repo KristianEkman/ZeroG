@@ -321,6 +321,14 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
       }
     }
 
+    // Late Move Pruning: skip late quiet moves at shallow depths
+    if (!in_check && is_quiet && depth <= 4 && !is_pv) {
+      static const int lmp_counts[] = {0, 5, 9, 14, 21};
+      if (legal_moves_searched >= lmp_counts[depth]) {
+        continue;
+      }
+    }
+
     Undo u;
     if (!make_move_and_check_legal(pos, moves[i], &u)) {
       continue;
@@ -369,7 +377,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
       }
 
       if (score > alpha && score < beta && !stop_requested) {
-        score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -score, &child_pv,
+        score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -alpha, &child_pv,
                      start_time, limits, 0, &next_node, 1, 0);
       }
     }
