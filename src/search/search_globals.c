@@ -17,6 +17,7 @@ uint64_t node_count = 0;
 
 Move killer_moves[2][MAX_DEPTH];
 int history_scores[2][64][64];
+Move countermoves[2][64][64];
 
 int lmr_reductions[MAX_DEPTH][MAX_MOVES];
 int lmr_initialized = 0;

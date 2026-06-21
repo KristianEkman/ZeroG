@@ -105,6 +105,7 @@ int search_best_move_with_limits(const Position *board,
   }
 
   memset(killer_moves, 0, sizeof(killer_moves));
+  memset(countermoves, 0, sizeof(countermoves));
   // Age history scores (halve) instead of clearing — preserves learned move ordering
   for (int c = 0; c < 2; c++)
     for (int f = 0; f < 64; f++)
@@ -169,7 +170,7 @@ int search_best_move_with_limits(const Position *board,
                                    &local_limits, best_move_so_far);
     } else {
       score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time,
-                  &local_limits, best_move_so_far, NULL, 1, 0);
+                  &local_limits, best_move_so_far, NULL, 1, 0, 0);
     }
 
     if (stop_requested) {

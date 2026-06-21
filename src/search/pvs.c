@@ -31,7 +31,7 @@ int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
 
   // Search null move with a reduced depth and zero window
   int score = -pvs(pos, depth - 1 - R, ply + 1, -beta, -beta + 1, &child_pv,
-                   start_time, limits, 0, history, 0, 0);
+                   start_time, limits, 0, history, 0, 0, 0);
 
   // Unmake Null Move
   pos->enPassantSquare = old_ep;
@@ -85,7 +85,7 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
 
   int scores[MAX_MOVES];
   for (int i = 0; i < count; i++) {
-    scores[i] = score_move(pos, moves[i], 0, ply);
+    scores[i] = score_move(pos, moves[i], 0, ply, 0);
   }
 
   int legal_moves_searched = 0;
@@ -139,7 +139,8 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
 
 int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
         uint64_t start_time, const SearchLimits *limits, Move pv_move,
-        const UndoNode *history, int allow_nmp, Move excluded_move) {
+        const UndoNode *history, int allow_nmp, Move excluded_move,
+        Move prev_move) {
   if (ply >= MAX_DEPTH - 1) {
     pv->length = 0;
     int eval = evaluate(pos);
@@ -254,7 +255,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     child_pv.length = 0;
 
     int score = pvs(pos, depth - 1 - r, ply, singular_beta - 1, singular_beta,
-                    &child_pv, start_time, limits, 0, history, 0, hash_move);
+                    &child_pv, start_time, limits, 0, history, 0, hash_move, prev_move);
     if (score < singular_beta && !stop_requested) {
       extension = 1;
     }
@@ -265,7 +266,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
 
   int scores[MAX_MOVES];
   for (int i = 0; i < count; i++) {
-    scores[i] = score_move(pos, moves[i], hash_move, ply);
+    scores[i] = score_move(pos, moves[i], hash_move, ply, prev_move);
   }
 
   int best_score = -INFINITY_SCORE;
@@ -360,25 +361,25 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     int score;
     if (search_pv) {
       score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -alpha, &child_pv,
-                   start_time, limits, 0, &next_node, 1, 0);
+                   start_time, limits, 0, &next_node, 1, 0, moves[i]);
       search_pv = 0;
     } else {
       if (reduction > 0) {
         score =
             -pvs(pos, depth - 1 - reduction + ext, ply + 1, -alpha - 1, -alpha,
-                 &child_pv, start_time, limits, 0, &next_node, 1, 0);
+                 &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i]);
         if (score > alpha && !stop_requested) {
           score = -pvs(pos, depth - 1 + ext, ply + 1, -alpha - 1, -alpha,
-                       &child_pv, start_time, limits, 0, &next_node, 1, 0);
+                       &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i]);
         }
       } else {
         score = -pvs(pos, depth - 1 + ext, ply + 1, -alpha - 1, -alpha,
-                     &child_pv, start_time, limits, 0, &next_node, 1, 0);
+                     &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i]);
       }
 
       if (score > alpha && score < beta && !stop_requested) {
         score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -alpha, &child_pv,
-                     start_time, limits, 0, &next_node, 1, 0);
+                     start_time, limits, 0, &next_node, 1, 0, moves[i]);
       }
     }
 
@@ -402,7 +403,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     }
 
     if (alpha >= beta) {
-      update_quiet_move_heuristics(pos, moves[i], moves, i, depth, ply);
+      update_quiet_move_heuristics(pos, moves[i], moves, i, depth, ply, prev_move);
       break;
     }
   }
@@ -442,7 +443,7 @@ int search_aspiration_window(Position *pos, unsigned depth, int previous_score,
       beta = INFINITY_SCORE;
 
     score = pvs(pos, depth, 0, alpha, beta, pv, start_time, limits,
-                best_move_so_far, NULL, 1, 0);
+                best_move_so_far, NULL, 1, 0, 0);
 
     if (stop_requested) {
       break;

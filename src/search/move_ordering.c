@@ -17,7 +17,7 @@ int move_is_capture_or_promo(const Position *pos, Move m) {
   return 0;
 }
 
-int score_move(const Position *pos, Move m, Move pv_move, int ply) {
+int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move) {
   if (m == pv_move) {
     return 1000000;
   }
@@ -57,6 +57,16 @@ int score_move(const Position *pos, Move m, Move pv_move, int ply) {
     return 80000;
   }
 
+  // Countermove heuristic
+  if (prev_move != 0) {
+    int prev_from = MOVE_FROM(prev_move);
+    int prev_to = MOVE_TO(prev_move);
+    int prev_color = COLOR_IDX(OPPOSITE(pos->sideToMove));
+    if (m == countermoves[prev_color][prev_from][prev_to]) {
+      return 70000;
+    }
+  }
+
   // Castling moves
   int flag = MOVE_FLAG(m);
   if (flag == MOVE_CASTLE_KS || flag == MOVE_CASTLE_QS) {
@@ -84,11 +94,19 @@ void pick_best_move(Move *moves, int *scores, int count, int current_idx) {
   }
 }
 
-void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *moves, int tried_count, int depth, int ply) {
+void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *moves, int tried_count, int depth, int ply, Move prev_move) {
   if (!move_is_capture_or_promo(pos, cut_move)) {
     if (killer_moves[0][ply] != cut_move) {
       killer_moves[1][ply] = killer_moves[0][ply];
       killer_moves[0][ply] = cut_move;
+    }
+
+    // Store countermove: the move that refuted the previous move
+    if (prev_move != 0) {
+      int prev_from = MOVE_FROM(prev_move);
+      int prev_to = MOVE_TO(prev_move);
+      int prev_color = COLOR_IDX(OPPOSITE(pos->sideToMove));
+      countermoves[prev_color][prev_from][prev_to] = cut_move;
     }
 
     int from = MOVE_FROM(cut_move);
