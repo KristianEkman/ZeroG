@@ -2,6 +2,7 @@
 #define SEARCH_INTERNAL_H
 
 #include "search/search.h"
+#include "search/threads.h"
 #include "eval/eval.h"
 #include "movegen/movegen.h"
 #include "search/time_control.h"
@@ -9,6 +10,7 @@
 #include "uci/uci.h"
 #include "zobrist.h"
 #include "see.h"
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -31,7 +33,7 @@ typedef struct UndoNode {
 
 /* Globals shared across search files */
 extern FILE *search_log_output;
-extern int stop_requested;
+extern atomic_int stop_requested;
 extern unsigned hash_size;
 extern int lmr_base;
 extern int futility_margin;
@@ -42,11 +44,6 @@ extern int aspiration_window;
 extern int lmr_min_depth;
 extern int futility_max_depth;
 extern int lmr_history_divisor;
-extern uint64_t node_count;
-
-extern Move killer_moves[2][MAX_DEPTH];
-extern int history_scores[2][64][64];
-extern Move countermoves[2][64][64];
 
 extern int lmr_reductions[MAX_DEPTH][MAX_MOVES];
 extern int lmr_initialized;
@@ -65,28 +62,28 @@ int is_repetition(const Position *pos, const UndoNode *history, const SearchLimi
 int is_illegal_castle(const Position *pos, Move m);
 int make_move_and_check_legal(Position *pos, Move m, Undo *u);
 int evaluate_no_moves(int in_check, int ply);
-void check_time_limit(uint64_t start_time, const SearchLimits *limits);
+void check_time_limit(uint64_t start_time, const SearchLimits *limits, SearchThread *thread);
 
 /* Move Ordering (move_ordering.c) */
 int move_is_capture_or_promo(const Position *pos, Move m);
-int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move);
+int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move, SearchThread *thread);
 void pick_best_move(Move *moves, int *scores, int count, int current_idx);
-void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *moves, int tried_count, int depth, int ply, Move prev_move);
+void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *moves, int tried_count, int depth, int ply, Move prev_move, SearchThread *thread);
 
 /* PVS / Alpha-Beta (pvs.c) */
 int pvs(Position *pos, int depth, int ply, int alpha, int beta,
         PVLine *pv, uint64_t start_time, const SearchLimits *limits,
         Move pv_move, const UndoNode *history, int allow_nmp,
-        Move excluded_move, Move prev_move);
+        Move excluded_move, Move prev_move, SearchThread *thread);
 int quiescence(Position *pos, int ply, int alpha, int beta,
-              uint64_t start_time, const SearchLimits *limits);
+              uint64_t start_time, const SearchLimits *limits, SearchThread *thread);
 int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
                           uint64_t start_time, const SearchLimits *limits,
-                          const UndoNode *history);
+                          const UndoNode *history, SearchThread *thread);
 int search_aspiration_window(Position *pos, unsigned depth,
                             int previous_score, PVLine *pv,
                             uint64_t start_time, const SearchLimits *limits,
-                            Move best_move_so_far);
+                            Move best_move_so_far, SearchThread *thread);
 
 /* Search Main helpers (search.c / internal to it) */
 int reconstruct_pv_from_tt(const Position *pos, PVLine *pv, int max_depth);

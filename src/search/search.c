@@ -87,7 +87,6 @@ int search_best_move_with_limits(const Position *board,
                                  const SearchLimits *limits,
                                  SearchResult *result) {
   search_reset_stop_request();
-  node_count = 0;
   result->depth = 0;
   uint64_t start_time = get_time_ms();
 
@@ -104,13 +103,23 @@ int search_best_move_with_limits(const Position *board,
     transposition_table_next_generation(&tt);
   }
 
-  memset(killer_moves, 0, sizeof(killer_moves));
-  memset(countermoves, 0, sizeof(countermoves));
+  /* Ensure thread pool is initialized (at least 1 thread) */
+  if (thread_pool.threads == NULL || thread_pool.num_threads < 1) {
+    threadpool_init(&thread_pool, 1);
+  }
+
+  /* Use thread 0 (main thread) for the primary search */
+  SearchThread *main_thread = &thread_pool.threads[0];
+  main_thread->node_count = 0;
+
+  /* Clear per-thread heuristics for main thread */
+  memset(main_thread->killer_moves, 0, sizeof(main_thread->killer_moves));
+  memset(main_thread->countermoves, 0, sizeof(main_thread->countermoves));
   // Age history scores (halve) instead of clearing — preserves learned move ordering
   for (int c = 0; c < 2; c++)
     for (int f = 0; f < 64; f++)
       for (int t = 0; t < 64; t++)
-        history_scores[c][f][t] /= 2;
+        main_thread->history_scores[c][f][t] /= 2;
 
   Position pos = *board;
   if (use_nn && eval_nn) {
@@ -151,7 +160,11 @@ int search_best_move_with_limits(const Position *board,
     local_limits.hard_time_limit_ms = tc.hard_limit_ms;
   }
 
-  // Iterative Deepening
+  /* Launch helper threads (thread_id >= 1) for Lazy SMP */
+  threadpool_start_helpers(&thread_pool, board, &local_limits, start_time,
+                           best_move_so_far);
+
+  // Iterative Deepening (main thread)
   for (unsigned d = 1; d <= max_search_depth; d++) {
     if (local_limits.soft_time_limit_ms > 0) {
       uint64_t elapsed = get_time_ms() - start_time;
@@ -167,13 +180,13 @@ int search_best_move_with_limits(const Position *board,
     if (d >= 3 && abs(best_score_so_far) < MATE_SCORE - 100) {
       score =
           search_aspiration_window(&pos, d, best_score_so_far, &pv, start_time,
-                                   &local_limits, best_move_so_far);
+                                   &local_limits, best_move_so_far, main_thread);
     } else {
       score = pvs(&pos, d, 0, -INFINITY_SCORE, INFINITY_SCORE, &pv, start_time,
-                  &local_limits, best_move_so_far, NULL, 1, 0, 0);
+                  &local_limits, best_move_so_far, NULL, 1, 0, 0, main_thread);
     }
 
-    if (stop_requested) {
+    if (atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
       break;
     }
 
@@ -183,7 +196,7 @@ int search_best_move_with_limits(const Position *board,
 
       result->best_move = best_move_so_far;
       result->score = best_score_so_far;
-      result->node_count = node_count;
+      result->node_count = threadpool_total_nodes(&thread_pool);
     }
 
     result->depth = d;
@@ -196,11 +209,12 @@ int search_best_move_with_limits(const Position *board,
       pv = tt_pv;
     }
 
-    log_search_info(d, score, node_count, &pv, board);
+    log_search_info(d, score, threadpool_total_nodes(&thread_pool), &pv, board);
 
     if (use_tc) {
       uint64_t elapsed = get_time_ms() - start_time;
-      if (time_control_update(&tc, d, score, best_move_so_far, node_count,
+      if (time_control_update(&tc, d, score, best_move_so_far,
+                              threadpool_total_nodes(&thread_pool),
                               elapsed)) {
         break;
       }
@@ -209,15 +223,33 @@ int search_best_move_with_limits(const Position *board,
     }
   }
 
+  /* Stop and wait for helper threads */
+  threadpool_stop_helpers(&thread_pool);
+  threadpool_wait_helpers(&thread_pool);
+
+  /* Final node count aggregation */
+  result->node_count = threadpool_total_nodes(&thread_pool);
+
+  /* Reset stop flag for next search */
+  search_reset_stop_request();
+
   return 0;
 }
 
 int search_run_quiescence_only(const Position *board) {
   Position pos = *board;
   search_reset_stop_request();
-  memset(killer_moves, 0, sizeof(killer_moves));
+
+  /* Ensure thread pool is initialized */
+  if (thread_pool.threads == NULL || thread_pool.num_threads < 1) {
+    threadpool_init(&thread_pool, 1);
+  }
+  SearchThread *main_thread = &thread_pool.threads[0];
+  memset(main_thread->killer_moves, 0, sizeof(main_thread->killer_moves));
+  main_thread->node_count = 0;
+
   SearchLimits limits = {0};
   limits.hard_time_limit_ms = 0;
   limits.is_time_controlled = 0;
-  return quiescence(&pos, 0, -INFINITY_SCORE, INFINITY_SCORE, 0, &limits);
+  return quiescence(&pos, 0, -INFINITY_SCORE, INFINITY_SCORE, 0, &limits, main_thread);
 }

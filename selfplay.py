@@ -105,8 +105,9 @@ def main():
     parser.add_argument("--pgnout", help="Path to write the PGN output file.")
     parser.add_argument("--savefen", help="Path to save quiet training positions in EPD format.")
     parser.add_argument("-games", "--games", type=int, default=300, help="Total number of games to play.")
-    parser.add_argument("-concurrency", "--concurrency", type=int, default=4, help="Number of concurrent games.")
+    parser.add_argument("-concurrency", "--concurrency", type=int, default=1, help="Number of concurrent games.")
     parser.add_argument("-tc", "--tc", default="3+0.01", help="Time control for each engine.")
+    parser.add_argument("-threads", "--threads", type=int, default=1, help="Number of search threads per engine.")
     parser.add_argument("--cutechess", help="Custom path to the cutechess-cli executable.")
 
     # Parse known arguments, capture anything else to forward to cutechess-cli
@@ -119,35 +120,60 @@ def main():
         print("Please compile cutechess in '../cutechess/' or ensure it is on your PATH.", file=sys.stderr)
         sys.exit(1)
 
-    # 2. Check engine executables
-    engines = [
-        ("./ChessAI2027_prev", "OLD"),
-        ("./builds/ChessAI2027", "NEW")
-    ]
-    for path, name in engines:
-        if not (os.path.exists(path) and os.access(path, os.X_OK)):
-            print(f"Error: Engine executable for {name} not found or not executable at '{path}'.", file=sys.stderr)
-            print("Please build your engines first (e.g. 'make').", file=sys.stderr)
-            sys.exit(1)
-
-    # 3. Construct cutechess-cli command
-    cmd = [
-        cutechess_path,
-        "-engine", "cmd=./ChessAI2027_prev", "proto=uci", "name=OLD",
-    ]
-
-    new_engine_args = ["cmd=./builds/ChessAI2027", "proto=uci", "name=NEW"]
-    if args.savefen:
-        abs_savefen = os.path.abspath(args.savefen)
-        new_engine_args.append(f"option.SaveQuietPositionsFile={abs_savefen}")
+    # 2. Check engine executables and add default engines if no custom engines are specified
+    has_custom_engines = any(arg == "-engine" for arg in sys.argv)
     
-    cmd.extend(["-engine"] + new_engine_args)
+    cmd = [cutechess_path]
+
+    if not has_custom_engines:
+        engines = [
+            ("./ChessAI2027_prev", "OLD"),
+            ("./builds/ChessAI2027", "NEW")
+        ]
+        resolved_engines = []
+        for path, name in engines:
+            # Handle case-insensitivity on macOS / check actual filenames
+            resolved_path = path
+            if not (os.path.exists(resolved_path) and os.access(resolved_path, os.X_OK)):
+                if name == "NEW" and path == "./builds/ChessAI2027" and os.path.exists("./builds/chessai2027"):
+                    resolved_path = "./builds/chessai2027"
+                else:
+                    print(f"Error: Engine executable for {name} not found or not executable at '{path}'.", file=sys.stderr)
+                    print("Please build your engines first (e.g. 'make').", file=sys.stderr)
+                    sys.exit(1)
+            resolved_engines.append(resolved_path)
+
+        cmd.extend([
+            "-engine", "cmd=" + resolved_engines[0], "proto=uci", "name=OLD",
+        ])
+
+        new_engine_args = ["cmd=" + resolved_engines[1], "proto=uci", "name=NEW"]
+        if args.savefen:
+            abs_savefen = os.path.abspath(args.savefen)
+            new_engine_args.append(f"option.SaveQuietPositionsFile={abs_savefen}")
+        if args.threads > 1:
+            new_engine_args.append(f"option.Threads={args.threads}")
+        
+        cmd.extend(["-engine"] + new_engine_args)
+
+    # 3. Construct cutechess-cli tournament controls
+    has_custom_each = any(arg == "-each" for arg in sys.argv)
+    if not has_custom_each:
+        cmd.extend(["-each", f"tc={args.tc}"])
 
     cmd.extend([
-        "-each", f"tc={args.tc}",
         "-games", str(args.games),
-        "-openings", "file=./grand_master_openings.epd", "format=epd", "order=random",
-        "-repeat",
+    ])
+
+    has_custom_openings = any(arg == "-openings" for arg in sys.argv)
+    if not has_custom_openings:
+        cmd.extend(["-openings", "file=./grand_master_openings.epd", "format=epd", "order=random"])
+
+    has_custom_repeat = any(arg == "-repeat" for arg in sys.argv)
+    if not has_custom_repeat:
+        cmd.extend(["-repeat"])
+
+    cmd.extend([
         "-concurrency", str(args.concurrency),
     ])
 

@@ -17,7 +17,7 @@ int move_is_capture_or_promo(const Position *pos, Move m) {
   return 0;
 }
 
-int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move) {
+int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move, SearchThread *thread) {
   if (m == pv_move) {
     return 1000000;
   }
@@ -50,10 +50,10 @@ int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_mov
   }
 
   // Killer moves
-  if (m == killer_moves[0][ply]) {
+  if (m == thread->killer_moves[0][ply]) {
     return 90000;
   }
-  if (m == killer_moves[1][ply]) {
+  if (m == thread->killer_moves[1][ply]) {
     return 80000;
   }
 
@@ -62,7 +62,7 @@ int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_mov
     int prev_from = MOVE_FROM(prev_move);
     int prev_to = MOVE_TO(prev_move);
     int prev_color = COLOR_IDX(OPPOSITE(pos->sideToMove));
-    if (m == countermoves[prev_color][prev_from][prev_to]) {
+    if (m == thread->countermoves[prev_color][prev_from][prev_to]) {
       return 70000;
     }
   }
@@ -73,7 +73,7 @@ int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_mov
     return 10000;
   }
 
-  return history_scores[COLOR_IDX(pos->sideToMove)][from][to];
+  return thread->history_scores[COLOR_IDX(pos->sideToMove)][from][to];
 }
 
 void pick_best_move(Move *moves, int *scores, int count, int current_idx) {
@@ -94,11 +94,11 @@ void pick_best_move(Move *moves, int *scores, int count, int current_idx) {
   }
 }
 
-void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *moves, int tried_count, int depth, int ply, Move prev_move) {
+void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *moves, int tried_count, int depth, int ply, Move prev_move, SearchThread *thread) {
   if (!move_is_capture_or_promo(pos, cut_move)) {
-    if (killer_moves[0][ply] != cut_move) {
-      killer_moves[1][ply] = killer_moves[0][ply];
-      killer_moves[0][ply] = cut_move;
+    if (thread->killer_moves[0][ply] != cut_move) {
+      thread->killer_moves[1][ply] = thread->killer_moves[0][ply];
+      thread->killer_moves[0][ply] = cut_move;
     }
 
     // Store countermove: the move that refuted the previous move
@@ -106,7 +106,7 @@ void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *move
       int prev_from = MOVE_FROM(prev_move);
       int prev_to = MOVE_TO(prev_move);
       int prev_color = COLOR_IDX(OPPOSITE(pos->sideToMove));
-      countermoves[prev_color][prev_from][prev_to] = cut_move;
+      thread->countermoves[prev_color][prev_from][prev_to] = cut_move;
     }
 
     int from = MOVE_FROM(cut_move);
@@ -116,8 +116,8 @@ void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *move
       bonus = 2000;
     }
     int color_idx = COLOR_IDX(pos->sideToMove);
-    history_scores[color_idx][from][to] +=
-        bonus - history_scores[color_idx][from][to] * bonus / 20000;
+    thread->history_scores[color_idx][from][to] +=
+        bonus - thread->history_scores[color_idx][from][to] * bonus / 20000;
 
     for (int j = 0; j < tried_count; j++) {
       if (moves[j] == cut_move) {
@@ -126,8 +126,8 @@ void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *move
       if (!move_is_capture_or_promo(pos, moves[j])) {
         int prev_from = MOVE_FROM(moves[j]);
         int prev_to = MOVE_TO(moves[j]);
-        history_scores[color_idx][prev_from][prev_to] -=
-            bonus + history_scores[color_idx][prev_from][prev_to] * bonus / 20000;
+        thread->history_scores[color_idx][prev_from][prev_to] -=
+            bonus + thread->history_scores[color_idx][prev_from][prev_to] * bonus / 20000;
       }
     }
   }

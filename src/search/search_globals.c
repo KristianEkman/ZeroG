@@ -2,7 +2,7 @@
 
 /* Globals shared across search files */
 FILE *search_log_output = NULL;
-int stop_requested = 0;
+atomic_int stop_requested = 0;
 unsigned hash_size = 16; /* default 16MB */
 int lmr_base = 2;
 int futility_margin = 114;
@@ -13,11 +13,11 @@ int aspiration_window = 35;
 int lmr_min_depth = 2;
 int futility_max_depth = 4;
 int lmr_history_divisor = 2000;
-uint64_t node_count = 0;
 
-Move killer_moves[2][MAX_DEPTH];
-int history_scores[2][64][64];
-Move countermoves[2][64][64];
+/* Per-thread state has moved into SearchThread (threads.h).
+ * The globals below are no longer defined here:
+ *   - killer_moves, history_scores, countermoves, node_count
+ */
 
 int lmr_reductions[MAX_DEPTH][MAX_MOVES];
 int lmr_initialized = 0;
@@ -51,9 +51,13 @@ FILE *search_set_log_output(FILE *output) {
   return prev;
 }
 
-void search_reset_stop_request(void) { stop_requested = 0; }
+void search_reset_stop_request(void) {
+  atomic_store_explicit(&stop_requested, 0, memory_order_relaxed);
+}
 
-void search_request_stop(void) { stop_requested = 1; }
+void search_request_stop(void) {
+  atomic_store_explicit(&stop_requested, 1, memory_order_relaxed);
+}
 
 int search_set_hash_size_mb(unsigned size_mb) {
   hash_size = size_mb;
@@ -141,5 +145,9 @@ int search_set_lmr_history_divisor(int divisor) {
 }
 
 int search_get_history_score(Color side, Square from, Square to) {
-  return history_scores[COLOR_IDX(side)][from][to];
+  /* Return history from main thread (thread 0) for external queries */
+  if (thread_pool.threads != NULL && thread_pool.num_threads > 0) {
+    return thread_pool.threads[0].history_scores[COLOR_IDX(side)][from][to];
+  }
+  return 0;
 }

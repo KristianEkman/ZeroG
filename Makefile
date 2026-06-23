@@ -1,6 +1,7 @@
 CC = gcc
-CFLAGS_COMMON = -Wall -Wextra -std=c99
+CFLAGS_COMMON = -Wall -Wextra -std=c99 -pthread
 BUILD ?= release
+LDFLAGS += -pthread
 
 ifeq ($(BUILD),release)
 	CFLAGS_OPT = -O3 -DNDEBUG -march=native -flto

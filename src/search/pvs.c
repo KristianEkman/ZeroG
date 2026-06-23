@@ -2,7 +2,7 @@
 
 int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
                           uint64_t start_time, const SearchLimits *limits,
-                          const UndoNode *history) {
+                          const UndoNode *history, SearchThread *thread) {
   uint64_t non_pawns = pos->pieces[COLOR_IDX(pos->sideToMove)][KNIGHT] |
                        pos->pieces[COLOR_IDX(pos->sideToMove)][BISHOP] |
                        pos->pieces[COLOR_IDX(pos->sideToMove)][ROOK] |
@@ -31,7 +31,7 @@ int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
 
   // Search null move with a reduced depth and zero window
   int score = -pvs(pos, depth - 1 - R, ply + 1, -beta, -beta + 1, &child_pv,
-                   start_time, limits, 0, history, 0, 0, 0);
+                   start_time, limits, 0, history, 0, 0, 0, thread);
 
   // Unmake Null Move
   pos->enPassantSquare = old_ep;
@@ -43,14 +43,14 @@ int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
 }
 
 int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
-               const SearchLimits *limits) {
+               const SearchLimits *limits, SearchThread *thread) {
   if (ply >= MAX_DEPTH - 1) {
     int eval = evaluate(pos);
     return pos->sideToMove == WHITE ? eval : -eval;
   }
 
-  check_time_limit(start_time, limits);
-  if (stop_requested) {
+  check_time_limit(start_time, limits, thread);
+  if (atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
     return 0;
   }
 
@@ -85,7 +85,7 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
 
   int scores[MAX_MOVES];
   for (int i = 0; i < count; i++) {
-    scores[i] = score_move(pos, moves[i], 0, ply, 0);
+    scores[i] = score_move(pos, moves[i], 0, ply, 0, thread);
   }
 
   int legal_moves_searched = 0;
@@ -115,10 +115,10 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
     }
 
     legal_moves_searched++;
-    int score = -quiescence(pos, ply + 1, -beta, -alpha, start_time, limits);
+    int score = -quiescence(pos, ply + 1, -beta, -alpha, start_time, limits, thread);
     undo_move(pos, &u);
 
-    if (stop_requested) {
+    if (atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
       return 0;
     }
 
@@ -140,15 +140,15 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
 int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
         uint64_t start_time, const SearchLimits *limits, Move pv_move,
         const UndoNode *history, int allow_nmp, Move excluded_move,
-        Move prev_move) {
+        Move prev_move, SearchThread *thread) {
   if (ply >= MAX_DEPTH - 1) {
     pv->length = 0;
     int eval = evaluate(pos);
     return pos->sideToMove == WHITE ? eval : -eval;
   }
 
-  check_time_limit(start_time, limits);
-  if (stop_requested) {
+  check_time_limit(start_time, limits, thread);
+  if (atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
     return 0;
   }
 
@@ -193,7 +193,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
 
   if (depth <= 0) {
     pv->length = 0;
-    return quiescence(pos, ply, alpha, beta, start_time, limits);
+    return quiescence(pos, ply, alpha, beta, start_time, limits, thread);
   }
 
   int in_check = is_square_attacked(
@@ -222,8 +222,8 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
   // Null Move Pruning (NMP)
   if (allow_nmp && !in_check && depth >= nmp_min_depth) {
     int score = try_null_move_pruning(pos, depth, ply, beta, start_time, limits,
-                                      history);
-    if (stop_requested) {
+                                      history, thread);
+    if (atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
       return 0;
     }
     if (score >= beta) {
@@ -255,8 +255,8 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     child_pv.length = 0;
 
     int score = pvs(pos, depth - 1 - r, ply, singular_beta - 1, singular_beta,
-                    &child_pv, start_time, limits, 0, history, 0, hash_move, prev_move);
-    if (score < singular_beta && !stop_requested) {
+                    &child_pv, start_time, limits, 0, history, 0, hash_move, prev_move, thread);
+    if (score < singular_beta && !atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
       extension = 1;
     }
   }
@@ -266,7 +266,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
 
   int scores[MAX_MOVES];
   for (int i = 0; i < count; i++) {
-    scores[i] = score_move(pos, moves[i], hash_move, ply, prev_move);
+    scores[i] = score_move(pos, moves[i], hash_move, ply, prev_move, thread);
   }
 
   int best_score = -INFINITY_SCORE;
@@ -303,12 +303,12 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
       if (is_pv) {
         reduction--;
       }
-      if (moves[i] == killer_moves[0][ply] ||
-          moves[i] == killer_moves[1][ply]) {
+      if (moves[i] == thread->killer_moves[0][ply] ||
+          moves[i] == thread->killer_moves[1][ply]) {
         reduction--;
       }
 
-      int hist = history_scores[COLOR_IDX(pos->sideToMove)][MOVE_FROM(moves[i])]
+      int hist = thread->history_scores[COLOR_IDX(pos->sideToMove)][MOVE_FROM(moves[i])]
                                [MOVE_TO(moves[i])];
       int hist_adj = (hist + (hist > 0 ? lmr_history_divisor / 2
                                        : -lmr_history_divisor / 2)) /
@@ -361,31 +361,31 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     int score;
     if (search_pv) {
       score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -alpha, &child_pv,
-                   start_time, limits, 0, &next_node, 1, 0, moves[i]);
+                   start_time, limits, 0, &next_node, 1, 0, moves[i], thread);
       search_pv = 0;
     } else {
       if (reduction > 0) {
         score =
             -pvs(pos, depth - 1 - reduction + ext, ply + 1, -alpha - 1, -alpha,
-                 &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i]);
-        if (score > alpha && !stop_requested) {
+                 &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i], thread);
+        if (score > alpha && !atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
           score = -pvs(pos, depth - 1 + ext, ply + 1, -alpha - 1, -alpha,
-                       &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i]);
+                       &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i], thread);
         }
       } else {
         score = -pvs(pos, depth - 1 + ext, ply + 1, -alpha - 1, -alpha,
-                     &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i]);
+                     &child_pv, start_time, limits, 0, &next_node, 1, 0, moves[i], thread);
       }
 
-      if (score > alpha && score < beta && !stop_requested) {
+      if (score > alpha && score < beta && !atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
         score = -pvs(pos, depth - 1 + ext, ply + 1, -beta, -alpha, &child_pv,
-                     start_time, limits, 0, &next_node, 1, 0, moves[i]);
+                     start_time, limits, 0, &next_node, 1, 0, moves[i], thread);
       }
     }
 
     undo_move(pos, &u);
 
-    if (stop_requested) {
+    if (atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
       return 0;
     }
 
@@ -403,7 +403,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     }
 
     if (alpha >= beta) {
-      update_quiet_move_heuristics(pos, moves[i], moves, i, depth, ply, prev_move);
+      update_quiet_move_heuristics(pos, moves[i], moves, i, depth, ply, prev_move, thread);
       break;
     }
   }
@@ -413,7 +413,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     best_score = evaluate_no_moves(in_check, ply);
   }
 
-  if (!stop_requested && excluded_move == 0) {
+  if (!atomic_load_explicit(&stop_requested, memory_order_relaxed) && excluded_move == 0) {
     TranspositionBound bound = TT_BOUND_EXACT;
     if (best_score <= old_alpha) {
       bound = TT_BOUND_UPPER;
@@ -430,7 +430,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
 int search_aspiration_window(Position *pos, unsigned depth, int previous_score,
                              PVLine *pv, uint64_t start_time,
                              const SearchLimits *limits,
-                             Move best_move_so_far) {
+                             Move best_move_so_far, SearchThread *thread) {
   int delta = aspiration_window; // centipawns window
   int alpha = previous_score - delta;
   int beta = previous_score + delta;
@@ -443,9 +443,9 @@ int search_aspiration_window(Position *pos, unsigned depth, int previous_score,
       beta = INFINITY_SCORE;
 
     score = pvs(pos, depth, 0, alpha, beta, pv, start_time, limits,
-                best_move_so_far, NULL, 1, 0, 0);
+                best_move_so_far, NULL, 1, 0, 0, thread);
 
-    if (stop_requested) {
+    if (atomic_load_explicit(&stop_requested, memory_order_relaxed)) {
       break;
     }
 

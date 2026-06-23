@@ -1,5 +1,6 @@
 #include "uci/uci_internal.h"
 #include "eval.h"
+#include "search/threads.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -15,6 +16,8 @@ static int write_uci_handshake(FILE *output) {
       fprintf(output, "id author Kristian Ekman\n") < 0 ||
       fprintf(output,
               "option name Hash type spin default 16 min 1 max 1024\n") < 0 ||
+      fprintf(output,
+              "option name Threads type spin default 1 min 1 max 64\n") < 0 ||
       fprintf(output,
               "option name LMR_Base type spin default 4 min 0 max 20\n") < 0 ||
       fprintf(
@@ -138,6 +141,8 @@ int uci_handle_line(UciState *state, const char *line, FILE *output,
     } else if (uci_parse_spin_option_value(args, "LMR_History_Divisor",
                                            &spin_val) == 0) {
       return search_set_lmr_history_divisor(spin_val);
+    } else if (uci_parse_spin_option_value(args, "Threads", &spin_val) == 0) {
+      return search_set_threads(spin_val);
     }
 
     char path_buf[512];

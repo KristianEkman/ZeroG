@@ -119,13 +119,13 @@ int evaluate_no_moves(int in_check, int ply) {
   return 0; // Stalemate
 }
 
-void check_time_limit(uint64_t start_time, const SearchLimits *limits) {
-  node_count++;
-  if (node_count % 2048 == 0) {
+void check_time_limit(uint64_t start_time, const SearchLimits *limits, SearchThread *thread) {
+  thread->node_count++;
+  if (thread->node_count % 2048 == 0) {
     if (limits->hard_time_limit_ms > 0) {
       uint64_t elapsed = get_time_ms() - start_time;
       if (elapsed >= limits->hard_time_limit_ms) {
-        stop_requested = 1;
+        atomic_store_explicit(&stop_requested, 1, memory_order_relaxed);
       }
     }
   }
