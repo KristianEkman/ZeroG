@@ -27,13 +27,14 @@ static void *helper_thread_main(void *arg) {
         nnue_refresh_accumulator(eval_nn, &pos);
     }
 
-    /* Clear per-thread heuristics */
+    /* Clear/Age per-thread heuristics */
     memset(thread->killer_moves, 0, sizeof(thread->killer_moves));
     memset(thread->countermoves, 0, sizeof(thread->countermoves));
+    // Age history scores (halve) instead of clearing — preserves learned move ordering
     for (int c = 0; c < 2; c++)
         for (int f = 0; f < 64; f++)
             for (int t = 0; t < 64; t++)
-                thread->history_scores[c][f][t] = 0;
+                thread->history_scores[c][f][t] /= 2;
 
     thread->node_count = 0;
     thread->best_move = 0;

@@ -789,7 +789,27 @@ int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
     const int16_t *accum = pos->accum[accum_idx];
     
     int h1_size = nn->sizes[1];
-    int32_t *act1 = nn->quant_activations[1];
+    
+    // Thread-safe stack-allocated activations to prevent concurrent write corruption
+    int32_t act_scratch[256]; 
+    int32_t *activations[16];
+    
+    int total_nodes_needed = 0;
+    for (int l = 1; l < nn->num_layers; l++) {
+        total_nodes_needed += nn->sizes[l];
+    }
+    
+    if (nn->num_layers > 16 || total_nodes_needed > 256) {
+        return 0;
+    }
+    
+    int current_scratch_offset = 0;
+    for (int l = 1; l < nn->num_layers; l++) {
+        activations[l] = &act_scratch[current_scratch_offset];
+        current_scratch_offset += nn->sizes[l];
+    }
+    
+    int32_t *act1 = activations[1];
     
     int i = 0;
 #if defined(__ARM_NEON) || defined(__ARM_NEON__)
@@ -813,8 +833,8 @@ int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
         int n_in = nn->sizes[l - 1];
         int n_out = nn->sizes[l];
 
-        int32_t *__restrict__ act = nn->quant_activations[l];
-        const int32_t *__restrict__ prev_act = nn->quant_activations[l - 1];
+        int32_t *__restrict__ act = activations[l];
+        const int32_t *__restrict__ prev_act = activations[l - 1];
         const int32_t *__restrict__ b = nn->quant_biases[l];
         const int16_t *__restrict__ w = nn->quant_weights[l];
 
@@ -844,7 +864,7 @@ int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
         }
     }
     
-    return nn->quant_activations[nn->num_layers - 1][0];
+    return activations[nn->num_layers - 1][0];
 }
 
 

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
 
 enum {
     TRANSPOSITION_TABLE_BUCKET_SIZE = 4,
@@ -9,7 +10,7 @@ enum {
 };
 
 typedef struct {
-    uint64_t key;
+    _Atomic uint64_t key;
     Move best_move;
     int score;
     uint16_t depth;
@@ -17,6 +18,21 @@ typedef struct {
     uint8_t bound;
     uint8_t occupied;
 } TranspositionTableSlot;
+
+static inline uint64_t transposition_table_hash_data(Move best_move, int score, uint16_t depth, uint16_t generation, uint8_t bound, uint8_t occupied) {
+    uint64_t h = ((uint64_t)best_move) ^
+                 (((uint64_t)score) << 16) ^
+                 (((uint64_t)depth) << 48) ^
+                 (((uint64_t)generation) << 32) ^
+                 (((uint64_t)bound) << 52) ^
+                 (((uint64_t)occupied) << 60);
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    h *= 0xc4ceb9fe1a85ec53ULL;
+    h ^= h >> 33;
+    return h;
+}
 
 static size_t transposition_table_floor_power_of_two(size_t value)
 {
@@ -133,7 +149,14 @@ static TranspositionTableSlot *transposition_table_find_replacement_slot(Transpo
         TranspositionTableSlot *slot = transposition_table_bucket_slot(table, bucket_index, slot_index);
         unsigned slot_age;
 
-        if (!slot->occupied || slot->key == key) {
+        uint64_t stored_key = atomic_load_explicit(&slot->key, memory_order_relaxed);
+        uint64_t data_hash = transposition_table_hash_data(
+            slot->best_move, slot->score,
+            slot->depth, slot->generation,
+            slot->bound, slot->occupied);
+        uint64_t actual_key = stored_key ^ data_hash;
+
+        if (!slot->occupied || actual_key == key) {
             return slot;
         }
 
@@ -231,7 +254,14 @@ int transposition_table_store(TranspositionTable *table,
         return -1;
     }
 
-    if (slot->occupied && slot->key == key) {
+    uint64_t stored_key = atomic_load_explicit(&slot->key, memory_order_relaxed);
+    uint64_t data_hash = transposition_table_hash_data(
+        slot->best_move, slot->score,
+        slot->depth, slot->generation,
+        slot->bound, slot->occupied);
+    uint64_t actual_key = stored_key ^ data_hash;
+
+    if (slot->occupied && actual_key == key) {
         if (best_move == 0) {
             best_move = slot->best_move;
         }
@@ -239,17 +269,28 @@ int transposition_table_store(TranspositionTable *table,
         if (depth < slot->depth) {
             slot->best_move = best_move;
             slot->generation = (uint16_t)table->generation;
+
+            uint64_t new_hash = transposition_table_hash_data(
+                slot->best_move, slot->score,
+                slot->depth, slot->generation,
+                slot->bound, slot->occupied);
+            atomic_store_explicit(&slot->key, key ^ new_hash, memory_order_release);
             return 0;
         }
     }
 
-    slot->key = key;
     slot->best_move = best_move;
     slot->score = transposition_table_score_to_storage(score, ply);
     slot->depth = (uint16_t)depth;
     slot->generation = (uint16_t)table->generation;
     slot->bound = (uint8_t)bound;
     slot->occupied = 1;
+
+    uint64_t new_hash = transposition_table_hash_data(
+        slot->best_move, slot->score,
+        slot->depth, slot->generation,
+        slot->bound, slot->occupied);
+    atomic_store_explicit(&slot->key, key ^ new_hash, memory_order_release);
     return 0;
 }
 
@@ -271,16 +312,29 @@ int transposition_table_lookup(const TranspositionTable *table,
                                                                                    bucket_index,
                                                                                    slot_index);
 
-        if (!slot->occupied || slot->key != key) {
+        uint64_t stored_key = atomic_load_explicit(&slot->key, memory_order_acquire);
+        Move slot_best_move = slot->best_move;
+        int slot_score = slot->score;
+        uint16_t slot_depth = slot->depth;
+        uint16_t slot_generation = slot->generation;
+        uint8_t slot_bound = slot->bound;
+        uint8_t slot_occupied = slot->occupied;
+
+        uint64_t data_hash = transposition_table_hash_data(
+            slot_best_move, slot_score,
+            slot_depth, slot_generation,
+            slot_bound, slot_occupied);
+
+        if (!slot_occupied || (stored_key ^ data_hash) != key) {
             continue;
         }
 
-        entry->key = slot->key;
-        entry->best_move = slot->best_move;
-        entry->score = transposition_table_score_from_storage(slot->score, ply);
-        entry->depth = slot->depth;
-        entry->generation = slot->generation;
-        entry->bound = (TranspositionBound)slot->bound;
+        entry->key = key;
+        entry->best_move = slot_best_move;
+        entry->score = transposition_table_score_from_storage(slot_score, ply);
+        entry->depth = slot_depth;
+        entry->generation = slot_generation;
+        entry->bound = (TranspositionBound)slot_bound;
         return 1;
     }
 
