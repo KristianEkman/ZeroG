@@ -35,9 +35,14 @@ Handles generating pseudo-legal and legal moves, as well as altering the board s
 Optimizes search speed and prevents redundant evaluations of transposition positions.
 - **Zobrist Hashing (`zobrist.c`)**: Generates high-quality, pseudo-random 64-bit keys representing the current board state (pieces, side-to-move, castling rights, and en passant square).
 - **Transposition Table (`transposition_table.c`)**: Implements a cache for storing search details (score, depth, bounds, best move) using a depth-preferred replacement strategy.
+  - *Lockless Thread-Safety*: Utilizes atomic operations (`_Atomic uint64_t key`) with acquire/release memory semantics to prevent race conditions during concurrent access.
+  - *Integrity Verification*: XORs the stored key with a hash of all payload fields (`best_move`, `score`, `depth`, `generation`, `bound`, `occupied`). Any concurrent write corruption is instantly detected as a key mismatch, guaranteeing data integrity.
 
 ### 5. Search Engine (`src/search/`)
 Determines the best move using search algorithm logic.
+- **Lazy SMP Multi-Threading (`threads.h` / `threads.c`)**: Spawns multiple helper threads to run iterative deepening independently.
+  - *Search Diversity*: Threads start searching at slightly different offset depths (`1 + (thread_id % 3)`) to explore different parts of the search space concurrently while sharing the transposition table.
+  - *Per-Thread Heuristics*: Maintains independent killer moves, history scores, and countermove tables per thread to avoid write contention.
 - **Iterative Deepening**: Incrementally searches deeper plies, allowing the engine to return the best-move-so-far if time expires.
 - **Aspiration Windows**: Limits search scope around the previous depth's score, widening window boundaries only if search fails high or low.
 - **Principal Variation Search (PVS)**: Optimizes the alpha-beta search window by searching the principal variation (PV) first with a full window, and subsequent moves with a null/zero window.
@@ -46,7 +51,9 @@ Determines the best move using search algorithm logic.
   - *PV / TT Move*: Searches the best move from the transposition table or previous iteration first.
   - *Static Exchange Evaluation (SEE)*: Orders captures dynamically using SEE values to evaluate material exchange viability (promising exchanges first, bad captures deferred), replacing simple MVV-LVA ordering.
   - *Killer Moves*: Prioritizes quiet moves that caused a beta-cutoff in helper plies.
+  - *Countermove Heuristic*: Prioritizes the refutation move matching the opponent's previous move (`countermoves[side][from][to]`) when sorting quiet moves.
   - *History Heuristics*: Orders quiet moves using a dynamically updated table of historical search cutoffs, rewarding moves causing beta-cutoffs and penalizing other tried quiet moves.
+  - *History Heuristic Aging*: Ages (halves) history heuristic scores instead of clearing them at the beginning of a search, preserving historical positional context across moves.
   - *Castling*: Grants a minor bonus to castle moves to prioritize king safety.
 - **Pruning, Extensions & Safety Features**:
   - *Null-Move Pruning (NMP)*: Passes the move to detect quick fail-high branches, bypassing search branches if the opponent cannot exploit the pass.
@@ -54,14 +61,19 @@ Determines the best move using search algorithm logic.
   - *Singular Extensions (SE)*: Extends the search depth by 1 ply when a move (typically the transposition table best move) is significantly better than all alternative moves. Run at depth $\ge 8$, a reduced-depth verification search ensures no other move can score within a depth-dependent margin of the best move.
   - *Reverse Futility Pruning (RFP)*: Prunes search branches at shallow depths ($d \le 3$) if the static evaluation minus a depth-dependent margin is still greater than or equal to beta.
   - *Futility Pruning*: Prunes quiet moves at shallow depths ($d \le 1$) if the static evaluation plus a depth-dependent margin fails to exceed alpha.
+  - *Late Move Pruning (LMP)*: Prunes quiet moves that appear late in the search queue at shallow depths ($d \le 4$) using a depth-dependent legal move count threshold.
+  - *Check Extensions*: Automatically extends search depth by 1 ply when the king is in check during PVS, verifying forcing lines more deeply.
   - *Mate Distance Pruning*: Speeds up search by capping alpha/beta boundaries when a forced mate is found.
   - *Draw & Repetition Detection*: Immediately returns draw evaluations (0) on repetition or 50-move rule limits.
 
 ### 6. Evaluation Engine (`src/eval/`)
 Scores a given board position statically.
+- **Tapered Game Phase Interpolation**: Dynamically scales all evaluation terms (PSTs, mobility, pawn structures, passed pawns, etc.) from Middlegame to Endgame values using a tapered interpolation based on the remaining non-pawn material, rather than using a binary endgame detection heuristic.
+- **Neural Network (NNUE) Evaluation (`src/nn/nn.c`)**:
+  - Activates when the `UseNN` option is enabled and a weights file (`nn_weights.bin`) is loaded, overriding classical evaluation.
+  - *Thread-Safe Activations*: Stack-allocates activation scratch buffers on a per-thread basis to support thread-safe concurrent evaluation during parallel search.
 - **Material Value**: Applies standard piece weights (Pawn: 100, Knight: 320, Bishop: 330, Rook: 500, Queen: 900).
 - **Piece-Square Tables (PST)**: Encourages positional play (e.g., centralizing knights, active rooks, king safety).
-- **Dynamic King Safety**: Selects middle-game or end-game king PSTs based on a dynamic endgame detection heuristic (absence of queens, or queens with minimal minor pieces).
 - **Bishop Pair & Mobility**: Rewards possessing the bishop pair and evaluates piece mobility areas dynamically based on game phase.
 - **Passed Pawns**: Identifies passed pawns efficiently using precalculated lookup bitboards. Scores them based on their rank (advancement) and game phase (tapered towards endgame), and applies secondary positional heuristics:
   - *Protection*: Bonus if the passed pawn is defended by another friendly pawn.
@@ -80,13 +92,15 @@ Implements the industry-standard Universal Chess Interface (UCI) protocol, enabl
 - **Commands Handled**: Supports standard instructions including `uci`, `isready`, `ucinewgame`, `position`, `go` (including `wtime`, `btime`, `winc`, `binc`, `movestogo`), `setoption`, `stop`, and `quit`.
 - **Configurable Options**: Exposes engine internal variables as UCI spin/numeric options for search tuning (e.g., in cutechess-cli or SPSA scripts):
   - `Hash`: Transposition table size (MB).
+  - `Threads`: Number of concurrent search threads (default: 1, range: 1–64).
+  - `UseNN`: Checkbox/check option to toggle Neural Network evaluation (default: false).
   - `LMR_Base`: Controls LMR reduction aggressiveness.
   - `LMR_Min_Depth`: Minimum remaining depth to apply LMR.
   - `LMR_History_Divisor`: Scaling factor for history-based reduction adjustments.
   - `Futility_Margin` & `Futility_Max_Depth`: Controls the margin and depth boundary of Futility Pruning.
   - `RFP_Margin`: Margin for Reverse Futility Pruning.
   - `NMP_Min_Depth`: Minimum remaining depth for Null-Move Pruning.
-  - `Singular_Margin`: Verification margin for Singular Extensions.
+  - `Singular_Margin`: Margin for Singular Extensions.
   - `Aspiration_Window`: Margins for aspiration search boundaries.
 
 ### 8. Time Control (`src/search/time_control.h` / `src/search/time_control.c`)
