@@ -12,3 +12,10 @@ spsa_state_test.json
 chessai2027_prev
 spsa_state.json
 nn_weights.bin
+
+# Test coverage files
+*.gcov
+*.gcno
+*.gcda
+*.profraw
+*.profdata

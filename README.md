@@ -150,10 +150,33 @@ The engine includes exhaustive tests built using the Unity C test framework.
   ```bash
   make test
   ```
-  This compiles and executes three distinct test runners:
+  This compiles and executes all test runners:
   1. `test_runner` (Core board features, attacks, and encoding)
   2. `fen_test_runner` (FEN parsing validation)
   3. `movegen_test_runner` (Move generator and deep perft counts)
+  4. `eval_test_runner` (Static evaluation calculations)
+  5. `search_test_runner` (Search depth and pruning)
+  6. `nn_test_runner` (Neural network NNUE evaluation and incremental update check)
+  7. `tuning_test_runner` (EPD tuning filter and CSV feature exporter)
+  8. `uci_test_runner` (UCI protocol engine state loop commands)
+
+- **Run Specific Tests**:
+  You can run individual suites by executing `make test_fen`, `make test_movegen`, `make test_eval`, `make test_search`, `make test_nn`, `make test_tuning`, or `make test_uci`.
+
+### Generating Test Coverage Reports
+You can generate comprehensive test coverage reports utilizing native LLVM code coverage tools (Apple Clang/Xcode Command Line Tools).
+
+- **Terminal Summary**:
+  ```bash
+  make coverage
+  ```
+  This recompiles with profiling instrumentation, executes all test suites, merges counter traces, and displays a summary table of region, function, line, and branch coverage for the `src/` directory directly in your terminal.
+
+- **Interactive HTML Dashboard**:
+  ```bash
+  make coverage_html
+  ```
+  Generates the summary and exports a line-by-line annotated view of the codebase showing execution counts to `builds/coverage_html/index.html`. Open it in any browser to inspect covered paths.
 
 ---
 

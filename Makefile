@@ -23,6 +23,8 @@ MOVEGEN_TEST_TARGET = $(BUILD_DIR)/movegen_test_runner
 EVAL_TEST_TARGET = $(BUILD_DIR)/eval_test_runner
 SEARCH_TEST_TARGET = $(BUILD_DIR)/search_test_runner
 NN_TEST_TARGET = $(BUILD_DIR)/nn_test_runner
+TUNING_TEST_TARGET = $(BUILD_DIR)/tuning_test_runner
+UCI_TEST_TARGET = $(BUILD_DIR)/uci_test_runner
 PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
 SEARCH_BENCH_TARGET = $(BUILD_DIR)/search_bench
 NN_BENCH_TARGET = $(BUILD_DIR)/nn_bench
@@ -49,13 +51,15 @@ MOVEGEN_TEST_SRCS = $(wildcard $(TEST_DIR)/movegen_tests/*.c) $(TEST_DIR)/unity.
 EVAL_TEST_SRCS = $(TEST_DIR)/eval_test.c $(TEST_DIR)/unity.c
 SEARCH_TEST_SRCS = $(TEST_DIR)/search_test.c $(TEST_DIR)/unity.c
 NN_TEST_SRCS = $(TEST_DIR)/nn_test.c $(TEST_DIR)/unity.c
+TUNING_TEST_SRCS = $(TEST_DIR)/tuning_test.c $(TEST_DIR)/unity.c
+UCI_TEST_SRCS = $(TEST_DIR)/uci_test.c $(TEST_DIR)/unity.c
 PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
 SEARCH_BENCH_SRCS = $(TEST_DIR)/search_bench.c
 NN_BENCH_SRCS = $(TEST_DIR)/nn_bench.c
 NN_TRAINER_SRCS = $(SRC_DIR)/nn/trainer/nn_trainer.c
 EPD_DEDUP_SRCS = $(SRC_DIR)/nn/trainer/epd_dedup.c
 
-.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn nn_trainer train_nn epd_dedup dedup
+.PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_tuning test_uci test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn nn_trainer train_nn epd_dedup dedup coverage coverage_html
 
 all: $(TARGET)
 
@@ -140,7 +144,15 @@ test_nn: $(NN_TEST_TARGET)
 	@echo "Running neural network tests..."
 	@$(NN_TEST_TARGET)
 
-test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET) $(SEARCH_TEST_TARGET) $(NN_TEST_TARGET)
+test_tuning: $(TUNING_TEST_TARGET)
+	@echo "Running tuning tests..."
+	@$(TUNING_TEST_TARGET)
+
+test_uci: $(UCI_TEST_TARGET)
+	@echo "Running UCI tests..."
+	@$(UCI_TEST_TARGET)
+
+test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET) $(SEARCH_TEST_TARGET) $(NN_TEST_TARGET) $(TUNING_TEST_TARGET) $(UCI_TEST_TARGET)
 	@echo "Running board tests..."
 	@$(TEST_TARGET)
 	@echo "Running FEN tests..."
@@ -153,6 +165,10 @@ test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_T
 	@$(SEARCH_TEST_TARGET)
 	@echo "Running neural network tests..."
 	@$(NN_TEST_TARGET)
+	@echo "Running tuning tests..."
+	@$(TUNING_TEST_TARGET)
+	@echo "Running UCI tests..."
+	@$(UCI_TEST_TARGET)
 
 $(TARGET): $(SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lm
@@ -171,6 +187,12 @@ $(SEARCH_TEST_TARGET): $(LIB_SRCS) $(SEARCH_TEST_SRCS) | $(BUILD_DIR)
 
 $(NN_TEST_TARGET): $(LIB_SRCS) $(NN_TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(NN_TEST_SRCS) $(LDFLAGS) -lm
+
+$(TUNING_TEST_TARGET): $(LIB_SRCS) $(TUNING_TEST_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(TUNING_TEST_SRCS) $(LDFLAGS) -lm
+
+$(UCI_TEST_TARGET): $(LIB_SRCS) $(UCI_TEST_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(UCI_TEST_SRCS) $(LDFLAGS) -lm
 
 $(PERFT_BENCH_TARGET): $(LIB_SRCS) $(PERFT_BENCH_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(PERFT_BENCH_SRCS) $(LDFLAGS) -lm
@@ -230,3 +252,42 @@ $(BUILD_DIR):
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+coverage:
+	@$(MAKE) clean
+	@$(MAKE) CFLAGS_OPT="-O0 -g3 -fprofile-instr-generate -fcoverage-mapping" LDFLAGS="-pthread -fprofile-instr-generate" \
+		$(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET) $(SEARCH_TEST_TARGET) $(NN_TEST_TARGET) $(TUNING_TEST_TARGET) $(UCI_TEST_TARGET)
+	@echo "Running test suites to collect profile data..."
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/test_runner.profraw" $(TEST_TARGET) > /dev/null || true
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/fen_test_runner.profraw" $(FEN_TEST_TARGET) > /dev/null || true
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/movegen_test_runner.profraw" $(MOVEGEN_TEST_TARGET) > /dev/null || true
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/eval_test_runner.profraw" $(EVAL_TEST_TARGET) > /dev/null || true
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/search_test_runner.profraw" $(SEARCH_TEST_TARGET) > /dev/null || true
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/nn_test_runner.profraw" $(NN_TEST_TARGET) > /dev/null || true
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/tuning_test_runner.profraw" $(TUNING_TEST_TARGET) > /dev/null || true
+	@LLVM_PROFILE_FILE="$(BUILD_DIR)/uci_test_runner.profraw" $(UCI_TEST_TARGET) > /dev/null || true
+	@echo "Merging profile data..."
+	@xcrun llvm-profdata merge -sparse $(BUILD_DIR)/*.profraw -o $(BUILD_DIR)/coverage.profdata
+	@echo "Generating coverage report..."
+	@xcrun llvm-cov report -instr-profile=$(BUILD_DIR)/coverage.profdata $(TEST_TARGET) \
+		-object=$(FEN_TEST_TARGET) \
+		-object=$(MOVEGEN_TEST_TARGET) \
+		-object=$(EVAL_TEST_TARGET) \
+		-object=$(SEARCH_TEST_TARGET) \
+		-object=$(NN_TEST_TARGET) \
+		-object=$(TUNING_TEST_TARGET) \
+		-object=$(UCI_TEST_TARGET) \
+		$(SRC_DIR)/
+
+coverage_html: coverage
+	@echo "Generating HTML coverage report..."
+	@xcrun llvm-cov show -format=html -output-dir=$(BUILD_DIR)/coverage_html -instr-profile=$(BUILD_DIR)/coverage.profdata $(TEST_TARGET) \
+		-object=$(FEN_TEST_TARGET) \
+		-object=$(MOVEGEN_TEST_TARGET) \
+		-object=$(EVAL_TEST_TARGET) \
+		-object=$(SEARCH_TEST_TARGET) \
+		-object=$(NN_TEST_TARGET) \
+		-object=$(TUNING_TEST_TARGET) \
+		-object=$(UCI_TEST_TARGET) \
+		$(SRC_DIR)/
+	@echo "HTML report generated at: file://$(shell pwd)/$(BUILD_DIR)/coverage_html/index.html"
