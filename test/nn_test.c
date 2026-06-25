@@ -432,6 +432,7 @@ void test_nnue_incremental_recursive_all_positions(void) {
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
+    bitboard_init();
     UNITY_BEGIN();
 
     RUN_TEST(test_nn_init_and_free);
