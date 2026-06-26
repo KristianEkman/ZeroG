@@ -19,3 +19,5 @@ nn_weights.bin
 *.gcda
 *.profraw
 *.profdata
+
+games/

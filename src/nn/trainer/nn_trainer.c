@@ -77,6 +77,7 @@ void print_help(const char *prog_name) {
     printf("Options:\n");
     printf("  -i, --input <file>     Input EPD file (default: quiet_training_positions_evaluated.epd)\n");
     printf("  -o, --output <file>    Output weights file (default: nn_weights.bin)\n");
+    printf("  -w, --weights <file>   Initial weights file to continue training from (optional)\n");
     printf("  -e, --epochs <num>     Number of training epochs (default: 30)\n");
     printf("  -l, --lr <value>       Initial learning rate (default: 0.01)\n");
     printf("  -v, --val-split <val>  Validation split ratio (default: 0.1)\n");
@@ -87,6 +88,7 @@ int main(int argc, char **argv) {
     // 1. Parse command line arguments
     const char *input_path = "quiet_training_positions_evaluated.epd";
     const char *output_path = "nn_weights.bin";
+    const char *weights_path = NULL;
     int epochs = 30;
     float initial_lr = 0.01f;
     float val_split = 0.1f;
@@ -96,6 +98,8 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) input_path = argv[++i];
         } else if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0) {
             if (i + 1 < argc) output_path = argv[++i];
+        } else if (strcmp(argv[i], "-w") == 0 || strcmp(argv[i], "--weights") == 0) {
+            if (i + 1 < argc) weights_path = argv[++i];
         } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--epochs") == 0) {
             if (i + 1 < argc) epochs = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-l") == 0 || strcmp(argv[i], "--lr") == 0) {
@@ -200,6 +204,17 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Error: Neural network initialization failed.\n");
         free(dataset);
         return 1;
+    }
+    
+    if (weights_path) {
+        printf("Loading existing weights from: %s\n", weights_path);
+        if (!nn_load(nn, weights_path)) {
+            fprintf(stderr, "Error: Failed to load weights from '%s'\n", weights_path);
+            nn_free(nn);
+            free(dataset);
+            return 1;
+        }
+        printf("Successfully loaded weights. Continuing training...\n");
     }
     
     // 7. Training loop

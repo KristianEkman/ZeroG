@@ -354,6 +354,7 @@ Once positions are harvested and labeled, train the custom feedforward neural ne
 #### Trainer CLI Options:
 * `-i`, `--input <file>`: Path to the centipawn-labeled EPD file (default: `quiet_training_positions_evaluated.epd`).
 * `-o`, `--output <file>`: Destination path for the trained binary weights file (default: `nn_weights.bin`).
+* `-w`, `--weights <file>`: Initial binary weights file to continue training from (optional).
 * `-e`, `--epochs <num>`: Total training epochs (default: `30`).
 * `-l`, `--lr <value>`: Initial Stochastic Gradient Descent (SGD) learning rate (default: `0.01`).
 * `-v`, `--val-split <val>`: Validation dataset fraction between `0.0` and `1.0` (default: `0.1` / 10%).
