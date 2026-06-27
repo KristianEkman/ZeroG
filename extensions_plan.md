@@ -1,6 +1,6 @@
 # Search Extensions Implementation Plan
 
-This document outlines the proposed design, logic, and testing plan for introducing additional search extensions to improve the playing strength of **ChessAI2027**.
+This document outlines the proposed design, logic, and testing plan for introducing additional search extensions to improve the playing strength of **ZeroG**.
 
 ---
 

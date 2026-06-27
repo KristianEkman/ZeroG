@@ -39,13 +39,13 @@ def run_match(candidate_a_opts, candidate_b_opts, games, tc, concurrency):
 
     cmd = [
         cutechess_cli_path,
-        "-engine", "cmd=./builds/chessai2027", "proto=uci", "name=CandidateA"
+        "-engine", "cmd=./builds/zerog", "proto=uci", "name=CandidateA"
     ]
     for name, val in candidate_a_opts.items():
         cmd.append(f"option.{name}={int(round(val))}")
 
     cmd += [
-        "-engine", "cmd=./builds/chessai2027", "proto=uci", "name=CandidateB"
+        "-engine", "cmd=./builds/zerog", "proto=uci", "name=CandidateB"
     ]
     for name, val in candidate_b_opts.items():
         cmd.append(f"option.{name}={int(round(val))}")
@@ -87,7 +87,7 @@ def run_match(candidate_a_opts, candidate_b_opts, games, tc, concurrency):
     return wins_a, wins_b, draws
 
 def main():
-    parser = argparse.ArgumentParser(description="SPSA Search Parameter Tuner for ChessAI2027")
+    parser = argparse.ArgumentParser(description="SPSA Search Parameter Tuner for ZeroG")
     parser.add_argument("--games", type=int, default=100, help="Number of games per SPSA iteration")
     parser.add_argument("--iterations", type=int, default=50, help="Number of SPSA iterations to run")
     parser.add_argument("--concurrency", type=int, default=4, help="Number of concurrent games")
@@ -98,9 +98,9 @@ def main():
     parser.add_argument("--state-file", type=type(""), default="spsa_state.json", help="Path to JSON state file")
     args = parser.parse_args()
 
-    # Verify that the chessai2027 executable exists
-    if not os.path.exists("./builds/chessai2027"):
-        print("Error: ./builds/chessai2027 not found. Please compile the engine first.")
+    # Verify that the zerog executable exists
+    if not os.path.exists("./builds/zerog"):
+        print("Error: ./builds/zerog not found. Please compile the engine first.")
         sys.exit(1)
 
     # Initialize parameters with defaults

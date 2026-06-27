@@ -104,7 +104,7 @@ static void free_hash_table(void) {
 }
 
 static void print_help(const char *prog_name) {
-    printf("ChessAI2027 EPD Deduplication Tool\n");
+    printf("ZeroG EPD Deduplication Tool\n");
     printf("Usage: %s [options]\n", prog_name);
     printf("Options:\n");
     printf("  -i, --input <file>     Input EPD file (default: quiet_training_positions_evaluated.epd)\n");

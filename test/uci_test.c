@@ -32,7 +32,7 @@ void test_uci_handshake(void)
     int should_quit = 0;
     run_uci_command(&state, "uci", buf, sizeof(buf), &should_quit);
 
-    TEST_ASSERT_NOT_NULL(strstr(buf, "id name ChessAI2027"));
+    TEST_ASSERT_NOT_NULL(strstr(buf, "id name ZeroG"));
     TEST_ASSERT_NOT_NULL(strstr(buf, "id author"));
     TEST_ASSERT_NOT_NULL(strstr(buf, "uciok"));
     TEST_ASSERT_EQUAL_INT(0, should_quit);

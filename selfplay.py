@@ -127,16 +127,17 @@ def main():
 
     if not has_custom_engines:
         engines = [
-            ("./ChessAI2027_prev", "OLD"),
-            ("./builds/ChessAI2027", "NEW")
+            ("./zerog_prev", "OLD"),
+            ("./builds/zerog", "NEW")
         ]
         resolved_engines = []
         for path, name in engines:
-            # Handle case-insensitivity on macOS / check actual filenames
             resolved_path = path
             if not (os.path.exists(resolved_path) and os.access(resolved_path, os.X_OK)):
-                if name == "NEW" and path == "./builds/ChessAI2027" and os.path.exists("./builds/chessai2027"):
-                    resolved_path = "./builds/chessai2027"
+                if name == "OLD" and os.path.exists("./zerog_prev"):
+                    resolved_path = "./zerog_prev"
+                elif name == "NEW" and os.path.exists("./builds/zerog"):
+                    resolved_path = "./builds/zerog"
                 else:
                     print(f"Error: Engine executable for {name} not found or not executable at '{path}'.", file=sys.stderr)
                     print("Please build your engines first (e.g. 'make').", file=sys.stderr)

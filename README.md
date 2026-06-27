@@ -1,6 +1,6 @@
-# ChessAI2027
+# ZeroG
 
-ChessAI2027 is a high-performance chess engine written in C99, featuring a hybrid board representation, magic bitboards, Zobrist hashing, transposition tables, and a Universal Chess Interface (UCI) protocol engine loop.
+ZeroG is a high-performance chess engine written in C99, featuring a hybrid board representation, magic bitboards, Zobrist hashing, transposition tables, and a Universal Chess Interface (UCI) protocol engine loop.
 
 ---
 
@@ -89,7 +89,7 @@ Scores a given board position statically.
   - *Semi-Open File*: A file with no friendly pawns but containing enemy pawns (+10 cp in middlegame, +7 cp in endgame).
 
 ### 7. UCI Protocol Engine (`src/uci/`)
-Implements the industry-standard Universal Chess Interface (UCI) protocol, enabling ChessAI2027 to interface with chess GUIs (like Arena, Cute Chess, or ChessBase).
+Implements the industry-standard Universal Chess Interface (UCI) protocol, enabling ZeroG to interface with chess GUIs (like Arena, Cute Chess, or ChessBase).
 - **Asynchronous Search Loop**: Spawns a background thread to process searching asynchronously, allowing the main loop to listen for standard `stop` and `quit` commands.
 - **Commands Handled**: Supports standard instructions including `uci`, `isready`, `ucinewgame`, `position`, `go` (including `wtime`, `btime`, `winc`, `binc`, `movestogo`), `setoption`, `stop`, and `quit`.
 - **Configurable Options**: Exposes engine internal variables as UCI spin/numeric options for search tuning (e.g., in cutechess-cli or SPSA scripts):
@@ -124,7 +124,7 @@ The engine uses standard `gcc` and `make` pipelines.
   ```bash
   make
   ```
-  This creates the executable `builds/chessai2027`.
+  This creates the executable `builds/zerog`.
 
 - **Clean Build Directory**:
   ```bash
@@ -184,7 +184,7 @@ You can generate comprehensive test coverage reports utilizing native LLVM code 
 
 ## Engine Tuning
 
-ChessAI2027 supports two distinct tuning methodologies to optimize its playing strength: offline **Texel Tuning** for static evaluation terms, and online **SPSA Tuning** for search parameters.
+ZeroG supports two distinct tuning methodologies to optimize its playing strength: offline **Texel Tuning** for static evaluation terms, and online **SPSA Tuning** for search parameters.
 
 ### 1. Offline Evaluation Tuning (Texel Method)
 Texel tuning minimizes the mean squared error (MSE) between the static evaluation of quiet positions and the actual game outcomes ($1.0$ for White win, $0.5$ for draw, $0.0$ for Black win) using a Sigmoid function to map evaluation scores to win probabilities:
@@ -194,11 +194,11 @@ $$E = \frac{1}{1 + 10^{-K \cdot S / 400}}$$
 #### Workflow:
 1. **Filter Quiet Positions**: Run a quiescence search (Q-search) to filter out tactical/non-quiet positions from raw training game data:
    ```bash
-   ./builds/chessai2027 --tune-filter traindata.epd quiet_traindata.epd
+   ./builds/zerog --tune-filter traindata.epd quiet_traindata.epd
    ```
 2. **Export Features**: Extract evaluation counts/coefficients (pawns, rooks on open files, bishop pair, mobility, etc.) to a CSV for fast matrix operations:
    ```bash
-   ./builds/chessai2027 --tune-export quiet_traindata.epd quiet_traindata_features.csv
+   ./builds/zerog --tune-export quiet_traindata.epd quiet_traindata_features.csv
    ```
 3. **Run Optimization**: Optimize constants using L-BFGS-B gradient descent:
    ```bash
@@ -235,25 +235,25 @@ Simultaneous Perturbation Stochastic Approximation (SPSA) is used to tune search
 
 ## Usage
 
-By default, when executed without arguments, ChessAI2027 automatically enters **UCI mode** and listens to standard input commands:
+By default, when executed without arguments, ZeroG automatically enters **UCI mode** and listens to standard input commands:
 
 ```bash
-./builds/chessai2027
+./builds/zerog
 ```
 
 ### Command-Line Arguments
 
-ChessAI2027 also supports specialized modes for tuning dataset preparation and feature extraction:
+ZeroG also supports specialized modes for tuning dataset preparation and feature extraction:
 
 - **Filter Quiet Positions**:
   ```bash
-  ./builds/chessai2027 --tune-filter <input_epd_file> <output_epd_file>
+  ./builds/zerog --tune-filter <input_epd_file> <output_epd_file>
   ```
   Parses a raw EPD file containing evaluations, runs a quiescence search to verify if a position is quiet (Q-search score matches static evaluation within $10$ cp), maps the score to simulated results, and outputs filtered records.
 
 - **Export Feature Coefficients**:
   ```bash
-  ./builds/chessai2027 --tune-export <quiet_epd_file> <output_csv_file>
+  ./builds/zerog --tune-export <quiet_epd_file> <output_csv_file>
   ```
   Processes quiet positions to extract their linear evaluation representation (a vector of feature coefficients and the static constant score offset), writing them to a CSV file for rapid offline Texel tuning optimization.
 
@@ -366,7 +366,7 @@ Once positions are harvested and labeled, train the custom feedforward neural ne
 
 ## AI-Driven Development & Collaboration Methodology
 
-ChessAI2027 was developed using an advanced human-AI co-piloting methodology. The engine is the result of continuous collaboration between the developer and AI coding assistants, primarily using the **Antigravity IDE** powered by the **Gemini 3.5 Flash** model (with supplementary architectural and code analysis inputs from other LLMs).
+ZeroG was developed using an advanced human-AI co-piloting methodology. The engine is the result of continuous collaboration between the developer and AI coding assistants, primarily using the **Antigravity IDE** powered by the **Gemini 3.5 Flash** model (with supplementary architectural and code analysis inputs from other LLMs).
 
 ### The Human-AI Collaboration Loop
 The development followed a highly structured, iterative workflow to safely introduce features, debug complex C systems, and optimize engine parameters:

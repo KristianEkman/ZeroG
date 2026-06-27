@@ -12,7 +12,7 @@ const char* uci_get_save_quiet_positions_file(void)
 }
 
 static int write_uci_handshake(FILE *output) {
-  if (fprintf(output, "id name ChessAI2027 1.0.0\n") < 0 ||
+  if (fprintf(output, "id name ZeroG 1.0.0\n") < 0 ||
       fprintf(output, "id author Kristian Ekman\n") < 0 ||
       fprintf(output,
               "option name Hash type spin default 16 min 1 max 1024\n") < 0 ||

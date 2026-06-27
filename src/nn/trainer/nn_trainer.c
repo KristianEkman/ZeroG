@@ -72,7 +72,7 @@ void shuffle_dataset(TrainingSample *dataset, int n) {
 }
 
 void print_help(const char *prog_name) {
-    printf("ChessAI2027 Neural Network Trainer\n");
+    printf("ZeroG Neural Network Trainer\n");
     printf("Usage: %s [options]\n", prog_name);
     printf("Options:\n");
     printf("  -i, --input <file>     Input EPD file (default: quiet_training_positions_evaluated.epd)\n");
