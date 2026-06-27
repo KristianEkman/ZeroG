@@ -232,8 +232,8 @@ Simultaneous Perturbation Stochastic Approximation (SPSA) is used to tune search
    ```
    State is stored in `spsa_state.json`.
 3. **Apply Tuned Parameters**:
-   - Update the static variables at the top of [search.c](file:///Users/kristianekman/ChessAi2027/src/search/search.c).
-   - Update the reported option defaults in [uci_command.c](file:///Users/kristianekman/ChessAi2027/src/uci/uci_command.c).
+   - Update the static variables at the top of [search.c](src/search/search.c).
+   - Update the reported option defaults in [uci_command.c](src/uci/uci_command.c).
    - Recompile the engine:
      ```bash
      make clean && make
@@ -408,3 +408,9 @@ The development followed a highly structured, iterative workflow to safely intro
 
 4. **Continuous Code Quality & Refactoring**:
    - To prevent technical debt, the developer guided the AI to modularize the codebase—extracting monolithic files (such as `search.c`) into clean, logically separated modules (e.g. `pvs.c`, `see.c`, `threads.c`, etc.) while maintaining robust test coverage.
+
+---
+
+## License
+
+ZeroG is licensed under the Apache License, Version 2.0. See the [LICENSE](file:///Users/kristianekman/ZeroG/LICENSE) file for the full text.
