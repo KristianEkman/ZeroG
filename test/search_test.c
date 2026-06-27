@@ -519,6 +519,49 @@ void test_see(void)
     TEST_ASSERT_EQUAL_INT(0, score); // Quiet move, should be 0
 }
 
+void test_one_reply_extension(void)
+{
+    Position pos;
+    memset(&pos, 0, sizeof(Position));
+    // White to move. For any White move, Black will have exactly one legal move: Kxa7 (at ply 1).
+    fen_parse("k7/P7/8/8/8/8/8/6K1 w - - 0 1", &pos);
+
+    SearchLimits limits = {
+        .depth = 2,
+        .soft_time_limit_ms = 0,
+        .hard_time_limit_ms = 0
+    };
+    SearchResult result;
+    memset(&result, 0, sizeof(SearchResult));
+
+    int search_res = search_best_move_with_limits(&pos, &limits, &result);
+    TEST_ASSERT_EQUAL_INT(0, search_res);
+    // Node count should be > 5 because the single legal reply at ply 1 is extended.
+    TEST_ASSERT_TRUE(result.node_count > 5);
+}
+
+void test_passed_pawn_extension(void)
+{
+    Position pos;
+    memset(&pos, 0, sizeof(Position));
+    // White has a passed pawn on a6. Pushing it to a7 (rank 7) should trigger Passed Pawn Push extension.
+    fen_parse("k7/8/P7/8/8/8/8/6K1 w - - 0 1", &pos);
+
+    SearchLimits limits = {
+        .depth = 1,
+        .soft_time_limit_ms = 0,
+        .hard_time_limit_ms = 0
+    };
+    SearchResult result;
+    memset(&result, 0, sizeof(SearchResult));
+
+    int search_res = search_best_move_with_limits(&pos, &limits, &result);
+    TEST_ASSERT_EQUAL_INT(0, search_res);
+    // The passed pawn push a6a7 should be extended, searching the child node with depth 1
+    // instead of depth 0.
+    TEST_ASSERT_TRUE(result.node_count > 2);
+}
+
 int main(void)
 {
     bitboard_init();
@@ -540,6 +583,8 @@ int main(void)
     RUN_TEST(test_search_history_heuristic);
     RUN_TEST(test_search_options);
     RUN_TEST(test_see);
+    RUN_TEST(test_one_reply_extension);
+    RUN_TEST(test_passed_pawn_extension);
 
     int result = UNITY_END();
     eval_free();

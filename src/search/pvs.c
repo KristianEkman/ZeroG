@@ -1,5 +1,12 @@
 #include "search/search_internal.h"
 
+static inline int is_passed_pawn(const Position *pos, Square sq, Color side) {
+  Color opponent = OPPOSITE(side);
+  uint64_t opp_pawns = pos->pieces[COLOR_IDX(opponent)][PAWN];
+  uint64_t mask = passedPawnMasks[COLOR_IDX(side)][sq];
+  return (mask & opp_pawns) == 0;
+}
+
 int try_null_move_pruning(Position *pos, int depth, int ply, int beta,
                           uint64_t start_time, const SearchLimits *limits,
                           const UndoNode *history, SearchThread *thread) {
@@ -264,6 +271,28 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
   Move moves[MAX_MOVES];
   int count = movegen_pseudo_legal(pos, moves);
 
+  // One-Reply Extension check
+  int is_one_reply = 0;
+  if (depth > 0 && ply > 0) {
+    int legal_count = 0;
+    for (int i = 0; i < count; i++) {
+      if (is_illegal_castle(pos, moves[i])) {
+        continue;
+      }
+      Undo u;
+      if (make_move_and_check_legal(pos, moves[i], &u)) {
+        legal_count++;
+        undo_move(pos, &u);
+        if (legal_count > 1) {
+          break;
+        }
+      }
+    }
+    if (legal_count == 1) {
+      is_one_reply = 1;
+    }
+  }
+
   int scores[MAX_MOVES];
   for (int i = 0; i < count; i++) {
     scores[i] = score_move(pos, moves[i], hash_move, ply, prev_move, thread);
@@ -288,6 +317,27 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
     }
 
     int ext = (moves[i] == hash_move && extension == 1) ? 1 : 0;
+
+    // Passed Pawn Push Extension
+    if (ext == 0) {
+      int from = MOVE_FROM(moves[i]);
+      int to = MOVE_TO(moves[i]);
+      PieceType pt = PIECE_TYPE(pos->board[from]);
+      if (pt == PAWN) {
+        int tr = RANK_OF(to);
+        Color side = pos->sideToMove;
+        if ((side == WHITE && tr == RANK_7) || (side == BLACK && tr == RANK_2)) {
+          if (is_passed_pawn(pos, from, side)) {
+            ext = 1;
+          }
+        }
+      }
+    }
+
+    // One-Reply Extension
+    if (ext == 0 && is_one_reply) {
+      ext = 1;
+    }
 
     int is_quiet = !move_is_capture_or_promo(pos, moves[i]);
 
