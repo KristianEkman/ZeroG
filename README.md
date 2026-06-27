@@ -362,3 +362,28 @@ Once positions are harvested and labeled, train the custom feedforward neural ne
 * `-v`, `--val-split <val>`: Validation dataset fraction between `0.0` and `1.0` (default: `0.1` / 10%).
 * `-h`, `--help`: Prints command line options help menu.
 
+---
+
+## AI-Driven Development & Collaboration Methodology
+
+ChessAI2027 was developed using an advanced human-AI co-piloting methodology. The engine is the result of continuous collaboration between the developer and AI coding assistants, primarily using the **Antigravity IDE** powered by the **Gemini 3.5 Flash** model (with supplementary architectural and code analysis inputs from other LLMs).
+
+### The Human-AI Collaboration Loop
+The development followed a highly structured, iterative workflow to safely introduce features, debug complex C systems, and optimize engine parameters:
+
+1. **Feature Prototyping & Theoretical Direction**:
+   - The developer identified promising features (from chess programming resources or architectural needs) and directed the AI to draft implementation plans.
+   - The AI assistant served as the primary implementation engine: drafting [implementation_plan.md](file:///Users/kristianekman/.gemini/antigravity-ide/brain/bb26014e-8584-4cec-84a9-8c04e8110cde/implementation_plan.md) designs, writing optimal C99 code, and creating companion unit tests using the Unity C test framework.
+
+2. **Empirical ELO-Driven Validation**:
+   - Features were never accepted based on theoretical merit alone. The developer subjected every candidate feature or pruning adjustment to empirical testing.
+   - The developer ran automated self-play matches comparing the candidate engine (`NEW`) against the prior baseline (`OLD`) using `cutechess-cli` and custom scripts (`selfplay.py`).
+   - If a feature failed to show a positive ELO gain or showed playing strength degradation (e.g. check extensions showing an ELO penalty, or initial iterations of search extensions underperforming), the developer provided the match scores and execution logs back to the AI.
+   - The AI and developer then collaborated to analyze bottlenecks, fix bugs (such as thread-safety in NNUE activations, SIMD mismatch issues, and history score aging), or tune search parameters before re-testing.
+
+3. **Data and Tuning Pipelines**:
+   - To continuously boost performance, the developer and AI built automated data pipelines, including harvesting quiet positions during self-play, deduplicating with `epd_dedup`, evaluating positions in parallel via Stockfish (`evaluate_epd.py`), and training neural network weights in C (`nn_trainer`).
+   - Search parameters were systematically tuned using SPSA matches via `spsa.py` to refine bounds, margins, and divisors dynamically.
+
+4. **Continuous Code Quality & Refactoring**:
+   - To prevent technical debt, the developer guided the AI to modularize the codebase—extracting monolithic files (such as `search.c`) into clean, logically separated modules (e.g. `pvs.c`, `see.c`, `threads.c`, etc.) while maintaining robust test coverage.
