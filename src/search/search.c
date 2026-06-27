@@ -1,5 +1,6 @@
 #include "search/search_internal.h"
 #include "nn.h"
+#include "search/book.h"
 
 int reconstruct_pv_from_tt(const Position *pos, PVLine *pv, int max_depth) {
   Position temp_pos = *pos;
@@ -89,6 +90,23 @@ int search_best_move_with_limits(const Position *board,
   search_reset_stop_request();
   result->depth = 0;
   uint64_t start_time = get_time_ms();
+
+  /* Probe opening book if enabled */
+  if (use_book && book_path[0] != '\0') {
+      Move book_move = book_probe(board);
+      if (book_move != 0) {
+          result->best_move = book_move;
+          result->has_legal_move = 1;
+          result->score = 0;
+          result->depth = 0;
+          result->node_count = 0;
+          if (search_log_output != NULL) {
+              fprintf(search_log_output, "info string book move found\n");
+              fflush(search_log_output);
+          }
+          return 0;
+      }
+  }
 
   if (!lmr_initialized) {
     init_lmr();

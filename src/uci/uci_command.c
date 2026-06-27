@@ -1,6 +1,7 @@
 #include "uci/uci_internal.h"
 #include "eval.h"
 #include "search/threads.h"
+#include "search/book.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -46,6 +47,8 @@ static int write_uci_handshake(FILE *output) {
       fprintf(output, "option name LMR_History_Divisor type spin default 2000 min 100 max 100000\n") < 0 ||
       fprintf(output, "option name SaveQuietPositionsFile type string default <empty>\n") < 0 ||
       fprintf(output, "option name UseNN type check default false\n") < 0 ||
+      fprintf(output, "option name OwnBook type check default false\n") < 0 ||
+      fprintf(output, "option name BookFile type string default book.bin\n") < 0 ||
       fprintf(output, "uciok\n") < 0) {
     return -1;
   }
@@ -161,6 +164,25 @@ int uci_handle_line(UciState *state, const char *line, FILE *output,
         if (eval_nn) use_nn = true;
       } else if (strcmp(path_buf, "false") == 0) {
         use_nn = false;
+      }
+      return 0;
+    }
+
+    if (uci_parse_string_option_value(args, "OwnBook", path_buf, sizeof(path_buf)) == 0) {
+      if (strcmp(path_buf, "true") == 0) {
+        use_book = 1;
+      } else if (strcmp(path_buf, "false") == 0) {
+        use_book = 0;
+      }
+      return 0;
+    }
+
+    if (uci_parse_string_option_value(args, "BookFile", path_buf, sizeof(path_buf)) == 0) {
+      if (strcmp(path_buf, "<empty>") == 0) {
+        book_path[0] = '\0';
+      } else {
+        strncpy(book_path, path_buf, sizeof(book_path));
+        book_path[sizeof(book_path) - 1] = '\0';
       }
       return 0;
     }

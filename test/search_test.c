@@ -3,6 +3,7 @@
 #include "fen.h"
 #include "movegen.h"
 #include "search/search.h"
+#include "search/book.h"
 #include "eval.h"
 #include "search/time_control.h"
 #include "uci/uci.h"
@@ -562,6 +563,55 @@ void test_passed_pawn_extension(void)
     TEST_ASSERT_TRUE(result.node_count > 2);
 }
 
+void test_book_hash(void)
+{
+    Position board;
+    position_startpos(&board);
+    uint64_t hash = book_polyglot_hash(&board);
+    TEST_ASSERT_EQUAL_HEX64(0x463b96181691fc9cULL, hash);
+}
+
+void test_book_probe(void)
+{
+    // Write a dummy book file
+    FILE *f = fopen("test_book.bin", "wb");
+    TEST_ASSERT_NOT_NULL(f);
+
+    /* Write one entry for the starting position (key 0x463b96181691fc9c)
+     * Move e2e4 (from e2=12, to e4=28):
+     * raw_move = (from << 6) | to = (12 << 6) | 28 = 796 = 0x031C
+     * weight = 1, learn = 0 */
+    uint8_t entry[16] = {
+        0x46, 0x3b, 0x96, 0x18, 0x16, 0x91, 0xfc, 0x9c, /* key */
+        0x03, 0x1c,                                     /* move */
+        0x00, 0x01,                                     /* weight */
+        0x00, 0x00, 0x00, 0x00                          /* learn */
+    };
+    TEST_ASSERT_EQUAL_INT(1, fwrite(entry, 16, 1, f));
+    fclose(f);
+
+    // Test with book disabled
+    Position board;
+    position_startpos(&board);
+    use_book = 0;
+    strncpy(book_path, "test_book.bin", sizeof(book_path) - 1);
+    Move move = book_probe(&board);
+    TEST_ASSERT_EQUAL_UINT16(0, move);
+
+    // Test with book enabled
+    use_book = 1;
+    move = book_probe(&board);
+    TEST_ASSERT_NOT_EQUAL_UINT16(0, move);
+
+    char move_str[6];
+    int res = uci_move_to_string(&board, move, move_str, sizeof(move_str));
+    TEST_ASSERT_EQUAL_INT(0, res);
+    TEST_ASSERT_EQUAL_STRING("e2e4", move_str);
+
+    // Cleanup
+    remove("test_book.bin");
+}
+
 int main(void)
 {
     bitboard_init();
@@ -585,6 +635,8 @@ int main(void)
     RUN_TEST(test_see);
     RUN_TEST(test_one_reply_extension);
     RUN_TEST(test_passed_pawn_extension);
+    RUN_TEST(test_book_hash);
+    RUN_TEST(test_book_probe);
 
     int result = UNITY_END();
     eval_free();

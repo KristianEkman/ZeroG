@@ -5,9 +5,12 @@
 #include "eval.h"
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
+#include <stdlib.h>
 
 int main(int argc, char *argv[])
 {
+    srand((unsigned int)time(NULL));
     bitboard_init();
 
     if (argc > 1 && strcmp(argv[1], "--tune-filter") == 0) {

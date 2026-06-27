@@ -96,6 +96,8 @@ Implements the industry-standard Universal Chess Interface (UCI) protocol, enabl
   - `Hash`: Transposition table size (MB).
   - `Threads`: Number of concurrent search threads (default: 1, range: 1–64).
   - `UseNN`: Checkbox/check option to toggle Neural Network evaluation (default: false).
+  - `OwnBook`: Checkbox/check option to toggle opening book support (default: false).
+  - `BookFile`: String option to specify the path to a Polyglot opening book file (default: "book.bin").
   - `LMR_Base`: Controls LMR reduction aggressiveness.
   - `LMR_Min_Depth`: Minimum remaining depth to apply LMR.
   - `LMR_History_Divisor`: Scaling factor for history-based reduction adjustments.
@@ -112,6 +114,12 @@ Manages search time budgets dynamically to optimize strength and prevent clock f
 - **Dynamic Soft Limit Scaling**: Reduces the soft limit by up to 50% if the best move at the root is highly stable across multiple depths, or expands it by 150% if the best move fluctuates or scores drop.
 - **Next-Depth Node Growth Prediction**: Predicts if the next depth iteration will exceed the soft limit by tracking the effective branching factor, avoiding wasted computation on incomplete depths.
 - **UCI movestogo Support**: Parses and budgets remaining time according to the moves left until the next time control.
+
+### 9. Opening Book (`src/search/book.h` / `src/search/book.c`)
+Implements fully PolyGlot-compatible opening book support, allowing the engine to play recognized opening lines instantly.
+- **PolyGlot Compatibility**: Computes standard PolyGlot Zobrist hashes for the current position and queries standard binary opening book files (`.bin`).
+- **Weighted Random Move Selection**: If multiple moves exist in the book for a given position, the engine selects a move using a probability distribution weighted by their frequencies/weights stored in the book.
+- **Move Translation & Legality Verification**: Decodes the PolyGlot move representation (including its "king captures rook" castling format) and verifies legality against the engine's move generator.
 
 ---
 
@@ -361,6 +369,19 @@ Once positions are harvested and labeled, train the custom feedforward neural ne
 * `-l`, `--lr <value>`: Initial Stochastic Gradient Descent (SGD) learning rate (default: `0.01`).
 * `-v`, `--val-split <val>`: Validation dataset fraction between `0.0` and `1.0` (default: `0.1` / 10%).
 * `-h`, `--help`: Prints command line options help menu.
+
+---
+
+## Opening Book Generation
+ZeroG can generate its own Polyglot-compatible `.bin` opening books from any standard chess PGN database (e.g. `games/top_engine_games.pgn`).
+
+### Generating custom book.bin:
+1. **Prepare a PGN file**: Ensure you have a standard chess PGN file (e.g. `games/top_engine_games.pgn`).
+2. **Run the generator utility**: Run the provided python compiler to parse games up to a maximum ply depth (defaults to 20 plies / 10 full moves) and compile the entries:
+   ```bash
+   ./venv/bin/python3 generate_book.py
+   ```
+   This reads games, tracks positions and move counts, sorts the keys in ascending order (as required by the Polyglot spec), and writes `book.bin`.
 
 ---
 
