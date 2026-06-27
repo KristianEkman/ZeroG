@@ -19,13 +19,13 @@ static int write_uci_handshake(FILE *output) {
       fprintf(output,
               "option name Threads type spin default 1 min 1 max 64\n") < 0 ||
       fprintf(output,
-              "option name LMR_Base type spin default 4 min 0 max 20\n") < 0 ||
+              "option name LMR_Base type spin default 2 min 0 max 20\n") < 0 ||
       fprintf(
           output,
           "option name Futility_Margin type spin default 114 min 0 max 500\n") <
           0 ||
       fprintf(output,
-              "option name RFP_Margin type spin default 110 min 0 max 300\n") <
+              "option name RFP_Margin type spin default 111 min 0 max 300\n") <
           0 ||
       fprintf(output,
               "option name NMP_Min_Depth type spin default 2 min 1 max 10\n") <
@@ -34,14 +34,14 @@ static int write_uci_handshake(FILE *output) {
           output,
           "option name Singular_Margin type spin default 2 min 0 max 10\n") <
           0 ||
-      fprintf(output, "option name Aspiration_Window type spin default 37 min "
+      fprintf(output, "option name Aspiration_Window type spin default 35 min "
                       "5 max 200\n") < 0 ||
       fprintf(output,
-              "option name LMR_Min_Depth type spin default 4 min 1 max 15\n") <
+              "option name LMR_Min_Depth type spin default 2 min 1 max 15\n") <
           0 ||
       fprintf(
           output,
-          "option name Futility_Max_Depth type spin default 1 min 1 max 5\n") <
+          "option name Futility_Max_Depth type spin default 4 min 1 max 5\n") <
           0 ||
       fprintf(output, "option name LMR_History_Divisor type spin default 2000 min 100 max 100000\n") < 0 ||
       fprintf(output, "option name SaveQuietPositionsFile type string default <empty>\n") < 0 ||
