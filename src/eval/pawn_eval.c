@@ -42,16 +42,7 @@ static const uint64_t file_masks[8] = {
     0x0101010101010101ULL << 7
 };
 
-static const int pawn_table[64] = {
-     0,  0,  0,  0,  0,  0,  0,  0,  // Rank 1
-     5, 10, 10,-20,-20, 10, 10,  5,  // Rank 2
-     5, -5,-10,  0,  0,-10, -5,  5,  // Rank 3
-     0,  0,  0, 20, 20,  0,  0,  0,  // Rank 4
-     5,  5, 10, 25, 25, 10,  5,  5,  // Rank 5
-    10, 10, 20, 30, 30, 20, 10, 10,  // Rank 6
-    50, 50, 50, 50, 50, 50, 50, 50,  // Rank 7
-     0,  0,  0,  0,  0,  0,  0,  0   // Rank 8
-};
+static const int pawn_table[64] = PST_PAWN_TABLE;
 
 int evaluate_pawns(const Position *pos, int phase) {
     int mg_score = 0;

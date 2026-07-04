@@ -1,21 +1,24 @@
 #include "king_safety.h"
+#include "eval_constants.h"
 #include <stdint.h>
 
-// Pawn Shield Constants
-#define PAWN_SHIELD_RANK2_BONUS 10
-#define PAWN_SHIELD_RANK3_BONUS 3
-#define PAWN_SHIELD_MISSING_PENALTY -15
+// Pawn Shield Constants (from eval_constants.h)
+#define PAWN_SHIELD_RANK2_BONUS KS_PAWN_SHIELD_RANK2_VAL
+#define PAWN_SHIELD_RANK3_BONUS KS_PAWN_SHIELD_RANK3_VAL
+#define PAWN_SHIELD_MISSING_PENALTY KS_PAWN_SHIELD_MISSING_VAL
 
-// King Attack Weights
-#define KNIGHT_ATTACK_WEIGHT 2
-#define BISHOP_ATTACK_WEIGHT 2
-#define ROOK_ATTACK_WEIGHT 3
-#define QUEEN_ATTACK_WEIGHT 5
+// King Attack Weights (from eval_constants.h)
+#define KNIGHT_ATTACK_WEIGHT KS_KNIGHT_WEIGHT_VAL
+#define BISHOP_ATTACK_WEIGHT KS_BISHOP_WEIGHT_VAL
+#define ROOK_ATTACK_WEIGHT KS_ROOK_WEIGHT_VAL
+#define QUEEN_ATTACK_WEIGHT KS_QUEEN_WEIGHT_VAL
 
-// Non-linear scaling table for attacker counts 0..15
+// Non-linear scaling table for attacker counts 0..15 (from eval_constants.h)
 static const int safety_table[16] = {
-    0,   0,   20,  50,  90,  140, 200, 270,
-    350, 440, 540, 650, 770, 900, 1040, 1190
+    KS_SAFETY_TABLE_0_VAL,  KS_SAFETY_TABLE_1_VAL,  KS_SAFETY_TABLE_2_VAL,  KS_SAFETY_TABLE_3_VAL,
+    KS_SAFETY_TABLE_4_VAL,  KS_SAFETY_TABLE_5_VAL,  KS_SAFETY_TABLE_6_VAL,  KS_SAFETY_TABLE_7_VAL,
+    KS_SAFETY_TABLE_8_VAL,  KS_SAFETY_TABLE_9_VAL,  KS_SAFETY_TABLE_10_VAL, KS_SAFETY_TABLE_11_VAL,
+    KS_SAFETY_TABLE_12_VAL, KS_SAFETY_TABLE_13_VAL, KS_SAFETY_TABLE_14_VAL, KS_SAFETY_TABLE_15_VAL
 };
 
 static uint64_t knight_attacks_to_king_zone[64];

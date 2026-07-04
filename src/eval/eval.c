@@ -52,71 +52,12 @@ static const uint64_t file_masks[8] = {
 
 /* Piece-Square Tables (PST) pre-flipped vertically so that index 0 corresponds to A1 */
 
-static const int knight_table[64] = {
-    -50,-40,-30,-30,-30,-30,-40,-50,  // Rank 1
-    -40,-20,  0,  5,  5,  0,-20,-40,  // Rank 2
-    -30,  5, 10, 15, 15, 10,  5,-30,  // Rank 3
-    -30,  0, 15, 20, 20, 15,  0,-30,  // Rank 4
-    -30,  5, 15, 20, 20, 15,  5,-30,  // Rank 5
-    -30,  0, 10, 15, 15, 10,  0,-30,  // Rank 6
-    -40,-20,  0,  0,  0,  0,-20,-40,  // Rank 7
-    -50,-40,-30,-30,-30,-30,-40,-50   // Rank 8
-};
-
-static const int bishop_table[64] = {
-    -20,-10,-10,-10,-10,-10,-10,-20,  // Rank 1
-    -10,  5,  0,  0,  0,  0,  5,-10,  // Rank 2
-    -10, 10, 10, 10, 10, 10, 10,-10,  // Rank 3
-    -10,  0, 10, 10, 10, 10,  0,-10,  // Rank 4
-    -10,  5,  5, 10, 10,  5,  5,-10,  // Rank 5
-    -10,  0,  5, 10, 10,  5,  0,-10,  // Rank 6
-    -10,  0,  0,  0,  0,  0,  0,-10,  // Rank 7
-    -20,-10,-10,-10,-10,-10,-10,-20   // Rank 8
-};
-
-static const int rook_table[64] = {
-      0,  0,  0,  5,  5,  0,  0,  0,  // Rank 1
-     -5,  0,  0,  0,  0,  0,  0, -5,  // Rank 2
-     -5,  0,  0,  0,  0,  0,  0, -5,  // Rank 3
-     -5,  0,  0,  0,  0,  0,  0, -5,  // Rank 4
-     -5,  0,  0,  0,  0,  0,  0, -5,  // Rank 5
-     -5,  0,  0,  0,  0,  0,  0, -5,  // Rank 6
-      5, 10, 10, 10, 10, 10, 10,  5,  // Rank 7
-      0,  0,  0,  0,  0,  0,  0,  0   // Rank 8
-};
-
-static const int queen_table[64] = {
-    -20,-10,-10, -5, -5,-10,-10,-20,  // Rank 1
-    -10,  0,  5,  0,  0,  0,  0,-10,  // Rank 2
-    -10,  5,  5,  5,  5,  5,  0,-10,  // Rank 3
-      0,  0,  5,  5,  5,  5,  0, -5,  // Rank 4
-     -5,  0,  5,  5,  5,  5,  0, -5,  // Rank 5
-    -10,  0,  5,  5,  5,  5,  0,-10,  // Rank 6
-    -10,  0,  0,  0,  0,  0,  0,-10,  // Rank 7
-    -20,-10,-10, -5, -5,-10,-10,-20   // Rank 8
-};
-
-static const int king_middle_table[64] = {
-     20, 30, 10,  0,  0, 10, 30, 20,  // Rank 1
-     20, 20,  0,  0,  0,  0, 20, 20,  // Rank 2
-    -10,-20,-20,-20,-20,-20,-20,-10,  // Rank 3
-    -20,-30,-30,-40,-40,-30,-30,-20,  // Rank 4
-    -30,-40,-40,-50,-50,-40,-40,-30,  // Rank 5
-    -30,-40,-40,-50,-50,-40,-40,-30,  // Rank 6
-    -30,-40,-40,-50,-50,-40,-40,-30,  // Rank 7
-    -30,-40,-40,-50,-50,-40,-40,-30   // Rank 8
-};
-
-static const int king_end_table[64] = {
-    -50,-30,-30,-30,-30,-30,-30,-50,  // Rank 1
-    -30,-30,  0,  0,  0,  0,-30,-30,  // Rank 2
-    -30,-10, 20, 30, 30, 20,-10,-30,  // Rank 3
-    -30,-10, 30, 40, 40, 30,-10,-30,  // Rank 4
-    -30,-10, 30, 40, 40, 30,-10,-30,  // Rank 5
-    -30,-10, 20, 30, 30, 20,-10,-30,  // Rank 6
-    -30,-20,-10,  0,  0,-10,-20,-30,  // Rank 7
-    -50,-40,-30,-20,-20,-30,-40,-50   // Rank 8
-};
+static const int knight_table[64] = PST_KNIGHT_TABLE;
+static const int bishop_table[64] = PST_BISHOP_TABLE;
+static const int rook_table[64] = PST_ROOK_TABLE;
+static const int queen_table[64] = PST_QUEEN_TABLE;
+static const int king_middle_table[64] = PST_KING_MG_TABLE;
+static const int king_end_table[64] = PST_KING_EG_TABLE;
 
 int evaluate(const Position *pos) {
     if (use_nn && eval_nn) {

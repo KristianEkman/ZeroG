@@ -195,24 +195,39 @@ You can generate comprehensive test coverage reports utilizing native LLVM code 
 ZeroG supports two distinct tuning methodologies to optimize its playing strength: offline **Texel Tuning** for static evaluation terms, and online **SPSA Tuning** for search parameters.
 
 ### 1. Offline Evaluation Tuning (Texel Method)
-Texel tuning minimizes the mean squared error (MSE) between the static evaluation of quiet positions and the actual game outcomes ($1.0$ for White win, $0.5$ for draw, $0.0$ for Black win) using a Sigmoid function to map evaluation scores to win probabilities:
+Texel tuning minimizes the mean squared error (MSE) between the static evaluation of quiet positions and game outcomes using a Sigmoid function to map evaluation scores to win probabilities:
 
 $$E = \frac{1}{1 + 10^{-K \cdot S / 400}}$$
 
-#### Workflow:
-1. **Filter Quiet Positions**: Run a quiescence search (Q-search) to filter out tactical/non-quiet positions from raw training game data:
+The evaluation feature space includes 413 parameters (all piece values, mobility tables, 224 mirrored Piece-Square Table values, and 23 King Safety terms).
+
+#### Automated End-to-End Tuning Pipeline:
+You can run the entire workflow (building, filtering, Stockfish labeling, feature exporting, and L-BFGS-B optimization) using the automated pipeline script:
+```bash
+./tune_pipeline.sh --games 5000 --depth 12 --concurrency 4
+```
+The script backs up your existing `src/eval/eval_constants.h`, processes positions, runs the optimizer, and rebuilds the engine with tuned parameters.
+
+#### Manual Step-by-Step Workflow:
+1. **Filter Quiet Positions & Generate Labels**: Run a quiescence search (Q-search) to filter out tactical positions. Instead of hard thresholds, positions are labeled with a continuous sigmoid win probability based on white score:
    ```bash
    ./builds/zerog --tune-filter traindata.epd quiet_traindata.epd
    ```
-2. **Export Features**: Extract evaluation counts/coefficients (pawns, rooks on open files, bishop pair, mobility, etc.) to a CSV for fast matrix operations:
+2. **Export Features**: Extract evaluation counts/coefficients (piece values, mobility, PST entries, and king safety features) to a CSV for fast matrix operations:
    ```bash
    ./builds/zerog --tune-export quiet_traindata.epd quiet_traindata_features.csv
    ```
-3. **Run Optimization**: Optimize constants using L-BFGS-B gradient descent:
+3. **Run L-BFGS-B Optimization**: Optimize coefficients using SciPy's L-BFGS-B optimizer:
    ```bash
-   python3 tune.py
+   python3 tune.py -i quiet_traindata_features.csv -o src/eval/eval_constants.h
    ```
-   This script calculates the optimal scaling factor $K$, fits the parameters, normalizes them (so the pawn value is exactly 100), and outputs them directly to `src/eval/eval_constants.h`.
+   This script:
+   - Reads initial values from the current `src/eval/eval_constants.h` to use as starting points.
+   - Finds the optimal scaling factor $K$ for win probabilities.
+   - Runs L-BFGS-B gradient descent to minimize MSE loss.
+   - Re-optimizes the scaling factor $K$ on the tuned parameters for extra precision.
+   - Generates the final C header `src/eval/eval_constants.h` with mirrored PST expansion macros.
+
 
 ---
 
@@ -395,7 +410,7 @@ The development followed a highly structured, iterative workflow to safely intro
 1. **Feature Prototyping & Theoretical Direction**:
    - The developer identified promising features (from chess programming resources or architectural needs) and directed the AI to draft implementation plans.
    - The AI assistant served as the primary implementation engine: drafting [implementation_plan.md](file:///Users/kristianekman/.gemini/antigravity-ide/brain/bb26014e-8584-4cec-84a9-8c04e8110cde/implementation_plan.md) designs, writing optimal C99 code, and creating companion unit tests using the Unity C test framework.
-
+    
 2. **Empirical ELO-Driven Validation**:
    - Features were never accepted based on theoretical merit alone. The developer subjected every candidate feature or pruning adjustment to empirical testing.
    - The developer ran automated self-play matches comparing the candidate engine (`NEW`) against the prior baseline (`OLD`) using `cutechess-cli` and custom scripts (`selfplay.py`).

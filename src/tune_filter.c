@@ -95,17 +95,12 @@ int run_tune_filter(const char *input_path, const char *output_path) {
             // Convert score from the side to move's perspective to White's perspective
             int score_white = (pos.sideToMove == WHITE) ? score_val : -score_val;
 
-            // Map score to a simulated game outcome (1.0 for win, 0.5 for draw, 0.0 for loss)
-            // relative to White.
-            double simulated_result = 0.5;
-            if (score_white > 150) {
-                simulated_result = 1.0;
-            } else if (score_white < -150) {
-                simulated_result = 0.0;
-            }
+            // Map score to a continuous game outcome using sigmoid (Texel method).
+            // K ≈ 1.13 is the standard scaling constant for centipawn scores.
+            double simulated_result = 1.0 / (1.0 + pow(10.0, -1.13 * score_white / 400.0));
 
             // Write FEN, simulated result, and raw white score to the output file
-            fprintf(out, "%s | %.1f | %d\n", fen, simulated_result, score_white);
+            fprintf(out, "%s | %.6f | %d\n", fen, simulated_result, score_white);
         }
     }
 
