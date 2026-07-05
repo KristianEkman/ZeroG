@@ -24,3 +24,5 @@ games/
 final_training_positions.epd
 book.bin
 lichess.txt
+*.epd
+tune_features.csv

@@ -11,14 +11,14 @@ import sys
 # Default search parameters to tune
 # Format: { param_name: { "default": val, "min": val, "max": val, "c": perturbation_step, "a": learning_rate } }
 DEFAULT_PARAMS = {
-    "LMR_Base": {"default": 5.0, "min": 0, "max": 20, "c": 0.5, "a": 0.05},
-    "Futility_Margin": {"default": 100.0, "min": 0, "max": 500, "c": 10.0, "a": 1.0},
-    "RFP_Margin": {"default": 120.0, "min": 0, "max": 300, "c": 10.0, "a": 1.0},
-    "NMP_Min_Depth": {"default": 3.0, "min": 1, "max": 10, "c": 0.5, "a": 0.05},
+    "LMR_Base": {"default": 2.0, "min": 0, "max": 20, "c": 0.5, "a": 0.05},
+    "Futility_Margin": {"default": 114.0, "min": 0, "max": 500, "c": 10.0, "a": 1.0},
+    "RFP_Margin": {"default": 111.0, "min": 0, "max": 300, "c": 10.0, "a": 1.0},
+    "NMP_Min_Depth": {"default": 2.0, "min": 1, "max": 10, "c": 0.5, "a": 0.05},
     "Singular_Margin": {"default": 2.0, "min": 0, "max": 10, "c": 0.5, "a": 0.05},
-    "Aspiration_Window": {"default": 40.0, "min": 5, "max": 200, "c": 4.0, "a": 0.4},
-    "LMR_Min_Depth": {"default": 5.0, "min": 1, "max": 15, "c": 0.5, "a": 0.05},
-    "Futility_Max_Depth": {"default": 2.0, "min": 1, "max": 5, "c": 0.5, "a": 0.05},
+    "Aspiration_Window": {"default": 35.0, "min": 5, "max": 200, "c": 4.0, "a": 0.4},
+    "LMR_Min_Depth": {"default": 2.0, "min": 1, "max": 15, "c": 0.5, "a": 0.05},
+    "Futility_Max_Depth": {"default": 4.0, "min": 1, "max": 5, "c": 0.5, "a": 0.05},
     "LMR_History_Divisor": {"default": 2000.0, "min": 100, "max": 100000, "c": 500.0, "a": 50.0},
 }
 
