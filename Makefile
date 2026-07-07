@@ -153,22 +153,29 @@ test_uci: $(UCI_TEST_TARGET)
 	@$(UCI_TEST_TARGET)
 
 test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET) $(SEARCH_TEST_TARGET) $(NN_TEST_TARGET) $(TUNING_TEST_TARGET) $(UCI_TEST_TARGET)
-	@echo "Running board tests..."
-	@$(TEST_TARGET)
-	@echo "Running FEN tests..."
-	@$(FEN_TEST_TARGET)
-	@echo "Running movegen tests..."
-	@$(MOVEGEN_TEST_TARGET)
-	@echo "Running evaluation tests..."
-	@$(EVAL_TEST_TARGET)
-	@echo "Running search tests..."
-	@$(SEARCH_TEST_TARGET)
-	@echo "Running neural network tests..."
-	@$(NN_TEST_TARGET)
-	@echo "Running tuning tests..."
-	@$(TUNING_TEST_TARGET)
-	@echo "Running UCI tests..."
-	@$(UCI_TEST_TARGET)
+	@echo "Running board tests..." && \
+	$(TEST_TARGET) && \
+	echo "Running FEN tests..." && \
+	$(FEN_TEST_TARGET) && \
+	echo "Running movegen tests..." && \
+	$(MOVEGEN_TEST_TARGET) && \
+	echo "Running evaluation tests..." && \
+	$(EVAL_TEST_TARGET) && \
+	echo "Running search tests..." && \
+	$(SEARCH_TEST_TARGET) && \
+	echo "Running neural network tests..." && \
+	$(NN_TEST_TARGET) && \
+	echo "Running tuning tests..." && \
+	$(TUNING_TEST_TARGET) && \
+	echo "Running UCI tests..." && \
+	$(UCI_TEST_TARGET) && \
+	(printf "\n\033[1;32m========================================\033[0m\n" && \
+	 printf "\033[1;32m   ALL TESTS PASSED!   \033[0m\n" && \
+	 printf "\033[1;32m========================================\033[0m\n\n") || \
+	(printf "\n\033[1;31m========================================\033[0m\n" && \
+	 printf "\033[1;31m   SOME TESTS FAILED!  \033[0m\n" && \
+	 printf "\033[1;31m========================================\033[0m\n\n" && \
+	 exit 1)
 
 $(TARGET): $(SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lm
