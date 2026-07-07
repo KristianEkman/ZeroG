@@ -24,8 +24,8 @@
 set -e  # Exit on error
 
 # Default configuration
-SELFPLAY_GAMES=5000
-STOCKFISH_DEPTH=14
+SELFPLAY_GAMES=6500
+STOCKFISH_DEPTH=12
 CONCURRENCY=$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 POSITIONS_FILE="selfplay_positions.epd"
 QUIET_FILE="quiet_training_positions.epd"
