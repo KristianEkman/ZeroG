@@ -766,3 +766,51 @@ STS 15: Avoid Pointless Exchange
 4. STS 09, 52.6%, "Advancement of a/b/c Pawns"
 5. STS 04, 55.4%, "Square Vacancy"
 
+STS Rating v14.2
+Engine: ZeroG 1.0.0
+Hash: 32, Threads: 1, time/pos: 0.064s
+
+Number of positions in ../STS-Rating/STS1-STS15_LAN_v3.epd: 1500
+Max score = 1500 x 10 = 15000
+Test duration: 00h:01m:36s
+Expected time to finish: 00h:02m:21s
+STS rating: 2533
+
+  STS ID   STS1   STS2   STS3   STS4   STS5   STS6   STS7   STS8   STS9  STS10  STS11  STS12  STS13  STS14  STS15    ALL
+  NumPos    100    100    100    100    100    100    100    100    100    100    100    100    100    100    100   1500
+ BestCnt     54     44     45     44     65     58     52     30     35     66     50     49     67     56     29    744
+   Score    640    560    583    567    733    775    651    468    491    741    587    631    753    690    481   9351
+Score(%)   64.0   56.0   58.3   56.7   73.3   77.5   65.1   46.8   49.1   74.1   58.7   63.1   75.3   69.0   48.1   62.3
+  Rating   2607   2250   2353   2282   3021   3208   2656   1841   1943   3056   2371   2567   3110   2829   1899   2533
+
+:: STS ID and Titles ::
+STS 01: Undermining
+STS 02: Open Files and Diagonals
+STS 03: Knight Outposts
+STS 04: Square Vacancy
+STS 05: Bishop vs Knight
+STS 06: Re-Capturing
+STS 07: Offer of Simplification
+STS 08: Advancement of f/g/h Pawns
+STS 09: Advancement of a/b/c Pawns
+STS 10: Simplification
+STS 11: Activity of the King
+STS 12: Center Control
+STS 13: Pawn Play in the Center
+STS 14: Queens and Rooks to the 7th rank
+STS 15: Avoid Pointless Exchange
+
+:: Top 5 STS with high result ::
+1. STS 06, 77.5%, "Re-Capturing"
+2. STS 13, 75.3%, "Pawn Play in the Center"
+3. STS 10, 74.1%, "Simplification"
+4. STS 05, 73.3%, "Bishop vs Knight"
+5. STS 14, 69.0%, "Queens and Rooks to the 7th rank"
+
+:: Top 5 STS with low result ::
+1. STS 08, 46.8%, "Advancement of f/g/h Pawns"
+2. STS 15, 48.1%, "Avoid Pointless Exchange"
+3. STS 09, 49.1%, "Advancement of a/b/c Pawns"
+4. STS 02, 56.0%, "Open Files and Diagonals"
+5. STS 04, 56.7%, "Square Vacancy"
+
