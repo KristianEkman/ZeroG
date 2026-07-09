@@ -5,6 +5,8 @@ import argparse
 import subprocess
 import shutil
 import re
+import threading
+import math
 import time
 import multiprocessing
 import atexit
@@ -90,7 +92,7 @@ def process_position(task):
     global engine_process
     
     if engine_process is None or engine_process.poll() is not None:
-        return idx, None, "Stockfish engine process is not running or failed to initialize."
+        return idx, None, "Stockfish engine process is not running or failed to initialize.", None
     
     try:
         # Check readiness
@@ -99,7 +101,7 @@ def process_position(task):
         while True:
             line = engine_process.stdout.readline()
             if not line:
-                return idx, None, "Engine process closed stdout while waiting for readyok."
+                return idx, None, "Engine process closed stdout while waiting for readyok.", None
             if line.strip() == "readyok":
                 break
         
@@ -143,7 +145,7 @@ def process_position(task):
                 break
         
         if score_type is None or score_val is None:
-            return idx, None, "No score returned by Stockfish search."
+            return idx, None, "No score returned by Stockfish search.", None
         
         # Parse FEN to get active player
         fen_parts = fen.split()
@@ -151,13 +153,16 @@ def process_position(task):
         if len(fen_parts) > 1:
             active_player = fen_parts[1].lower()
             
+        # White-perspective score for sigmoid (Stockfish returns side-to-move)
+        score_white = -score_val if active_player == 'b' else score_val
+
         # If perspective is white and it is black's turn, invert the score
         if perspective == 'white' and active_player == 'b':
             score_val = -score_val
             
         # Check for extreme evaluations (abs(score) >= 1000 centipawns or mate)
         if score_type == "mate" or (score_type == "cp" and abs(score_val) >= 1000):
-            return idx, None, "skip_extreme"
+            return idx, None, "skip_extreme", None
             
         # Format evaluation score
         if score_type == "mate":
@@ -186,10 +191,10 @@ def process_position(task):
         else:
             output_extra = f"{score_str} depth {new_depth};"
             
-        return idx, output_extra, None
+        return idx, output_extra, None, score_white
         
     except Exception as e:
-        return idx, None, str(e)
+        return idx, None, str(e), None
 
 def extract_fen_and_extra(line):
     """
@@ -303,7 +308,7 @@ def main():
     try:
         # imap yields results in the same order as input tasks
         # Chunksize is set to 1 to ensure work is distributed dynamically
-        for idx, output_extra, err in pool.imap(process_position, tasks, chunksize=1):
+        for idx, output_extra, err, sf_score_white in pool.imap(process_position, tasks, chunksize=1):
             completed += 1
             original_line = lines[idx].strip()
             fen, _ = extract_fen_and_extra(original_line)
@@ -317,7 +322,17 @@ def main():
                     # If error, write the original line with a comment
                     results_ordered[idx] = f"{original_line} # Error: {err}\n"
             else:
-                results_ordered[idx] = f"{fen} {output_extra}\n"
+                # If input was pipe-delimited (tune_filter format), rewrite
+                # the result column with sigmoid(Stockfish_score).
+                if '|' in original_line and sf_score_white is not None:
+                    K = 1.13
+                    sigmoid_result = 1.0 / (1.0 + math.pow(10.0, -K * sf_score_white / 400.0))
+                    # Extract the "score X; depth Y;" opcodes added by Stockfish eval
+                    sd_match = re.search(r'score\s+-?\d+;\s*depth\s+\d+;', output_extra)
+                    score_depth = sd_match.group(0) if sd_match else output_extra
+                    results_ordered[idx] = f"{fen} | {sigmoid_result:.6f} | {sf_score_white}; {score_depth}\n"
+                else:
+                    results_ordered[idx] = f"{fen} {output_extra}\n"
                 
             # Progress printout
             if completed % 100 == 0 or completed == len(tasks):

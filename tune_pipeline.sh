@@ -24,8 +24,9 @@
 set -e  # Exit on error
 
 # Default configuration
-SELFPLAY_GAMES=6500
-STOCKFISH_DEPTH=12
+SELFPLAY_GAMES=4000
+SELFPLAY_THREADS=2
+STOCKFISH_DEPTH=15
 CONCURRENCY=$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 POSITIONS_FILE="selfplay_positions.epd"
 QUIET_FILE="quiet_training_positions.epd"
@@ -68,6 +69,7 @@ usage() {
     echo ""
     echo "Options:"
     echo "  --games N           Number of selfplay games (default: $SELFPLAY_GAMES)"
+    echo "  --threads N         Number of search threads per engine (default: $SELFPLAY_THREADS)"
     echo "  --depth N           Stockfish evaluation depth (default: $STOCKFISH_DEPTH)"
     echo "  --concurrency N     Parallel Stockfish processes (default: $CONCURRENCY)"
     echo "  --maxiter N         L-BFGS-B max iterations (default: $TUNE_MAXITER)"
@@ -83,6 +85,7 @@ usage() {
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --games) SELFPLAY_GAMES="$2"; shift 2 ;;
+        --threads) SELFPLAY_THREADS="$2"; shift 2 ;;
         --depth) STOCKFISH_DEPTH="$2"; shift 2 ;;
         --concurrency) CONCURRENCY="$2"; shift 2 ;;
         --maxiter) TUNE_MAXITER="$2"; shift 2 ;;
@@ -105,6 +108,7 @@ echo "╚═══════════════════════�
 echo -e "${NC}"
 echo "Configuration:"
 echo "  Selfplay games:      $SELFPLAY_GAMES"
+echo "  Selfplay threads:    $SELFPLAY_THREADS"
 echo "  Stockfish depth:     $STOCKFISH_DEPTH"
 echo "  Concurrency:         $CONCURRENCY"
 echo "  L-BFGS-B max iter:   $TUNE_MAXITER"
@@ -135,7 +139,7 @@ if [ "$SKIP_SELFPLAY" = false ]; then
     print_step 2 "Generating selfplay positions"
 
     if [ -f "selfplay.py" ]; then
-        python3 selfplay.py --games "$SELFPLAY_GAMES" --savefen "$POSITIONS_FILE"
+        python3 selfplay.py --games "$SELFPLAY_GAMES" --savefen "$POSITIONS_FILE" --threads "$SELFPLAY_THREADS"
         print_ok "Generated positions from $SELFPLAY_GAMES games -> $POSITIONS_FILE"
     else
         print_warn "selfplay.py not found. Checking for existing positions..."

@@ -105,9 +105,9 @@ def main():
     parser.add_argument("--pgnout", help="Path to write the PGN output file.")
     parser.add_argument("--savefen", help="Path to save quiet training positions in EPD format.")
     parser.add_argument("-games", "--games", type=int, default=300, help="Total number of games to play.")
-    parser.add_argument("-concurrency", "--concurrency", type=int, default=1, help="Number of concurrent games.")
-    parser.add_argument("-tc", "--tc", default="3+0.01", help="Time control for each engine.")
-    parser.add_argument("-threads", "--threads", type=int, default=1, help="Number of search threads per engine.")
+    parser.add_argument("-concurrency", "--concurrency", type=int, default=4, help="Number of concurrent games.")
+    parser.add_argument("-tc", "--tc", default="15+0.01", help="Time control for each engine.")
+    parser.add_argument("-threads", "--threads", type=int, default=2, help="Number of search threads per engine.")
     parser.add_argument("--cutechess", help="Custom path to the cutechess-cli executable.")
 
     # Parse known arguments, capture anything else to forward to cutechess-cli
@@ -144,9 +144,10 @@ def main():
                     sys.exit(1)
             resolved_engines.append(resolved_path)
 
-        cmd.extend([
-            "-engine", "cmd=" + resolved_engines[0], "proto=uci", "name=OLD",
-        ])
+        old_engine_args = ["cmd=" + resolved_engines[0], "proto=uci", "name=OLD"]
+        if args.threads > 1:
+            old_engine_args.append(f"option.Threads={args.threads}")
+        cmd.extend(["-engine"] + old_engine_args)
 
         new_engine_args = ["cmd=" + resolved_engines[1], "proto=uci", "name=NEW"]
         if args.savefen:

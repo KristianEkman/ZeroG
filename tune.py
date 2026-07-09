@@ -115,13 +115,60 @@ def param_to_define(name):
 
 
 def load_csv(filename):
-    """Load CSV exported by tune_export."""
+    """Load CSV exported by tune_export using chunked reading for memory efficiency.
+
+    Features are stored as float32 (they're small integers, so no precision loss).
+    This avoids the ~10 GB peak memory that np.genfromtxt would use.
+    """
     print(f"Loading data from {filename}...")
-    data = np.genfromtxt(filename, delimiter=',', skip_header=1)
-    results = data[:, 0]
-    const_scores = data[:, 1]
-    features = data[:, 2:]
-    print(f"  Loaded {len(results)} positions, {features.shape[1]} features")
+
+    # Read header and count lines
+    with open(filename, 'r') as f:
+        header = f.readline().strip().split(',')
+        num_cols = len(header)
+        num_lines = sum(1 for _ in f)
+
+    num_features = num_cols - 2
+    print(f"  {num_lines:,} positions, {num_features} features")
+
+    # Pre-allocate arrays (features as float32 to save ~1.5 GB)
+    results = np.empty(num_lines, dtype=np.float64)
+    const_scores = np.empty(num_lines, dtype=np.float64)
+    features = np.empty((num_lines, num_features), dtype=np.float32)
+
+    # Read in chunks to avoid massive temporary memory
+    chunk_size = 10000
+    row = 0
+    with open(filename, 'r') as f:
+        f.readline()  # skip header
+        batch = []
+        for line in f:
+            batch.append(line)
+            if len(batch) >= chunk_size:
+                chunk = np.genfromtxt(batch, delimiter=',', dtype=np.float64)
+                n = chunk.shape[0]
+                results[row:row+n] = chunk[:, 0]
+                const_scores[row:row+n] = chunk[:, 1]
+                features[row:row+n] = chunk[:, 2:].astype(np.float32)
+                row += n
+                batch = []
+                if row % 100000 < chunk_size:
+                    pct = row * 100.0 / num_lines
+                    mem_gb = (features.nbytes + results.nbytes + const_scores.nbytes) / (1024**3)
+                    print(f"  Loading: {row:,}/{num_lines:,} ({pct:.0f}%) | ~{mem_gb:.1f} GB", flush=True)
+
+        # Final partial chunk
+        if batch:
+            chunk = np.genfromtxt(batch, delimiter=',', dtype=np.float64)
+            n = chunk.shape[0] if chunk.ndim > 1 else 1
+            if chunk.ndim == 1:
+                chunk = chunk.reshape(1, -1)
+            results[row:row+n] = chunk[:, 0]
+            const_scores[row:row+n] = chunk[:, 1]
+            features[row:row+n] = chunk[:, 2:].astype(np.float32)
+            row += n
+
+    print(f"  Loaded {row:,} positions, {num_features} features (float32)")
     return features, const_scores, results
 
 
