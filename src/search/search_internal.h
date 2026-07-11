@@ -88,6 +88,6 @@ int search_aspiration_window(Position *pos, unsigned depth,
 /* Search Main helpers (search.c / internal to it) */
 int reconstruct_pv_from_tt(const Position *pos, PVLine *pv, int max_depth);
 void log_search_info(unsigned depth, int score, uint64_t nodes,
-                     const PVLine *pv, const Position *board);
+                     const PVLine *pv, const Position *board, uint64_t start_time);
 
 #endif /* SEARCH_INTERNAL_H */

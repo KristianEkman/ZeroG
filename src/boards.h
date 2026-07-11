@@ -111,6 +111,8 @@ enum {
     MOVE_CASTLE_QS   = 3
 };
 
+#define NNUE_ACCUM_SIZE 128
+
 /* ── board (hybrid bitboard + mailbox) ──────────────────────────────────── */
 typedef struct {
     uint64_t pieces[2][7];   /* [COLOR_IDX(color)][PAWN..KING]   */
@@ -124,7 +126,7 @@ typedef struct {
     int      fiftyMoveCounter;/* halfmove clock                   */
     int      fullmoveNumber; /* fullmove number                   */
     uint64_t hashKey;        /* zobrist hash of the position      */
-    int32_t  accum[2][128];  /* NNUE cached accumulators [0=White, 1=Black] */
+    int32_t  accum[2][NNUE_ACCUM_SIZE];  /* NNUE cached accumulators [0=White, 1=Black] */
 } Position;
 
 /* ── attack tables (initialised by bitboard_init) ──────────────────────── */

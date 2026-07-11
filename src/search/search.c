@@ -53,10 +53,14 @@ int reconstruct_pv_from_tt(const Position *pos, PVLine *pv, int max_depth) {
 }
 
 void log_search_info(unsigned depth, int score, uint64_t nodes,
-                            const PVLine *pv, const Position *board) {
+                            const PVLine *pv, const Position *board, uint64_t start_time) {
   if (!search_log_output) {
     return;
   }
+  uint64_t elapsed_ms = get_time_ms() - start_time;
+  if (elapsed_ms == 0) elapsed_ms = 1;
+  uint64_t nps = (nodes * 1000) / elapsed_ms;
+
   fprintf(search_log_output, "info depth %u score ", depth);
   if (score > MATE_SCORE - 100) {
     int plies = MATE_SCORE - score;
@@ -69,7 +73,10 @@ void log_search_info(unsigned depth, int score, uint64_t nodes,
   } else {
     fprintf(search_log_output, "cp %d ", score);
   }
-  fprintf(search_log_output, "nodes %llu pv", (unsigned long long)nodes);
+  fprintf(search_log_output, "time %llu nodes %llu nps %llu pv",
+          (unsigned long long)elapsed_ms,
+          (unsigned long long)nodes,
+          (unsigned long long)nps);
   Position temp_pos = *board;
   for (int i = 0; i < pv->length; i++) {
     char move_str[6];
@@ -227,7 +234,7 @@ int search_best_move_with_limits(const Position *board,
       pv = tt_pv;
     }
 
-    log_search_info(d, score, threadpool_total_nodes(&thread_pool), &pv, board);
+    log_search_info(d, score, threadpool_total_nodes(&thread_pool), &pv, board, start_time);
 
     if (use_tc) {
       uint64_t elapsed = get_time_ms() - start_time;
