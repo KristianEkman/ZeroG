@@ -48,6 +48,14 @@ NeuralNetwork* nn_init(const int *sizes, int num_layers) {
     nn->quant_biases = NULL;
     nn->quant_activations = NULL;
 
+    // Adam optimizer state (lazily allocated on first train step)
+    nn->m_weight_buffer = NULL;
+    nn->m_bias_buffer = NULL;
+    nn->v_weight_buffer = NULL;
+    nn->v_bias_buffer = NULL;
+    nn->adam_initialized = 0;
+    nn->train_step_count = 0;
+
     // Calculate total buffer sizes needed
     nn->total_weights = 0;
     nn->total_biases = 0;
@@ -251,8 +259,38 @@ float nn_forward(NeuralNetwork *nn, const float *inputs) {
     return nn->activations[nn->num_layers - 1][0];
 }
 
-float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float learning_rate) {
+// Adam hyperparameters
+#define ADAM_BETA1 0.9f
+#define ADAM_BETA2 0.999f
+#define ADAM_EPSILON 1e-8f
+
+static int nn_adam_init(NeuralNetwork *nn) {
+    nn->m_weight_buffer = (float*)calloc(nn->total_weights, sizeof(float));
+    nn->m_bias_buffer = (float*)calloc(nn->total_biases, sizeof(float));
+    nn->v_weight_buffer = (float*)calloc(nn->total_weights, sizeof(float));
+    nn->v_bias_buffer = (float*)calloc(nn->total_biases, sizeof(float));
+
+    if (!nn->m_weight_buffer || !nn->m_bias_buffer ||
+        !nn->v_weight_buffer || !nn->v_bias_buffer) {
+        free(nn->m_weight_buffer); nn->m_weight_buffer = NULL;
+        free(nn->m_bias_buffer);   nn->m_bias_buffer = NULL;
+        free(nn->v_weight_buffer); nn->v_weight_buffer = NULL;
+        free(nn->v_bias_buffer);   nn->v_bias_buffer = NULL;
+        return 0;
+    }
+
+    nn->train_step_count = 0;
+    nn->adam_initialized = 1;
+    return 1;
+}
+
+float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float learning_rate, float weight_decay) {
     if (!nn || !inputs) return 0.0f;
+
+    // Lazily allocate Adam state on first training call
+    if (!nn->adam_initialized) {
+        if (!nn_adam_init(nn)) return 0.0f;
+    }
 
     // 1. Forward Propagation
     float output = nn_forward(nn, inputs);
@@ -328,7 +366,19 @@ float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float 
         }
     }
 
-    // 3. Update Weights and Biases (Stochastic Gradient Descent)
+    // 3. Update Weights and Biases (AdamW)
+    nn->train_step_count++;
+    int t = nn->train_step_count;
+
+    // Bias correction terms
+    float bc1 = 1.0f - powf(ADAM_BETA1, (float)t);
+    float bc2 = 1.0f - powf(ADAM_BETA2, (float)t);
+    float lr_corrected = learning_rate / bc1;
+    float bc2_sqrt_inv = 1.0f / sqrtf(bc2);
+
+    int w_offset = 0;
+    int b_offset = 0;
+
     for (int l = 1; l < nn->num_layers; l++) {
         int n_in = nn->sizes[l - 1];
         int n_out = nn->sizes[l];
@@ -338,54 +388,40 @@ float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float 
         const float *__restrict__ d = nn->deltas[l];
         const float *__restrict__ prev_act = nn->activations[l - 1];
 
+        float *__restrict__ mw = &nn->m_weight_buffer[w_offset];
+        float *__restrict__ vw = &nn->v_weight_buffer[w_offset];
+        float *__restrict__ mb = &nn->m_bias_buffer[b_offset];
+        float *__restrict__ vb = &nn->v_bias_buffer[b_offset];
+
         for (int i = 0; i < n_out; i++) {
             float d_val = d[i];
-            
-            // Update bias
-            b[i] -= learning_rate * d_val;
 
-            // Update weights row
+            // --- Update bias with Adam ---
+            float grad_b = d_val;
+            mb[i] = ADAM_BETA1 * mb[i] + (1.0f - ADAM_BETA1) * grad_b;
+            vb[i] = ADAM_BETA2 * vb[i] + (1.0f - ADAM_BETA2) * grad_b * grad_b;
+            b[i] -= lr_corrected * mb[i] / (sqrtf(vb[i]) * bc2_sqrt_inv + ADAM_EPSILON);
+
+            // --- Update weights with AdamW ---
             float *__restrict__ w_row = &w[i * n_in];
-            float lr_d_val = learning_rate * d_val;
-            
-            int j = 0;
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            float32x4_t lr_d_vec = vdupq_n_f32(lr_d_val);
-            for (; j <= n_in - 16; j += 16) {
-                float32x4_t w_vec0 = vld1q_f32(&w_row[j]);
-                float32x4_t a_vec0 = vld1q_f32(&prev_act[j]);
-                float32x4_t res_vec0 = vmlsq_f32(w_vec0, lr_d_vec, a_vec0);
-                vst1q_f32(&w_row[j], res_vec0);
+            float *__restrict__ mw_row = &mw[i * n_in];
+            float *__restrict__ vw_row = &vw[i * n_in];
 
-                float32x4_t w_vec1 = vld1q_f32(&w_row[j + 4]);
-                float32x4_t a_vec1 = vld1q_f32(&prev_act[j + 4]);
-                float32x4_t res_vec1 = vmlsq_f32(w_vec1, lr_d_vec, a_vec1);
-                vst1q_f32(&w_row[j + 4], res_vec1);
+            for (int j = 0; j < n_in; j++) {
+                float grad_w = d_val * prev_act[j];
+                mw_row[j] = ADAM_BETA1 * mw_row[j] + (1.0f - ADAM_BETA1) * grad_w;
+                vw_row[j] = ADAM_BETA2 * vw_row[j] + (1.0f - ADAM_BETA2) * grad_w * grad_w;
 
-                float32x4_t w_vec2 = vld1q_f32(&w_row[j + 8]);
-                float32x4_t a_vec2 = vld1q_f32(&prev_act[j + 8]);
-                float32x4_t res_vec2 = vmlsq_f32(w_vec2, lr_d_vec, a_vec2);
-                vst1q_f32(&w_row[j + 8], res_vec2);
-
-                float32x4_t w_vec3 = vld1q_f32(&w_row[j + 12]);
-                float32x4_t a_vec3 = vld1q_f32(&prev_act[j + 12]);
-                float32x4_t res_vec3 = vmlsq_f32(w_vec3, lr_d_vec, a_vec3);
-                vst1q_f32(&w_row[j + 12], res_vec3);
-            }
-            for (; j <= n_in - 4; j += 4) {
-                float32x4_t w_vec = vld1q_f32(&w_row[j]);
-                float32x4_t a_vec = vld1q_f32(&prev_act[j]);
-                float32x4_t res_vec = vmlsq_f32(w_vec, lr_d_vec, a_vec);
-                vst1q_f32(&w_row[j], res_vec);
-            }
-#endif
-            for (; j < n_in; j++) {
-                w_row[j] -= lr_d_val * prev_act[j];
+                // Adam update
+                w_row[j] -= lr_corrected * mw_row[j] / (sqrtf(vw_row[j]) * bc2_sqrt_inv + ADAM_EPSILON);
+                // Decoupled weight decay
+                w_row[j] -= learning_rate * weight_decay * w_row[j];
             }
         }
-    }
 
-    nn_quantize(nn);
+        w_offset += n_out * n_in;
+        b_offset += n_out;
+    }
 
     return loss;
 }
@@ -412,6 +448,12 @@ void nn_free(NeuralNetwork *nn) {
     free(nn->quant_weights);
     free(nn->quant_biases);
     free(nn->quant_activations);
+
+    // Adam optimizer state (may be NULL if never trained)
+    free(nn->m_weight_buffer);
+    free(nn->m_bias_buffer);
+    free(nn->v_weight_buffer);
+    free(nn->v_bias_buffer);
 
     free(nn);
 }

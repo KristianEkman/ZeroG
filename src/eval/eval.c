@@ -10,7 +10,7 @@ NeuralNetwork *eval_nn = NULL;
 bool use_nn = false;
 
 void eval_init(void) {
-    int sizes[] = {768, 64, 32, 1};
+    int sizes[] = {768, 128, 64, 1};
     eval_nn = nn_init(sizes, 4);
     if (eval_nn) {
         if (nn_load(eval_nn, "nn_weights.bin")) {

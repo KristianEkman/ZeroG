@@ -79,8 +79,9 @@ void print_help(const char *prog_name) {
     printf("  -o, --output <file>    Output weights file (default: nn_weights.bin)\n");
     printf("  -w, --weights <file>   Initial weights file to continue training from (optional)\n");
     printf("  -e, --epochs <num>     Number of training epochs (default: 30)\n");
-    printf("  -l, --lr <value>       Initial learning rate (default: 0.01)\n");
+    printf("  -l, --lr <value>       Initial learning rate (default: 0.001)\n");
     printf("  -v, --val-split <val>  Validation split ratio (default: 0.1)\n");
+    printf("  -d, --wd <value>       Weight decay coefficient (default: 1e-4)\n");
     printf("  -h, --help             Display this help and exit\n");
 }
 
@@ -90,8 +91,9 @@ int main(int argc, char **argv) {
     const char *output_path = "nn_weights.bin";
     const char *weights_path = NULL;
     int epochs = 30;
-    float initial_lr = 0.01f;
+    float initial_lr = 0.001f;
     float val_split = 0.1f;
+    float weight_decay = 1e-4f;
     
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--input") == 0) {
@@ -106,6 +108,8 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) initial_lr = (float)atof(argv[++i]);
         } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--val-split") == 0) {
             if (i + 1 < argc) val_split = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--wd") == 0) {
+            if (i + 1 < argc) weight_decay = (float)atof(argv[++i]);
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             print_help(argv[0]);
             return 0;
@@ -195,10 +199,10 @@ int main(int argc, char **argv) {
     
     printf("Train size: %d | Validation size: %d\n", train_size, val_size);
     
-    // 6. Initialize Neural Network (768 -> 64 -> 32 -> 1)
-    int sizes[] = {768, 64, 32, 1};
+    // 6. Initialize Neural Network (768 -> 128 -> 64 -> 1)
+    int sizes[] = {768, 128, 64, 1};
     int num_layers = sizeof(sizes) / sizeof(sizes[0]);
-    printf("Initializing neural network with layout: {768, 64, 32, 1}...\n");
+    printf("Initializing neural network with layout: {768, 128, 64, 1}...\n");
     NeuralNetwork *nn = nn_init(sizes, num_layers);
     if (!nn) {
         fprintf(stderr, "Error: Neural network initialization failed.\n");
@@ -219,8 +223,11 @@ int main(int argc, char **argv) {
     
     // 7. Training loop
     float current_lr = initial_lr;
-    printf("\nStarting training (%d epochs, initial lr = %.5f)...\n", epochs, current_lr);
-    printf("----------------------------------------------------------\n");
+    float best_val_loss = 1e30f;
+    int best_epoch = 0;
+    printf("\nStarting training (%d epochs, initial lr = %.5f, wd = %.1e)...\n",
+           epochs, current_lr, weight_decay);
+    printf("-------------------------------------------------------------------\n");
     
     clock_t start_time = clock();
     
@@ -230,7 +237,8 @@ int main(int argc, char **argv) {
         
         float total_train_loss = 0.0f;
         for (int i = 0; i < train_size; i++) {
-            float loss = nn_train_step(nn, train_set[i].inputs, train_set[i].target, current_lr);
+            float loss = nn_train_step(nn, train_set[i].inputs, train_set[i].target,
+                                       current_lr, weight_decay);
             total_train_loss += loss;
         }
         float avg_train_loss = total_train_loss / train_size;
@@ -244,8 +252,19 @@ int main(int argc, char **argv) {
         }
         float avg_val_loss = (val_size > 0) ? (total_val_loss / val_size) : 0.0f;
         
-        printf("Epoch %2d/%2d | Train Loss: %.6f | Val Loss: %.6f | LR: %.6f\n",
-               epoch, epochs, avg_train_loss, avg_val_loss, current_lr);
+        // Check if this is the best validation loss so far
+        int is_best = (avg_val_loss < best_val_loss);
+        if (is_best) {
+            best_val_loss = avg_val_loss;
+            best_epoch = epoch;
+            // Save best model
+            nn_quantize(nn);
+            nn_save(nn, output_path);
+        }
+        
+        printf("Epoch %2d/%2d | Train Loss: %.6f | Val Loss: %.6f | LR: %.6f%s\n",
+               epoch, epochs, avg_train_loss, avg_val_loss, current_lr,
+               is_best ? " *" : "");
         
         // Learning rate decay schedule: half the learning rate every 10 epochs
         if (epoch % 10 == 0) {
@@ -255,18 +274,12 @@ int main(int argc, char **argv) {
     
     clock_t end_time = clock();
     double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-    printf("----------------------------------------------------------\n");
+    printf("-------------------------------------------------------------------\n");
     printf("Training completed in %.2f seconds.\n", elapsed_time);
+    printf("Best validation loss: %.6f at epoch %d (saved to %s)\n",
+           best_val_loss, best_epoch, output_path);
     
-    // 8. Save final weights
-    printf("Saving trained weights to: %s\n", output_path);
-    if (nn_save(nn, output_path)) {
-        printf("Successfully saved weights!\n");
-    } else {
-        fprintf(stderr, "Error: Failed to save weights to '%s'\n", output_path);
-    }
-    
-    // 9. Clean up
+    // 8. Clean up
     nn_free(nn);
     free(dataset);
     printf("Trainer done.\n");

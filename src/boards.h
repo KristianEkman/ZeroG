@@ -124,7 +124,7 @@ typedef struct {
     int      fiftyMoveCounter;/* halfmove clock                   */
     int      fullmoveNumber; /* fullmove number                   */
     uint64_t hashKey;        /* zobrist hash of the position      */
-    int32_t  accum[2][64];   /* NNUE cached accumulators [0=White, 1=Black] */
+    int32_t  accum[2][128];  /* NNUE cached accumulators [0=White, 1=Black] */
 } Position;
 
 /* ── attack tables (initialised by bitboard_init) ──────────────────────── */

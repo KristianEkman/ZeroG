@@ -814,3 +814,51 @@ STS 15: Avoid Pointless Exchange
 4. STS 02, 56.0%, "Open Files and Diagonals"
 5. STS 04, 56.7%, "Square Vacancy"
 
+STS Rating v14.2
+Engine: ZeroG 1.0.0
+Hash: 32, Threads: 1, time/pos: 0.067s
+
+Number of positions in ../STS-Rating/STS1-STS15_LAN_v3.epd: 1500
+Max score = 1500 x 10 = 15000
+Test duration: 00h:01m:40s
+Expected time to finish: 00h:02m:25s
+STS rating: 2558
+
+  STS ID   STS1   STS2   STS3   STS4   STS5   STS6   STS7   STS8   STS9  STS10  STS11  STS12  STS13  STS14  STS15    ALL
+  NumPos    100    100    100    100    100    100    100    100    100    100    100    100    100    100    100   1500
+ BestCnt     58     48     55     42     59     61     50     31     45     60     34     49     64     61     29    746
+   Score    671    605    656    576    693    788    617    516    589    707    466    643    702    711    497   9437
+Score(%)   67.1   60.5   65.6   57.6   69.3   78.8   61.7   51.6   58.9   70.7   46.6   64.3   70.2   71.1   49.7   62.9
+  Rating   2745   2451   2678   2322   2843   3266   2504   2055   2380   2905   1832   2620   2883   2923   1970   2558
+
+:: STS ID and Titles ::
+STS 01: Undermining
+STS 02: Open Files and Diagonals
+STS 03: Knight Outposts
+STS 04: Square Vacancy
+STS 05: Bishop vs Knight
+STS 06: Re-Capturing
+STS 07: Offer of Simplification
+STS 08: Advancement of f/g/h Pawns
+STS 09: Advancement of a/b/c Pawns
+STS 10: Simplification
+STS 11: Activity of the King
+STS 12: Center Control
+STS 13: Pawn Play in the Center
+STS 14: Queens and Rooks to the 7th rank
+STS 15: Avoid Pointless Exchange
+
+:: Top 5 STS with high result ::
+1. STS 06, 78.8%, "Re-Capturing"
+2. STS 14, 71.1%, "Queens and Rooks to the 7th rank"
+3. STS 10, 70.7%, "Simplification"
+4. STS 13, 70.2%, "Pawn Play in the Center"
+5. STS 05, 69.3%, "Bishop vs Knight"
+
+:: Top 5 STS with low result ::
+1. STS 11, 46.6%, "Activity of the King"
+2. STS 15, 49.7%, "Avoid Pointless Exchange"
+3. STS 08, 51.6%, "Advancement of f/g/h Pawns"
+4. STS 04, 57.6%, "Square Vacancy"
+5. STS 09, 58.9%, "Advancement of a/b/c Pawns"
+

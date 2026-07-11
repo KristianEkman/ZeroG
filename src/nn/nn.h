@@ -38,6 +38,14 @@ typedef struct {
     int32_t **quant_biases;         ///< quant_biases[l] points to quantized bias vector of layer l
     int32_t **quant_activations;    ///< quant_activations[l] points to quantized activation vector of layer l
 
+    // Adam optimizer state buffers (allocated only when training)
+    float *m_weight_buffer;     ///< First moment (momentum) for weights
+    float *m_bias_buffer;       ///< First moment (momentum) for biases
+    float *v_weight_buffer;     ///< Second moment (variance) for weights
+    float *v_bias_buffer;       ///< Second moment (variance) for biases
+    int adam_initialized;       ///< Whether Adam buffers have been allocated
+    int train_step_count;       ///< Global step counter for Adam bias correction
+
     int total_weights;          ///< Total number of weights in the network
     int total_biases;           ///< Total number of biases in the network
     int total_neurons;          ///< Total number of neurons in all layers (including input)
@@ -74,15 +82,18 @@ float nn_forward(NeuralNetwork *nn, const float *inputs);
  * 
  * Uses Mean Squared Error (MSE) loss: L = 0.5 * (output - target)^2.
  * Calculates gradients and updates the network weights and biases using
- * Stochastic Gradient Descent (SGD) with the specified learning rate.
+ * the Adam optimizer with decoupled weight decay (AdamW).
+ * 
+ * Adam state buffers are lazily allocated on the first call.
  * 
  * @param nn Pointer to the NeuralNetwork.
  * @param inputs Array of size equal to sizes[0] containing input features.
  * @param target The target scalar value.
  * @param learning_rate The learning rate for the weight update step.
+ * @param weight_decay Decoupled weight decay coefficient (0 to disable).
  * @return The loss before the weight update.
  */
-float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float learning_rate);
+float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float learning_rate, float weight_decay);
 
 #include <stdbool.h>
 

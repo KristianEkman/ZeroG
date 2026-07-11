@@ -97,7 +97,7 @@ void test_nn_train_xor_gate(void)
     // Train for 5000 epochs
     for (int epoch = 0; epoch < 5000; epoch++) {
         for (int i = 0; i < 4; i++) {
-            nn_train_step(nn, inputs[i], targets[i], lr);
+            nn_train_step(nn, inputs[i], targets[i], lr, 0.0f);
         }
     }
 
@@ -142,7 +142,7 @@ void test_nn_train_large_network(void)
         targets[i] = 0.5f * inputs[i][0] - 0.3f * inputs[i][1] + 0.8f * inputs[i][2] * inputs[i][2] - 0.4f * inputs[i][3];
     }
 
-    float lr = 0.01f;
+    float lr = 0.001f;
     float initial_total_loss = 0.0f;
     
     // Evaluate initial loss
@@ -152,10 +152,10 @@ void test_nn_train_large_network(void)
         initial_total_loss += 0.5f * diff * diff;
     }
 
-    // Train for 1000 epochs
-    for (int epoch = 0; epoch < 1000; epoch++) {
+    // Train for 2000 epochs
+    for (int epoch = 0; epoch < 2000; epoch++) {
         for (int i = 0; i < num_samples; i++) {
-            nn_train_step(nn, inputs[i], targets[i], lr);
+            nn_train_step(nn, inputs[i], targets[i], lr, 0.0f);
         }
     }
 
@@ -306,7 +306,7 @@ void test_nnue_incremental_correctness(void)
     TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &pos));
 
     // Initialize NN
-    int sizes[] = {768, 64, 32, 1};
+    int sizes[] = {768, 128, 64, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
 
@@ -350,7 +350,7 @@ void test_nnue_incremental_correctness(void)
 
         // Check White and Black accumulators match exactly
         for (int side = 0; side < 2; side++) {
-            for (int k = 0; k < 64; k++) {
+            for (int k = 0; k < 128; k++) {
                 TEST_ASSERT_EQUAL_INT(next_pos_refreshed.accum[side][k], next_pos_auto.accum[side][k]);
             }
         }
@@ -380,7 +380,7 @@ static void nnue_test_incremental_recursive(NeuralNetwork *nn, Position *pos, in
         nnue_refresh_accumulator(nn, &refreshed);
         
         for (int side = 0; side < 2; side++) {
-            for (int k = 0; k < 64; k++) {
+            for (int k = 0; k < 128; k++) {
                 if (refreshed.accum[side][k] != next_pos.accum[side][k]) {
                     char move_str[6];
                     uci_move_to_string(pos, moves[i], move_str, sizeof(move_str));
@@ -404,7 +404,7 @@ void test_nnue_incremental_recursive_all_positions(void) {
     };
     int depths[] = {3, 2, 2, 2};
 
-    int sizes[] = {768, 64, 32, 1};
+    int sizes[] = {768, 128, 64, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
 
