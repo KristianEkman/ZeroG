@@ -47,7 +47,7 @@ int main(int argc, char **argv)
         inputs[i % sizes[0]] = (float)(i % 10) / 10.0f;
         
         nn_forward(nn, inputs);
-        nn_train_step(nn, inputs, target, lr);
+        nn_train_step(nn, inputs, target, lr, 0.0f);
     }
     
     double t1 = now_sec();
