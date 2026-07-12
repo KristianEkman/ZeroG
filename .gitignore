@@ -26,3 +26,8 @@ book.bin
 lichess.txt
 *.epd
 tune_features.csv
+
+# CMake & VS Build Folders
+build_win/
+.vs/
+out/
