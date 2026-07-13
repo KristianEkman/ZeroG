@@ -1,0 +1,120 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g. v1.0.0)'
+        required: true
+        type: string
+      draft:
+        description: 'Create as a draft'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  build-linux:
+    name: Build Linux Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        run: make release
+
+      - name: Package Binary
+        run: |
+          mkdir -p dist
+          cp builds/zerog dist/
+          cp README.md LICENSE nn_weights.bin dist/ || true
+          cd dist && zip -r ../zerog-linux-x64.zip *
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zerog-linux-x64
+          path: zerog-linux-x64.zip
+
+  build-macos:
+    name: Build macOS Binary
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        run: make release
+
+      - name: Package Binary
+        run: |
+          mkdir -p dist
+          cp builds/zerog dist/
+          cp README.md LICENSE nn_weights.bin dist/ || true
+          cd dist && zip -r ../zerog-macos.zip *
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zerog-macos
+          path: zerog-macos.zip
+
+  build-windows:
+    name: Build Windows Binary
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        run: .\build.ps1
+
+      - name: Package Binary
+        run: |
+          New-Item -ItemType Directory -Path dist
+          Copy-Item build_win\builds\Release\zerog.exe -Destination dist\
+          Copy-Item README.md, LICENSE, nn_weights.bin -Destination dist\ -ErrorAction SilentlyContinue
+          Compress-Archive -Path dist\* -DestinationPath zerog-windows-x64.zip
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zerog-windows-x64
+          path: zerog-windows-x64.zip
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-macos, build-windows]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DRAFT_FLAG=""
+          if [ "${{ github.event.inputs.draft }}" = "true" ]; then
+            DRAFT_FLAG="--draft"
+          fi
+          
+          gh release create "${{ github.event.inputs.tag_name }}" \
+            --title "${{ github.event.inputs.tag_name }}" \
+            --notes "Release version ${{ github.event.inputs.tag_name }}" \
+            $DRAFT_FLAG \
+            ./artifacts/zerog-linux-x64.zip \
+            ./artifacts/zerog-macos.zip \
+            ./artifacts/zerog-windows-x64.zip
