@@ -22,6 +22,20 @@ jobs:
       - name: Run Tests
         run: make test
 
+  build-macos:
+    name: Build & Test (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        run: make release
+
+      - name: Run Tests
+        run: make test
+
   build-windows:
     name: Build & Test (Windows)
     runs-on: windows-latest
