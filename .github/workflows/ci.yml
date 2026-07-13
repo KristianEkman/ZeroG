@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build & Test (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        run: make release
+
+      - name: Run Tests
+        run: make test
+
+  build-windows:
+    name: Build & Test (Windows)
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: powershell
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Release
+        run: .\build.ps1
+
+      - name: Run Board Tests
+        run: .\build_win\builds\Release\test_runner.exe
+
+      - name: Run FEN Tests
+        run: .\build_win\builds\Release\fen_test_runner.exe
+
+      - name: Run Movegen Tests
+        run: .\build_win\builds\Release\movegen_test_runner.exe
+
+      - name: Run Evaluation Tests
+        run: .\build_win\builds\Release\eval_test_runner.exe
+
+      - name: Run Search Tests
+        run: .\build_win\builds\Release\search_test_runner.exe
+
+      - name: Run Neural Network Tests
+        run: .\build_win\builds\Release\nn_test_runner.exe
+
+      - name: Run Tuning Tests
+        run: .\build_win\builds\Release\tuning_test_runner.exe
+
+      - name: Run UCI Tests
+        run: .\build_win\builds\Release\uci_test_runner.exe
