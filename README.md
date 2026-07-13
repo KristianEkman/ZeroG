@@ -126,8 +126,9 @@ Implements fully PolyGlot-compatible opening book support, allowing the engine t
 ## Build and Testing
 
 ### Compilation
-The engine uses standard `gcc` and `make` pipelines.
+The engine uses standard `gcc` and `make` pipelines on Unix-like systems, and a PowerShell/CMake helper script on Windows.
 
+#### Linux / macOS
 - **Build Engine**:
   ```bash
   make
@@ -138,6 +139,14 @@ The engine uses standard `gcc` and `make` pipelines.
   ```bash
   make clean
   ```
+
+#### Windows
+You can build the engine automatically using the provided PowerShell script [build.ps1](build.ps1). It locates CMake, configures the project, and compiles the source in `Release` mode:
+```powershell
+.\build.ps1
+```
+The output binaries will be created in `build_win/builds/Release/`.
+
 
 ### Benchmarking and Profiling
 The engine includes benchmarking and profiling tools to measure and optimize move generation speed.
