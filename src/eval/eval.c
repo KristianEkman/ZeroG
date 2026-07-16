@@ -10,6 +10,7 @@ NeuralNetwork *eval_nn = NULL;
 bool use_nn = false;
 
 void eval_init(void) {
+    init_king_safety_tables();
     int sizes[] = {768, 128, 64, 1};
     eval_nn = nn_init(sizes, 4);
     if (eval_nn) {

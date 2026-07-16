@@ -1,6 +1,5 @@
 #include "boards.h"
 #include "zobrist.h"
-#include "eval/king_safety.h"
 #include "eval.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -438,9 +437,6 @@ void bitboard_init(void)
 
     /* Initialize Zobrist hashing keys */
     zobrist_init();
-
-    /* Initialize king safety tables */
-    init_king_safety_tables();
 
     /* Initialize evaluation (load NN weights if available) */
     eval_init();
