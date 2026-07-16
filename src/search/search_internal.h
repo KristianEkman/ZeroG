@@ -66,8 +66,8 @@ void check_time_limit(uint64_t start_time, const SearchLimits *limits, SearchThr
 
 /* Move Ordering (move_ordering.c) */
 int move_is_capture_or_promo(const Position *pos, Move m);
-int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move, SearchThread *thread);
-void pick_best_move(Move *moves, int *scores, int count, int current_idx);
+int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move, SearchThread *thread, int *see_cache);
+void pick_best_move(Move *moves, int *scores, int count, int current_idx, int *see_values);
 void update_quiet_move_heuristics(const Position *pos, Move cut_move, Move *moves, int tried_count, int depth, int ply, Move prev_move, SearchThread *thread);
 
 /* PVS / Alpha-Beta (pvs.c) */

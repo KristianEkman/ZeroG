@@ -93,14 +93,16 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
   }
 
   int scores[MAX_MOVES];
+  int see_values[MAX_MOVES];
   for (int i = 0; i < count; i++) {
-    scores[i] = score_move(pos, moves[i], 0, ply, 0, thread);
+    see_values[i] = -999999;
+    scores[i] = score_move(pos, moves[i], 0, ply, 0, thread, &see_values[i]);
   }
 
   int legal_moves_searched = 0;
 
   for (int i = 0; i < count; i++) {
-    pick_best_move(moves, scores, count, i);
+    pick_best_move(moves, scores, count, i, see_values);
     if (is_illegal_castle(pos, moves[i])) {
       continue;
     }
@@ -112,8 +114,15 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
         int from = MOVE_FROM(moves[i]);
         int is_promo = (PIECE_TYPE(pos->board[from]) == PAWN) &&
                        (RANK_OF(to) == 0 || RANK_OF(to) == 7);
-        if (!is_promo && see(pos, moves[i]) < 0) {
-          continue;
+        if (!is_promo) {
+          int see_val = see_values[i];
+          if (see_val == -999999) {
+            see_val = see(pos, moves[i]);
+            see_values[i] = see_val;
+          }
+          if (see_val < 0) {
+            continue;
+          }
         }
       }
     }
@@ -297,7 +306,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
 
   int scores[MAX_MOVES];
   for (int i = 0; i < count; i++) {
-    scores[i] = score_move(pos, moves[i], hash_move, ply, prev_move, thread);
+    scores[i] = score_move(pos, moves[i], hash_move, ply, prev_move, thread, NULL);
   }
 
   int best_score = -INFINITY_SCORE;
@@ -306,7 +315,7 @@ int pvs(Position *pos, int depth, int ply, int alpha, int beta, PVLine *pv,
   int legal_moves_searched = 0;
 
   for (int i = 0; i < count; i++) {
-    pick_best_move(moves, scores, count, i);
+    pick_best_move(moves, scores, count, i, NULL);
     if (moves[i] == excluded_move) {
       continue;
     }

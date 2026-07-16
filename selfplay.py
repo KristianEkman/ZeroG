@@ -106,7 +106,7 @@ def main():
     parser.add_argument("--savefen", help="Path to save quiet training positions in EPD format.")
     parser.add_argument("-games", "--games", type=int, default=300, help="Total number of games to play.")
     parser.add_argument("-concurrency", "--concurrency", type=int, default=4, help="Number of concurrent games.")
-    parser.add_argument("-tc", "--tc", default="15+0.01", help="Time control for each engine.")
+    parser.add_argument("-tc", "--tc", default="5+0.01", help="Time control for each engine.")
     parser.add_argument("-threads", "--threads", type=int, default=2, help="Number of search threads per engine.")
     parser.add_argument("--cutechess", help="Custom path to the cutechess-cli executable.")
 

@@ -17,7 +17,7 @@ int move_is_capture_or_promo(const Position *pos, Move m) {
   return 0;
 }
 
-int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move, SearchThread *thread) {
+int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_move, SearchThread *thread, int *see_cache) {
   if (m == pv_move) {
     return 1000000;
   }
@@ -37,6 +37,9 @@ int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_mov
 
   if (is_cap) {
     int see_val = see(pos, m);
+    if (see_cache) {
+      *see_cache = see_val;
+    }
     if (see_val >= 0) {
       return 100000 + see_val;
     } else {
@@ -76,7 +79,7 @@ int score_move(const Position *pos, Move m, Move pv_move, int ply, Move prev_mov
   return thread->history_scores[COLOR_IDX(pos->sideToMove)][from][to];
 }
 
-void pick_best_move(Move *moves, int *scores, int count, int current_idx) {
+void pick_best_move(Move *moves, int *scores, int count, int current_idx, int *see_values) {
   int best_idx = current_idx;
   for (int j = current_idx + 1; j < count; j++) {
     if (scores[j] > scores[best_idx]) {
@@ -91,6 +94,12 @@ void pick_best_move(Move *moves, int *scores, int count, int current_idx) {
     int temp_score = scores[current_idx];
     scores[current_idx] = scores[best_idx];
     scores[best_idx] = temp_score;
+
+    if (see_values) {
+      int temp_see = see_values[current_idx];
+      see_values[current_idx] = see_values[best_idx];
+      see_values[best_idx] = temp_see;
+    }
   }
 }
 
