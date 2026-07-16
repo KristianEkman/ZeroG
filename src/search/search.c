@@ -154,8 +154,9 @@ int search_best_move_with_limits(const Position *board,
   int count = movegen_legal(&pos, moves);
 
   if (count == 0) {
+    int in_check = is_square_attacked(&pos, pos.kingSq[COLOR_IDX(pos.sideToMove)], OPPOSITE(pos.sideToMove));
     result->best_move = 0;
-    result->score = 0;
+    result->score = in_check ? -MATE_SCORE : 0;
     result->has_legal_move = 0;
     result->node_count = 0;
     return 0;
