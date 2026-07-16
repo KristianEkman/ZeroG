@@ -61,23 +61,25 @@ int quiescence(Position *pos, int ply, int alpha, int beta, uint64_t start_time,
     return 0;
   }
 
-  int stand_pat = evaluate(pos);
-  if (pos->sideToMove == BLACK) {
-    stand_pat = -stand_pat;
-  }
+  int in_check = is_square_attacked(
+      pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
 
-  if (stand_pat >= beta) {
-    return beta;
-  }
-  if (stand_pat > alpha) {
-    alpha = stand_pat;
+  if (!in_check) {
+    int stand_pat = evaluate(pos);
+    if (pos->sideToMove == BLACK) {
+      stand_pat = -stand_pat;
+    }
+
+    if (stand_pat >= beta) {
+      return beta;
+    }
+    if (stand_pat > alpha) {
+      alpha = stand_pat;
+    }
   }
 
   Move moves[MAX_MOVES];
   int count = 0;
-  int in_check = is_square_attacked(
-      pos, pos->kingSq[COLOR_IDX(pos->sideToMove)], OPPOSITE(pos->sideToMove));
-
   if (in_check) {
     count = movegen_pseudo_legal(pos, moves);
   } else {
