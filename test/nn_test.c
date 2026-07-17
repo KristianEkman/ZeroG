@@ -238,23 +238,24 @@ void test_nn_feature_extraction(void)
     // Initialize starting position
     position_startpos(&pos);
 
-    float features[768];
+    float features[NN_INPUT_SIZE];
     nn_extract_features(&pos, features);
 
     // Starting position has 32 pieces:
     // White: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen, 1 king (16 pieces)
     // Black: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen, 1 king (16 pieces)
     // Side to move is White.
-    // Active features should be 32 (1.0f values).
+    // Plus 4 castling rights.
+    // Active features should be 36 (1.0f values).
     int active_count = 0;
-    for (int i = 0; i < 768; i++) {
+    for (int i = 0; i < NN_INPUT_SIZE; i++) {
         if (features[i] == 1.0f) {
             active_count++;
         } else {
             TEST_ASSERT_EQUAL_FLOAT(0.0f, features[i]);
         }
     }
-    TEST_ASSERT_EQUAL_INT(32, active_count);
+    TEST_ASSERT_EQUAL_INT(36, active_count);
 
     // Let's verify friendly pieces count is 16 and opponent pieces count is 16
     int friendly_count = 0;
@@ -270,18 +271,18 @@ void test_nn_feature_extraction(void)
 
     // Change side to move to Black and check perspective change
     pos.sideToMove = BLACK;
-    float black_features[768];
+    float black_features[NN_INPUT_SIZE];
     nn_extract_features(&pos, black_features);
 
     // Black is now friendly, White is opponent.
-    // Ensure total active count is still 32
+    // Ensure total active count is still 36 (32 pieces + 4 castling rights)
     active_count = 0;
-    for (int i = 0; i < 768; i++) {
+    for (int i = 0; i < NN_INPUT_SIZE; i++) {
         if (black_features[i] == 1.0f) {
             active_count++;
         }
     }
-    TEST_ASSERT_EQUAL_INT(32, active_count);
+    TEST_ASSERT_EQUAL_INT(36, active_count);
 
     // Let's make sure that friendly pieces for Black are at the same locations (except mirrored ranks)
     // For example, friendly pawns for Black on starting board are on A7..H7.
@@ -306,7 +307,7 @@ void test_nnue_incremental_correctness(void)
     TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &pos));
 
     // Initialize NN
-    int sizes[] = {768, 128, 64, 1};
+    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
 
@@ -314,7 +315,7 @@ void test_nnue_incremental_correctness(void)
     nnue_refresh_accumulator(nn, &pos);
 
     // Compare full forward vs accumulator evaluation
-    float features[768];
+    float features[NN_INPUT_SIZE];
     nn_extract_features(&pos, features);
     float full_output = nn_forward(nn, features);
     int32_t accum_output_raw = nnue_evaluate_accumulator(nn, &pos);
@@ -404,7 +405,7 @@ void test_nnue_incremental_recursive_all_positions(void) {
     };
     int depths[] = {3, 2, 2, 2};
 
-    int sizes[] = {768, 128, 64, 1};
+    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
 
@@ -439,7 +440,7 @@ void test_nnue_accumulator_special_moves(void) {
         "4k3/8/8/8/8/8/p7/K7 b - - 0 1"  // Black promotions
     };
     
-    int sizes[] = {768, 128, 64, 1};
+    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
     
@@ -583,6 +584,35 @@ void test_epd_score_perspective(void) {
     TEST_ASSERT_FLOAT_WITHIN(1e-5f, 2.0f, target_white_b_white_input);
 }
 
+void test_nn_features_castling_and_ep(void) {
+    Position pos;
+    memset(&pos, 0, sizeof(Position));
+    
+    // Position with Black to move, all 4 castling rights, EP square e3 (file 4)
+    TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", &pos));
+    
+    float features[NN_INPUT_SIZE];
+    nn_extract_features(&pos, features);
+    
+    // stm is BLACK.
+    // For Black: us_KS = BK (768), us_QS = BQ (769), them_KS = WK (770), them_QS = WQ (771)
+    // Since all castling rights are set, 768..771 should be 1.0f
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[768]);
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[769]);
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[770]);
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[771]);
+    
+    // EP square is e3 (file 4)
+    // ep_file_4 (772 + 4 = 776) should be 1.0f, others (772..779 except 776) should be 0.0f
+    for (int f = 0; f < 8; f++) {
+        if (f == 4) {
+            TEST_ASSERT_EQUAL_FLOAT(1.0f, features[772 + f]);
+        } else {
+            TEST_ASSERT_EQUAL_FLOAT(0.0f, features[772 + f]);
+        }
+    }
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -600,6 +630,7 @@ int main(void)
     RUN_TEST(test_nnue_accumulator_special_moves);
     RUN_TEST(test_epd_score_parsing_validation);
     RUN_TEST(test_epd_score_perspective);
+    RUN_TEST(test_nn_features_castling_and_ep);
 
     return UNITY_END();
 }

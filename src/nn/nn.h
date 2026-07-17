@@ -135,14 +135,17 @@ bool nn_load(NeuralNetwork *nn, const char *filename);
  */
 void nn_quantize(NeuralNetwork *nn);
 
+#define NN_INPUT_SIZE 780
+
 /**
- * @brief Extracts standard piece-square features from a chess position.
+ * @brief Extracts features (piece-square, castling rights, en-passant file) from a chess position.
  * 
- * Maps the 64 squares and 12 piece types (friendly and opponent) to a 768-element
- * float vector. The representation is oriented from the side-to-move's perspective.
+ * Maps the 64 squares and 12 piece types to a 768-element piece-square vector,
+ * followed by 4 castling features and 8 en-passant file features (total NN_INPUT_SIZE elements).
+ * The representation is oriented from the side-to-move's perspective.
  * 
  * @param pos Pointer to the chess Position structure.
- * @param features Destination float array of size 768.
+ * @param features Destination float array of size NN_INPUT_SIZE.
  */
 void nn_extract_features(const Position *pos, float *features);
 

@@ -564,7 +564,7 @@ bool nn_load(NeuralNetwork *nn, const char *filename) {
 void nn_extract_features(const Position *pos, float *features) {
     if (!pos || !features) return;
     
-    memset(features, 0, 768 * sizeof(float));
+    memset(features, 0, NN_INPUT_SIZE * sizeof(float));
     Color stm = pos->sideToMove;
     
     for (int sq = 0; sq < 64; sq++) {
@@ -585,6 +585,24 @@ void nn_extract_features(const Position *pos, float *features) {
         
         int feature_idx = (side_offset + piece_idx) * 64 + oriented_sq;
         features[feature_idx] = 1.0f;
+    }
+    
+    // Add castling features (stm perspective-relative)
+    if (stm == WHITE) {
+        if (pos->castlingRights & CASTLE_WK) features[768] = 1.0f;
+        if (pos->castlingRights & CASTLE_WQ) features[769] = 1.0f;
+        if (pos->castlingRights & CASTLE_BK) features[770] = 1.0f;
+        if (pos->castlingRights & CASTLE_BQ) features[771] = 1.0f;
+    } else {
+        if (pos->castlingRights & CASTLE_BK) features[768] = 1.0f;
+        if (pos->castlingRights & CASTLE_BQ) features[769] = 1.0f;
+        if (pos->castlingRights & CASTLE_WK) features[770] = 1.0f;
+        if (pos->castlingRights & CASTLE_WQ) features[771] = 1.0f;
+    }
+    
+    // Add en-passant file feature (stm perspective-relative)
+    if (pos->enPassantSquare != SQ_NONE) {
+        features[772 + FILE_OF(pos->enPassantSquare)] = 1.0f;
     }
 }
 
@@ -638,6 +656,46 @@ static inline int nnue_feature_index(Color perspective, Piece p, int sq) {
     return (side_offset + piece_idx) * 64 + oriented_sq;
 }
 
+static inline void accum_add_feature(int32_t *accum, int idx, const int16_t *weights, int hidden_size) {
+    if (idx < 0) return;
+    const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+    for (int i = 0; i < hidden_size; i += 8) {
+        int16x8_t w = vld1q_s16(&w_col[i]);
+        int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
+        int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
+        int32x4_t a_lo = vld1q_s32(&accum[i]);
+        int32x4_t a_hi = vld1q_s32(&accum[i + 4]);
+        vst1q_s32(&accum[i], vaddq_s32(a_lo, w_lo));
+        vst1q_s32(&accum[i + 4], vaddq_s32(a_hi, w_hi));
+    }
+#else
+    for (int i = 0; i < hidden_size; i++) {
+        accum[i] += w_col[i];
+    }
+#endif
+}
+
+static inline void accum_sub_feature(int32_t *accum, int idx, const int16_t *weights, int hidden_size) {
+    if (idx < 0) return;
+    const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+    for (int i = 0; i < hidden_size; i += 8) {
+        int16x8_t w = vld1q_s16(&w_col[i]);
+        int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
+        int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
+        int32x4_t a_lo = vld1q_s32(&accum[i]);
+        int32x4_t a_hi = vld1q_s32(&accum[i + 4]);
+        vst1q_s32(&accum[i], vsubq_s32(a_lo, w_lo));
+        vst1q_s32(&accum[i + 4], vsubq_s32(a_hi, w_hi));
+    }
+#else
+    for (int i = 0; i < hidden_size; i++) {
+        accum[i] -= w_col[i];
+    }
+#endif
+}
+
 void nnue_refresh_accumulator(NeuralNetwork *nn, Position *pos) {
     if (!nn || !pos) return;
     
@@ -656,46 +714,32 @@ void nnue_refresh_accumulator(NeuralNetwork *nn, Position *pos) {
         
         int w_idx = nnue_feature_index(WHITE, p, sq);
         if (w_idx >= 0) {
-            const int16_t *w_col = &weights[w_idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[0][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] += w_col[i];
-            }
-#endif
+            accum_add_feature(&pos->accum[0][0], w_idx, weights, hidden_size);
         }
         
         int b_idx = nnue_feature_index(BLACK, p, sq);
         if (b_idx >= 0) {
-            const int16_t *w_col = &weights[b_idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[1][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] += w_col[i];
-            }
-#endif
+            accum_add_feature(&pos->accum[1][0], b_idx, weights, hidden_size);
         }
     }
+    
+    // Add castling features for White perspective (accum[0])
+    if (pos->castlingRights & CASTLE_WK) accum_add_feature(&pos->accum[0][0], 768, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WQ) accum_add_feature(&pos->accum[0][0], 769, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BK) accum_add_feature(&pos->accum[0][0], 770, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BQ) accum_add_feature(&pos->accum[0][0], 771, weights, hidden_size);
+    
+    // Add en-passant feature for White perspective
+    if (pos->enPassantSquare != SQ_NONE) accum_add_feature(&pos->accum[0][0], 772 + FILE_OF(pos->enPassantSquare), weights, hidden_size);
+    
+    // Add castling features for Black perspective (accum[1])
+    if (pos->castlingRights & CASTLE_BK) accum_add_feature(&pos->accum[1][0], 768, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BQ) accum_add_feature(&pos->accum[1][0], 769, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WK) accum_add_feature(&pos->accum[1][0], 770, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WQ) accum_add_feature(&pos->accum[1][0], 771, weights, hidden_size);
+    
+    // Add en-passant feature for Black perspective
+    if (pos->enPassantSquare != SQ_NONE) accum_add_feature(&pos->accum[1][0], 772 + FILE_OF(pos->enPassantSquare), weights, hidden_size);
 }
 
 typedef struct {
@@ -756,97 +800,57 @@ void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const str
     const int16_t *weights = nn->quant_weights[1];
     int hidden_size = nn->sizes[1];
     
-    // Update White accumulator (index 0)
+    // Update White accumulator (index 0) piece features
     for (int r = 0; r < num_removals; r++) {
         int idx = nnue_feature_index(WHITE, removals[r].piece, removals[r].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[0][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vsubq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vsubq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] -= w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_sub_feature(&pos->accum[0][0], idx, weights, hidden_size);
     }
     for (int a = 0; a < num_additions; a++) {
         int idx = nnue_feature_index(WHITE, additions[a].piece, additions[a].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[0][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] += w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_add_feature(&pos->accum[0][0], idx, weights, hidden_size);
     }
     
-    // Update Black accumulator (index 1)
+    // Update White accumulator (index 0) castling & en-passant features
+    // Subtract old castling features (from u->old_castling)
+    if (u->old_castling & CASTLE_WK) accum_sub_feature(&pos->accum[0][0], 768, weights, hidden_size);
+    if (u->old_castling & CASTLE_WQ) accum_sub_feature(&pos->accum[0][0], 769, weights, hidden_size);
+    if (u->old_castling & CASTLE_BK) accum_sub_feature(&pos->accum[0][0], 770, weights, hidden_size);
+    if (u->old_castling & CASTLE_BQ) accum_sub_feature(&pos->accum[0][0], 771, weights, hidden_size);
+    // Add new castling features (from pos->castlingRights)
+    if (pos->castlingRights & CASTLE_WK) accum_add_feature(&pos->accum[0][0], 768, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WQ) accum_add_feature(&pos->accum[0][0], 769, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BK) accum_add_feature(&pos->accum[0][0], 770, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BQ) accum_add_feature(&pos->accum[0][0], 771, weights, hidden_size);
+    // Subtract old en-passant feature (from u->old_ep)
+    if (u->old_ep != SQ_NONE) accum_sub_feature(&pos->accum[0][0], 772 + FILE_OF(u->old_ep), weights, hidden_size);
+    // Add new en-passant feature (from pos->enPassantSquare)
+    if (pos->enPassantSquare != SQ_NONE) accum_add_feature(&pos->accum[0][0], 772 + FILE_OF(pos->enPassantSquare), weights, hidden_size);
+
+    // Update Black accumulator (index 1) piece features
     for (int r = 0; r < num_removals; r++) {
         int idx = nnue_feature_index(BLACK, removals[r].piece, removals[r].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[1][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vsubq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vsubq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] -= w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_sub_feature(&pos->accum[1][0], idx, weights, hidden_size);
     }
     for (int a = 0; a < num_additions; a++) {
         int idx = nnue_feature_index(BLACK, additions[a].piece, additions[a].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[1][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] += w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_add_feature(&pos->accum[1][0], idx, weights, hidden_size);
     }
+    
+    // Update Black accumulator (index 1) castling & en-passant features
+    // Subtract old castling features (from u->old_castling)
+    if (u->old_castling & CASTLE_BK) accum_sub_feature(&pos->accum[1][0], 768, weights, hidden_size);
+    if (u->old_castling & CASTLE_BQ) accum_sub_feature(&pos->accum[1][0], 769, weights, hidden_size);
+    if (u->old_castling & CASTLE_WK) accum_sub_feature(&pos->accum[1][0], 770, weights, hidden_size);
+    if (u->old_castling & CASTLE_WQ) accum_sub_feature(&pos->accum[1][0], 771, weights, hidden_size);
+    // Add new castling features (from pos->castlingRights)
+    if (pos->castlingRights & CASTLE_BK) accum_add_feature(&pos->accum[1][0], 768, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BQ) accum_add_feature(&pos->accum[1][0], 769, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WK) accum_add_feature(&pos->accum[1][0], 770, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WQ) accum_add_feature(&pos->accum[1][0], 771, weights, hidden_size);
+    // Subtract old en-passant feature (from u->old_ep)
+    if (u->old_ep != SQ_NONE) accum_sub_feature(&pos->accum[1][0], 772 + FILE_OF(u->old_ep), weights, hidden_size);
+    // Add new en-passant feature (from pos->enPassantSquare)
+    if (pos->enPassantSquare != SQ_NONE) accum_add_feature(&pos->accum[1][0], 772 + FILE_OF(pos->enPassantSquare), weights, hidden_size);
 }
 
 void nnue_undo_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struct Undo *u) {
@@ -902,101 +906,61 @@ void nnue_undo_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struc
     const int16_t *weights = nn->quant_weights[1];
     int hidden_size = nn->sizes[1];
     
-    // Update White accumulator (index 0)
+    // Update White accumulator (index 0) piece features
     // removals are added back
     for (int r = 0; r < num_removals; r++) {
         int idx = nnue_feature_index(WHITE, removals[r].piece, removals[r].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[0][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] += w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_add_feature(&pos->accum[0][0], idx, weights, hidden_size);
     }
     // additions are subtracted
     for (int a = 0; a < num_additions; a++) {
         int idx = nnue_feature_index(WHITE, additions[a].piece, additions[a].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[0][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vsubq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vsubq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[0][i] -= w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_sub_feature(&pos->accum[0][0], idx, weights, hidden_size);
     }
     
-    // Update Black accumulator (index 1)
+    // Update White accumulator (index 0) castling & en-passant features
+    // Subtract new castling features (from pos->castlingRights)
+    if (pos->castlingRights & CASTLE_WK) accum_sub_feature(&pos->accum[0][0], 768, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WQ) accum_sub_feature(&pos->accum[0][0], 769, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BK) accum_sub_feature(&pos->accum[0][0], 770, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BQ) accum_sub_feature(&pos->accum[0][0], 771, weights, hidden_size);
+    // Add old castling features (from u->old_castling)
+    if (u->old_castling & CASTLE_WK) accum_add_feature(&pos->accum[0][0], 768, weights, hidden_size);
+    if (u->old_castling & CASTLE_WQ) accum_add_feature(&pos->accum[0][0], 769, weights, hidden_size);
+    if (u->old_castling & CASTLE_BK) accum_add_feature(&pos->accum[0][0], 770, weights, hidden_size);
+    if (u->old_castling & CASTLE_BQ) accum_add_feature(&pos->accum[0][0], 771, weights, hidden_size);
+    // Subtract new en-passant feature (from pos->enPassantSquare)
+    if (pos->enPassantSquare != SQ_NONE) accum_sub_feature(&pos->accum[0][0], 772 + FILE_OF(pos->enPassantSquare), weights, hidden_size);
+    // Add old en-passant feature (from u->old_ep)
+    if (u->old_ep != SQ_NONE) accum_add_feature(&pos->accum[0][0], 772 + FILE_OF(u->old_ep), weights, hidden_size);
+
+    // Update Black accumulator (index 1) piece features
     // removals are added back
     for (int r = 0; r < num_removals; r++) {
         int idx = nnue_feature_index(BLACK, removals[r].piece, removals[r].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[1][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] += w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_add_feature(&pos->accum[1][0], idx, weights, hidden_size);
     }
     // additions are subtracted
     for (int a = 0; a < num_additions; a++) {
         int idx = nnue_feature_index(BLACK, additions[a].piece, additions[a].sq);
-        if (idx >= 0) {
-            const int16_t *w_col = &weights[idx * hidden_size];
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-            int32_t *accum_ptr = &pos->accum[1][0];
-            for (int i = 0; i < hidden_size; i += 8) {
-                int16x8_t w = vld1q_s16(&w_col[i]);
-                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
-                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
-                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
-                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
-                vst1q_s32(&accum_ptr[i], vsubq_s32(a_lo, w_lo));
-                vst1q_s32(&accum_ptr[i + 4], vsubq_s32(a_hi, w_hi));
-            }
-#else
-            for (int i = 0; i < hidden_size; i++) {
-                pos->accum[1][i] -= w_col[i];
-            }
-#endif
-        }
+        if (idx >= 0) accum_sub_feature(&pos->accum[1][0], idx, weights, hidden_size);
     }
+    
+    // Update Black accumulator (index 1) castling & en-passant features
+    // Subtract new castling features (from pos->castlingRights)
+    if (pos->castlingRights & CASTLE_BK) accum_sub_feature(&pos->accum[1][0], 768, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_BQ) accum_sub_feature(&pos->accum[1][0], 769, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WK) accum_sub_feature(&pos->accum[1][0], 770, weights, hidden_size);
+    if (pos->castlingRights & CASTLE_WQ) accum_sub_feature(&pos->accum[1][0], 771, weights, hidden_size);
+    // Add old castling features (from u->old_castling)
+    if (u->old_castling & CASTLE_BK) accum_add_feature(&pos->accum[1][0], 768, weights, hidden_size);
+    if (u->old_castling & CASTLE_BQ) accum_add_feature(&pos->accum[1][0], 769, weights, hidden_size);
+    if (u->old_castling & CASTLE_WK) accum_add_feature(&pos->accum[1][0], 770, weights, hidden_size);
+    if (u->old_castling & CASTLE_WQ) accum_add_feature(&pos->accum[1][0], 771, weights, hidden_size);
+    // Subtract new en-passant feature (from pos->enPassantSquare)
+    if (pos->enPassantSquare != SQ_NONE) accum_sub_feature(&pos->accum[1][0], 772 + FILE_OF(pos->enPassantSquare), weights, hidden_size);
+    // Add old en-passant feature (from u->old_ep)
+    if (u->old_ep != SQ_NONE) accum_add_feature(&pos->accum[1][0], 772 + FILE_OF(u->old_ep), weights, hidden_size);
 }
 
 int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
