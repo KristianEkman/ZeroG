@@ -4,6 +4,9 @@
 #include <time.h>
 #include <math.h>
 #include <stdbool.h>
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 
 #include "boards.h"
 #include "fen.h"
@@ -14,52 +17,6 @@ typedef struct {
     float inputs[768];
     float target;
 } TrainingSample;
-
-// Parses an EPD line, populating position and target score (normalized to pawn units)
-int parse_epd_line(const char *line, Position *pos, float *target) {
-    char line_copy[1024];
-    strncpy(line_copy, line, sizeof(line_copy) - 1);
-    line_copy[sizeof(line_copy) - 1] = '\0';
-    
-    // Find the score substring
-    char *score_ptr = strstr(line_copy, "score ");
-    if (!score_ptr) {
-        return -1; // No score opcode
-    }
-    
-    // Skip positions containing mate scores
-    if (strstr(score_ptr, "mate")) {
-        return -2;
-    }
-    
-    // Parse score value (centipawns)
-    int score_val = atoi(score_ptr + 6);
-    
-    // Skip extreme positions
-    if (score_val >= 1000 || score_val <= -1000) {
-        return -3;
-    }
-    
-    // Target is scaled from centipawns to pawn units (e.g. 150 -> 1.5)
-    *target = (float)score_val / 100.0f;
-    
-    // Truncate string at "score" to isolate the FEN part
-    *score_ptr = '\0';
-    
-    // Trim trailing spaces and semicolons from the FEN
-    char *end = score_ptr - 1;
-    while (end >= line_copy && (*end == ' ' || *end == ';' || *end == '\t' || *end == '\r' || *end == '\n')) {
-        *end = '\0';
-        end--;
-    }
-    
-    // Parse the FEN into Position
-    if (fen_parse(line_copy, pos) != 0) {
-        return -4;
-    }
-    
-    return 0;
-}
 
 // Shuffles dataset using Fisher-Yates algorithm
 void shuffle_dataset(TrainingSample *dataset, int n) {
@@ -118,6 +75,15 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
+    
+    if (epochs <= 0 ||
+        !isfinite(initial_lr) || initial_lr <= 0.0f ||
+        !isfinite(val_split) || val_split <= 0.0f || val_split >= 1.0f ||
+        !isfinite(weight_decay) || weight_decay < 0.0f) {
+        fprintf(stderr, "Invalid training parameters\n");
+        return 1;
+    }
+    
     
     // 2. Initialize engine components (essential for FEN parsing)
     printf("Initializing engine bitboards...\n");
@@ -194,6 +160,12 @@ int main(int argc, char **argv) {
     int val_size = (int)(parsed_count * val_split);
     int train_size = parsed_count - val_size;
     
+    if (train_size < 1 || val_size < 1) {
+        fprintf(stderr, "Dataset is too small for the selected validation split\n");
+        free(dataset);
+        return 1;
+    }
+    
     TrainingSample *train_set = dataset;
     TrainingSample *val_set = dataset + train_size;
     
@@ -239,6 +211,12 @@ int main(int argc, char **argv) {
         for (int i = 0; i < train_size; i++) {
             float loss = nn_train_step(nn, train_set[i].inputs, train_set[i].target,
                                        current_lr, weight_decay);
+            if (!isfinite(loss)) {
+                fprintf(stderr, "Error: Training failed at epoch %d, sample %d\n", epoch, i);
+                nn_free(nn);
+                free(dataset);
+                return 1;
+            }
             total_train_loss += loss;
         }
         float avg_train_loss = total_train_loss / train_size;
@@ -259,7 +237,12 @@ int main(int argc, char **argv) {
             best_epoch = epoch;
             // Save best model
             nn_quantize(nn);
-            nn_save(nn, output_path);
+            if (!nn_save(nn, output_path)) {
+                fprintf(stderr, "Error: Failed to save model to '%s'\n", output_path);
+                nn_free(nn);
+                free(dataset);
+                return 1;
+            }
         }
         
         printf("Epoch %2d/%2d | Train Loss: %.6f | Val Loss: %.6f | LR: %.6f%s\n",

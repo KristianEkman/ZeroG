@@ -19,4 +19,13 @@ int fen_parse(const char *fen, Position *pos);
  * or -1 if buf is NULL. */
 int fen_serialize(const Position *pos, char *buf);
 
+/* Parse an EPD line, populating position and target score (normalized to pawn units)
+ * Returns 0 on success, or:
+ * -1: No score opcode
+ * -2: Mate score
+ * -3: Extreme score
+ * -4: FEN parse error
+ * -5: Malformed score label */
+int parse_epd_line(const char *line, Position *pos, float *target);
+
 #endif /* FEN_H */

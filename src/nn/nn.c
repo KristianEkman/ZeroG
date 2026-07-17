@@ -285,11 +285,11 @@ static int nn_adam_init(NeuralNetwork *nn) {
 }
 
 float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float learning_rate, float weight_decay) {
-    if (!nn || !inputs) return 0.0f;
+    if (!nn || !inputs) return NAN;
 
     // Lazily allocate Adam state on first training call
     if (!nn->adam_initialized) {
-        if (!nn_adam_init(nn)) return 0.0f;
+        if (!nn_adam_init(nn)) return NAN;
     }
 
     // 1. Forward Propagation

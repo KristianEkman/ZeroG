@@ -508,6 +508,38 @@ void test_nnue_accumulator_special_moves(void) {
     nn_free(nn);
 }
 
+extern int parse_epd_line(const char *line, Position *pos, float *target);
+
+void test_epd_score_parsing_validation(void) {
+    Position pos;
+    float target = 0.0f;
+    
+    // 1. Well-formed standard EPD lines
+    TEST_ASSERT_EQUAL_INT(0, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score 10", &pos, &target));
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.1f, target);
+    
+    TEST_ASSERT_EQUAL_INT(0, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score -25;", &pos, &target));
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, -0.25f, target);
+    
+    TEST_ASSERT_EQUAL_INT(0, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - score 100; depth 12;", &pos, &target));
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 1.0f, target);
+
+    // 2. Mate score handling (returns -2)
+    TEST_ASSERT_EQUAL_INT(-2, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score mate", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(-2, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score +M3;", &pos, &target));
+    
+    // 3. Extreme score handling (returns -3)
+    TEST_ASSERT_EQUAL_INT(-3, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score 1200", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(-3, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score -1005", &pos, &target));
+
+    // 4. Malformed label / non-integers (returns -5)
+    TEST_ASSERT_EQUAL_INT(-5, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score nonsense", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(-5, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(-5, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score +-", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(-5, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score 12.5", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(-5, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score 12x", &pos, &target));
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -523,6 +555,7 @@ int main(void)
     RUN_TEST(test_nnue_incremental_correctness);
     RUN_TEST(test_nnue_incremental_recursive_all_positions);
     RUN_TEST(test_nnue_accumulator_special_moves);
+    RUN_TEST(test_epd_score_parsing_validation);
 
     return UNITY_END();
 }
