@@ -848,6 +848,156 @@ void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const str
     }
 }
 
+void nnue_undo_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struct Undo *u) {
+    if (!nn || !pos || !u) return;
+    
+    int from = MOVE_FROM(m);
+    int to = MOVE_TO(m);
+    int flag = MOVE_FLAG(m);
+    int promo = MOVE_PROMO(m);
+    Color us = OPPOSITE(pos->sideToMove); // sideToMove is still the opponent color (flipped in apply_move) at the start of undo_move
+    
+    Piece moving_piece = u->moving;
+    PieceType pt = PIECE_TYPE(moving_piece);
+    
+    AccumulatorChange removals[3];
+    int num_removals = 0;
+    
+    AccumulatorChange additions[2];
+    int num_additions = 0;
+    
+    // 1. Moving piece leaves 'from' (so in undo, it is added back to 'from')
+    removals[num_removals++] = (AccumulatorChange){moving_piece, from};
+    
+    // 2. Moving piece lands on 'to' (so in undo, it is removed from 'to')
+    int is_promo = (pt == PAWN) && (RANK_OF(to) == 0 || RANK_OF(to) == 7);
+    if (is_promo) {
+        static const PieceType promo_table[] = { KNIGHT, BISHOP, ROOK, QUEEN };
+        PieceType promo_pt = (promo <= 3) ? promo_table[promo] : QUEEN;
+        Piece promo_piece = MAKE_PIECE(us, promo_pt);
+        additions[num_additions++] = (AccumulatorChange){promo_piece, to};
+    } else {
+        additions[num_additions++] = (AccumulatorChange){moving_piece, to};
+    }
+    
+    // 3. Captured piece is removed (so in undo, it is added back)
+    if (u->captured != EMPTY) {
+        removals[num_removals++] = (AccumulatorChange){u->captured, u->cap_sq};
+    }
+    
+    // 4. Castling rook relocation (in undo, rook is removed from 'to' and added back to 'from')
+    if (flag == MOVE_CASTLE_KS) {
+        int r_from = (us == WHITE) ? H1 : H8;
+        int r_to   = (us == WHITE) ? F1 : F8;
+        removals[num_removals++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_from};
+        additions[num_additions++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_to};
+    } else if (flag == MOVE_CASTLE_QS) {
+        int r_from = (us == WHITE) ? A1 : A8;
+        int r_to   = (us == WHITE) ? D1 : D8;
+        removals[num_removals++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_from};
+        additions[num_additions++] = (AccumulatorChange){MAKE_PIECE(us, ROOK), r_to};
+    }
+    
+    const int16_t *weights = nn->quant_weights[1];
+    int hidden_size = nn->sizes[1];
+    
+    // Update White accumulator (index 0)
+    // removals are added back
+    for (int r = 0; r < num_removals; r++) {
+        int idx = nnue_feature_index(WHITE, removals[r].piece, removals[r].sq);
+        if (idx >= 0) {
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int32_t *accum_ptr = &pos->accum[0][0];
+            for (int i = 0; i < hidden_size; i += 8) {
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
+                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
+                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
+                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
+                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
+                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
+            }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] += w_col[i];
+            }
+#endif
+        }
+    }
+    // additions are subtracted
+    for (int a = 0; a < num_additions; a++) {
+        int idx = nnue_feature_index(WHITE, additions[a].piece, additions[a].sq);
+        if (idx >= 0) {
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int32_t *accum_ptr = &pos->accum[0][0];
+            for (int i = 0; i < hidden_size; i += 8) {
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
+                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
+                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
+                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
+                vst1q_s32(&accum_ptr[i], vsubq_s32(a_lo, w_lo));
+                vst1q_s32(&accum_ptr[i + 4], vsubq_s32(a_hi, w_hi));
+            }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[0][i] -= w_col[i];
+            }
+#endif
+        }
+    }
+    
+    // Update Black accumulator (index 1)
+    // removals are added back
+    for (int r = 0; r < num_removals; r++) {
+        int idx = nnue_feature_index(BLACK, removals[r].piece, removals[r].sq);
+        if (idx >= 0) {
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int32_t *accum_ptr = &pos->accum[1][0];
+            for (int i = 0; i < hidden_size; i += 8) {
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
+                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
+                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
+                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
+                vst1q_s32(&accum_ptr[i], vaddq_s32(a_lo, w_lo));
+                vst1q_s32(&accum_ptr[i + 4], vaddq_s32(a_hi, w_hi));
+            }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] += w_col[i];
+            }
+#endif
+        }
+    }
+    // additions are subtracted
+    for (int a = 0; a < num_additions; a++) {
+        int idx = nnue_feature_index(BLACK, additions[a].piece, additions[a].sq);
+        if (idx >= 0) {
+            const int16_t *w_col = &weights[idx * hidden_size];
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+            int32_t *accum_ptr = &pos->accum[1][0];
+            for (int i = 0; i < hidden_size; i += 8) {
+                int16x8_t w = vld1q_s16(&w_col[i]);
+                int32x4_t w_lo = vmovl_s16(vget_low_s16(w));
+                int32x4_t w_hi = vmovl_s16(vget_high_s16(w));
+                int32x4_t a_lo = vld1q_s32(&accum_ptr[i]);
+                int32x4_t a_hi = vld1q_s32(&accum_ptr[i + 4]);
+                vst1q_s32(&accum_ptr[i], vsubq_s32(a_lo, w_lo));
+                vst1q_s32(&accum_ptr[i + 4], vsubq_s32(a_hi, w_hi));
+            }
+#else
+            for (int i = 0; i < hidden_size; i++) {
+                pos->accum[1][i] -= w_col[i];
+            }
+#endif
+        }
+    }
+}
+
 int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
     if (!nn || !pos) return 0;
     

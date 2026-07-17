@@ -5,7 +5,9 @@
 #include <string.h>
 
 /* ── Unity boilerplate ───────────────────────────────────────────────────── */
-void setUp(void) {}
+void setUp(void) {
+    use_nn = false;
+}
 void tearDown(void) {}
 
 /* ── evaluation tests ────────────────────────────────────────────────── */

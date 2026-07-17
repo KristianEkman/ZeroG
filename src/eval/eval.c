@@ -15,13 +15,16 @@ void eval_init(void) {
     eval_nn = nn_init(sizes, 4);
     if (eval_nn) {
         if (nn_load(eval_nn, "nn_weights.bin")) {
-            use_nn = false; // Keep default off!
-            printf("info string Loaded NN weights from nn_weights.bin (default off)\n");
+            use_nn = true; // Keep default on!
+            printf("info string Loaded NN weights from nn_weights.bin (default on)\n");
             fflush(stdout);
         } else {
+            use_nn = false; // Disable if load failed
             printf("info string Warning: Could not load nn_weights.bin, using classical evaluation\n");
             fflush(stdout);
         }
+    } else {
+        use_nn = false; // Disable if init failed
     }
 }
 

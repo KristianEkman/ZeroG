@@ -14,7 +14,9 @@
 
 #define MATE_SCORE 29000
 
-void setUp(void) {}
+void setUp(void) {
+    use_nn = false;
+}
 void tearDown(void) {}
 
 void test_search_mate_in_1(void) {

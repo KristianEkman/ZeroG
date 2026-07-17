@@ -153,10 +153,12 @@ void nnue_refresh_accumulator(NeuralNetwork *nn, Position *pos);
 
 struct Undo;
 
-/**
- * @brief Incrementally updates the accumulators for White and Black perspectives after a move.
- */
 void nnue_update_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struct Undo *u);
+
+/**
+ * @brief Incrementally rolls back the accumulators for White and Black perspectives after undoing a move.
+ */
+void nnue_undo_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struct Undo *u);
 
 /**
  * @brief Evaluates the position starting from the cached accumulators.

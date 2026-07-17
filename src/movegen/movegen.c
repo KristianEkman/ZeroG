@@ -192,6 +192,10 @@ void undo_move(Position *pos, const Undo *u)
     int flag  = MOVE_FLAG(m);
     int promo = MOVE_PROMO(m);
 
+    if (use_nn && eval_nn) {
+        nnue_undo_accumulator(eval_nn, pos, m, u);
+    }
+
     /* sideToMove was flipped by apply_move, so the side that just *moved*
      * is now the opponent of sideToMove.  The side that moved is `us`. */
     Color us   = OPPOSITE(pos->sideToMove);
@@ -276,9 +280,7 @@ void undo_move(Position *pos, const Undo *u)
     /* ── 9. Restore side to move ──────────────────────────────────────── */
     pos->sideToMove = us;
 
-    if (use_nn && eval_nn) {
-        memcpy(pos->accum, u->accum, sizeof(pos->accum));
-    }
+    
 }
 
 

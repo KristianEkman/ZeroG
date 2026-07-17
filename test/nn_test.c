@@ -429,6 +429,85 @@ void test_nnue_incremental_recursive_all_positions(void) {
     nn_free(nn);
 }
 
+void test_nnue_accumulator_special_moves(void) {
+    const char *fens[] = {
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Quiet moves & captures
+        "rnbqkbnr/ppp1pp1p/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2", // En passant capture
+        "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", // Castling (KS and QS) for White
+        "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1", // Castling (KS and QS) for Black
+        "k7/P7/8/8/8/8/8/4K3 w - - 0 1", // White promotions
+        "4k3/8/8/8/8/8/p7/K7 b - - 0 1"  // Black promotions
+    };
+    
+    int sizes[] = {768, 128, 64, 1};
+    NeuralNetwork *nn = nn_init(sizes, 4);
+    TEST_ASSERT_NOT_NULL(nn);
+    
+    extern NeuralNetwork *eval_nn;
+    extern bool use_nn;
+    NeuralNetwork *old_eval_nn = eval_nn;
+    bool old_use_nn = use_nn;
+    eval_nn = nn;
+    use_nn = true;
+    
+    for (int i = 0; i < 6; i++) {
+        Position pos;
+        memset(&pos, 0, sizeof(Position));
+        TEST_ASSERT_EQUAL_INT(0, fen_parse(fens[i], &pos));
+        
+        nnue_refresh_accumulator(nn, &pos);
+        
+        Move moves[MAX_MOVES];
+        int count = movegen_legal(&pos, moves);
+        
+        for (int m_idx = 0; m_idx < count; m_idx++) {
+            Move m = moves[m_idx];
+            
+            Position test_pos = pos;
+            Undo u;
+            
+            // Step 1: Make the move
+            apply_move(&test_pos, m, &u);
+            
+            // Step 2: Compare test_pos.accum against refreshed
+            Position refreshed = test_pos;
+            nnue_refresh_accumulator(nn, &refreshed);
+            
+            for (int side = 0; side < 2; side++) {
+                for (int k = 0; k < 128; k++) {
+                    if (refreshed.accum[side][k] != test_pos.accum[side][k]) {
+                        char move_str[6];
+                        uci_move_to_string(&pos, m, move_str, sizeof(move_str));
+                        printf("Forward mismatch after move %s (FEN %d), side %d, idx %d!\n", move_str, i, side, k);
+                        printf("Refreshed: %d, Incremental: %d\n", refreshed.accum[side][k], test_pos.accum[side][k]);
+                        TEST_FAIL_MESSAGE("Forward accumulator mismatch");
+                    }
+                }
+            }
+            
+            // Step 3: Undo the move
+            undo_move(&test_pos, &u);
+            
+            // Step 4: Compare test_pos.accum against original pos.accum
+            for (int side = 0; side < 2; side++) {
+                for (int k = 0; k < 128; k++) {
+                    if (pos.accum[side][k] != test_pos.accum[side][k]) {
+                        char move_str[6];
+                        uci_move_to_string(&pos, m, move_str, sizeof(move_str));
+                        printf("Undo mismatch after move %s (FEN %d), side %d, idx %d!\n", move_str, i, side, k);
+                        printf("Original: %d, Restored: %d\n", pos.accum[side][k], test_pos.accum[side][k]);
+                        TEST_FAIL_MESSAGE("Undo/restore accumulator mismatch");
+                    }
+                }
+            }
+        }
+    }
+    
+    eval_nn = old_eval_nn;
+    use_nn = old_use_nn;
+    nn_free(nn);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -443,6 +522,7 @@ int main(void)
     RUN_TEST(test_nn_feature_extraction);
     RUN_TEST(test_nnue_incremental_correctness);
     RUN_TEST(test_nnue_incremental_recursive_all_positions);
+    RUN_TEST(test_nnue_accumulator_special_moves);
 
     return UNITY_END();
 }

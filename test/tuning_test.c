@@ -5,8 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
-void setUp(void) {}
+extern bool use_nn;
+void setUp(void) {
+    use_nn = false;
+}
 void tearDown(void) {}
 
 void test_tuning_filter_and_export(void)
