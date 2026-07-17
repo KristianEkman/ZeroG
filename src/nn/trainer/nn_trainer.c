@@ -39,8 +39,14 @@ void print_help(const char *prog_name) {
     printf("  -l, --lr <value>       Initial learning rate (default: 0.001)\n");
     printf("  -v, --val-split <val>  Validation split ratio (default: 0.1)\n");
     printf("  -d, --wd <value>       Weight decay coefficient (default: 1e-4)\n");
+    printf("  -p, --score-perspective <persp> Score perspective: 'stm' or 'white' (default: stm)\n");
     printf("  -h, --help             Display this help and exit\n");
 }
+
+typedef enum {
+    PERSPECTIVE_STM,
+    PERSPECTIVE_WHITE
+} ScorePerspective;
 
 int main(int argc, char **argv) {
     // 1. Parse command line arguments
@@ -51,6 +57,7 @@ int main(int argc, char **argv) {
     float initial_lr = 0.001f;
     float val_split = 0.1f;
     float weight_decay = 1e-4f;
+    ScorePerspective perspective = PERSPECTIVE_STM;
     
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--input") == 0) {
@@ -67,6 +74,18 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) val_split = (float)atof(argv[++i]);
         } else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--wd") == 0) {
             if (i + 1 < argc) weight_decay = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--score-perspective") == 0) {
+            if (i + 1 < argc) {
+                const char *persp = argv[++i];
+                if (strcmp(persp, "stm") == 0) {
+                    perspective = PERSPECTIVE_STM;
+                } else if (strcmp(persp, "white") == 0) {
+                    perspective = PERSPECTIVE_WHITE;
+                } else {
+                    fprintf(stderr, "Invalid score perspective '%s'. Use 'stm' or 'white'.\n", persp);
+                    return 1;
+                }
+            }
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             print_help(argv[0]);
             return 0;
@@ -135,6 +154,9 @@ int main(int argc, char **argv) {
         
         int res = parse_epd_line(line, &temp_pos, &target);
         if (res == 0) {
+            if (perspective == PERSPECTIVE_WHITE && temp_pos.sideToMove == BLACK) {
+                target = -target;
+            }
             // Extract feature mapping
             nn_extract_features(&temp_pos, dataset[parsed_count].inputs);
             dataset[parsed_count].target = target;

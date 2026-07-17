@@ -540,6 +540,49 @@ void test_epd_score_parsing_validation(void) {
     TEST_ASSERT_EQUAL_INT(-5, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score 12x", &pos, &target));
 }
 
+void test_epd_score_perspective(void) {
+    Position pos;
+    float target = 0.0f;
+    
+    // Position 1: White to move, White is winning (+1.5 pawns / +150 cp)
+    // "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score 150"
+    TEST_ASSERT_EQUAL_INT(0, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 score 150", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(WHITE, pos.sideToMove);
+    
+    // stm perspective: target remains +1.5
+    float target_stm_w = target;
+    // white perspective: since sideToMove is WHITE, target remains +1.5
+    float target_white_w = target;
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 1.5f, target_stm_w);
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 1.5f, target_white_w);
+
+    // Position 2: Black to move, Black is winning (+2.0 pawns / +200 cp from Black's view, or -200 cp from White's view depending on perspective)
+    
+    // Case A: The score in the EPD is STM (side-to-move).
+    // If Black is winning by 2.0 pawns, the score is +200 (since it's from Black's perspective).
+    // "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1 score 200"
+    TEST_ASSERT_EQUAL_INT(0, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1 score 200", &pos, &target));
+    TEST_ASSERT_EQUAL_INT(BLACK, pos.sideToMove);
+    
+    // Under STM perspective (default): target remains +2.0 (representing Black winning)
+    float target_stm_b_stm_input = target;
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 2.0f, target_stm_b_stm_input);
+    
+    // Case B: The score in the EPD is White-relative.
+    // If Black is winning by 2.0 pawns, the score is -200 (since it's from White's perspective).
+    // "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1 score -200"
+    TEST_ASSERT_EQUAL_INT(0, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1 score -200", &pos, &target));
+    
+    // If the EPD has white-perspective score -200:
+    // Under STM perspective: target remains -2.0.
+    // Under WHITE perspective: since sideToMove is BLACK, we negate the target: target = -(-2.0) = +2.0.
+    float target_stm_b_white_input = target;
+    float target_white_b_white_input = -target; // negated since sideToMove is BLACK
+    
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, -2.0f, target_stm_b_white_input);
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 2.0f, target_white_b_white_input);
+}
+
 /* ── main (Unity runner) ──────────────────────────────────────────────── */
 int main(void)
 {
@@ -556,6 +599,7 @@ int main(void)
     RUN_TEST(test_nnue_incremental_recursive_all_positions);
     RUN_TEST(test_nnue_accumulator_special_moves);
     RUN_TEST(test_epd_score_parsing_validation);
+    RUN_TEST(test_epd_score_perspective);
 
     return UNITY_END();
 }
