@@ -136,6 +136,8 @@ bool nn_load(NeuralNetwork *nn, const char *filename);
 void nn_quantize(NeuralNetwork *nn);
 
 #define NN_INPUT_SIZE 780
+#define NN_ACCUM_SIZE 192
+#define NN_HIDDEN_SIZE 32
 
 /**
  * @brief Extracts features (piece-square, castling rights, en-passant file) from a chess position.

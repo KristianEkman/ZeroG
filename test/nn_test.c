@@ -307,7 +307,7 @@ void test_nnue_incremental_correctness(void)
     TEST_ASSERT_EQUAL_INT(0, fen_parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &pos));
 
     // Initialize NN
-    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
+    int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
 
@@ -351,7 +351,7 @@ void test_nnue_incremental_correctness(void)
 
         // Check White and Black accumulators match exactly
         for (int side = 0; side < 2; side++) {
-            for (int k = 0; k < 128; k++) {
+            for (int k = 0; k < NN_ACCUM_SIZE; k++) {
                 TEST_ASSERT_EQUAL_INT(next_pos_refreshed.accum[side][k], next_pos_auto.accum[side][k]);
             }
         }
@@ -381,7 +381,7 @@ static void nnue_test_incremental_recursive(NeuralNetwork *nn, Position *pos, in
         nnue_refresh_accumulator(nn, &refreshed);
         
         for (int side = 0; side < 2; side++) {
-            for (int k = 0; k < 128; k++) {
+            for (int k = 0; k < NN_ACCUM_SIZE; k++) {
                 if (refreshed.accum[side][k] != next_pos.accum[side][k]) {
                     char move_str[6];
                     uci_move_to_string(pos, moves[i], move_str, sizeof(move_str));
@@ -405,7 +405,7 @@ void test_nnue_incremental_recursive_all_positions(void) {
     };
     int depths[] = {3, 2, 2, 2};
 
-    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
+    int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
 
@@ -440,7 +440,7 @@ void test_nnue_accumulator_special_moves(void) {
         "4k3/8/8/8/8/8/p7/K7 b - - 0 1"  // Black promotions
     };
     
-    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
+    int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE, 1};
     NeuralNetwork *nn = nn_init(sizes, 4);
     TEST_ASSERT_NOT_NULL(nn);
     
@@ -475,7 +475,7 @@ void test_nnue_accumulator_special_moves(void) {
             nnue_refresh_accumulator(nn, &refreshed);
             
             for (int side = 0; side < 2; side++) {
-                for (int k = 0; k < 128; k++) {
+                for (int k = 0; k < NN_ACCUM_SIZE; k++) {
                     if (refreshed.accum[side][k] != test_pos.accum[side][k]) {
                         char move_str[6];
                         uci_move_to_string(&pos, m, move_str, sizeof(move_str));
@@ -491,7 +491,7 @@ void test_nnue_accumulator_special_moves(void) {
             
             // Step 4: Compare test_pos.accum against original pos.accum
             for (int side = 0; side < 2; side++) {
-                for (int k = 0; k < 128; k++) {
+                for (int k = 0; k < NN_ACCUM_SIZE; k++) {
                     if (pos.accum[side][k] != test_pos.accum[side][k]) {
                         char move_str[6];
                         uci_move_to_string(&pos, m, move_str, sizeof(move_str));

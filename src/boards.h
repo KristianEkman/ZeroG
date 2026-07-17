@@ -111,7 +111,7 @@ enum {
     MOVE_CASTLE_QS   = 3
 };
 
-#define NNUE_ACCUM_SIZE 128
+#define NNUE_ACCUM_SIZE 192
 
 /* ── board (hybrid bitboard + mailbox) ──────────────────────────────────── */
 typedef struct {

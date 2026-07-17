@@ -21,8 +21,8 @@ int main(int argc, char **argv)
         }
     }
 
-    // Architecture: NN_INPUT_SIZE -> 128 -> 1
-    int sizes[] = {NN_INPUT_SIZE, 128, 1};
+    // Architecture: NN_INPUT_SIZE -> NN_ACCUM_SIZE -> 1
+    int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, 1};
     NeuralNetwork *nn = nn_init(sizes, 3);
     if (!nn) {
         fprintf(stderr, "Failed to initialize neural network\n");
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     float target = 0.5f;
     float lr = 0.01f;
 
-    printf("Benchmarking neural network: layers=[%d, 128, 1], iterations=%d\n", NN_INPUT_SIZE, iterations);
+    printf("Benchmarking neural network: layers=[%d, %d, 1], iterations=%d\n", NN_INPUT_SIZE, NN_ACCUM_SIZE, iterations);
     
     double t0 = now_sec();
     

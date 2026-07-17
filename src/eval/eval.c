@@ -11,7 +11,7 @@ bool use_nn = false;
 
 void eval_init(void) {
     init_king_safety_tables();
-    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
+    int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE, 1};
     eval_nn = nn_init(sizes, 4);
     if (eval_nn) {
         if (nn_load(eval_nn, "nn_weights.bin")) {

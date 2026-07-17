@@ -195,10 +195,10 @@ int main(int argc, char **argv) {
     
     printf("Train size: %d | Validation size: %d\n", train_size, val_size);
     
-    // 6. Initialize Neural Network (NN_INPUT_SIZE -> 128 -> 64 -> 1)
-    int sizes[] = {NN_INPUT_SIZE, 128, 64, 1};
+    // 6. Initialize Neural Network (NN_INPUT_SIZE -> NN_ACCUM_SIZE -> NN_HIDDEN_SIZE -> 1)
+    int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE, 1};
     int num_layers = sizeof(sizes) / sizeof(sizes[0]);
-    printf("Initializing neural network with layout: {%d, 128, 64, 1}...\n", NN_INPUT_SIZE);
+    printf("Initializing neural network with layout: {%d, %d, %d, 1}...\n", NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE);
     NeuralNetwork *nn = nn_init(sizes, num_layers);
     if (!nn) {
         fprintf(stderr, "Error: Neural network initialization failed.\n");
