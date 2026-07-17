@@ -52,8 +52,12 @@ def run_match(candidate_a_opts, candidate_b_opts, games, tc, concurrency):
 
     cmd += [
         "-each", f"tc={tc}",
-        "-games", str(games),
-        "-openings", "file=./grand_master_openings.epd", "format=epd", "order=random",
+        "-games", str(games)
+    ]
+
+    cmd += ["-openings", "file=games/top_engine_games.pgn", "format=pgn", "plies=16", "order=random"]
+
+    cmd += [
         "-repeat",
         "-concurrency", str(concurrency)
     ]

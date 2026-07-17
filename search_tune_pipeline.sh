@@ -21,7 +21,7 @@
 #   - cutechess-cli installed (../cutechess/ or on PATH)
 #   - Python 3
 #   - ZeroG source code in current directory
-#   - Opening book: grand_master_openings.epd
+#   - Opening book: games/top_engine_games.pgn
 # ============================================================
 
 set -e  # Exit on error
@@ -169,8 +169,8 @@ fi
 print_ok "spsa.py found"
 
 # Check for opening book
-if [ ! -f "grand_master_openings.epd" ]; then
-    print_err "Opening book 'grand_master_openings.epd' not found."
+if [ ! -f "games/top_engine_games.pgn" ]; then
+    print_err "Opening book 'games/top_engine_games.pgn' not found."
     exit 1
 fi
 print_ok "Opening book found"

@@ -169,7 +169,7 @@ def main():
 
     has_custom_openings = any(arg == "-openings" for arg in sys.argv)
     if not has_custom_openings:
-        cmd.extend(["-openings", "file=./grand_master_openings.epd", "format=epd", "order=random"])
+        cmd.extend(["-openings", "file=games/top_engine_games.pgn", "format=pgn", "plies=16", "order=random"])
 
     has_custom_repeat = any(arg == "-repeat" for arg in sys.argv)
     if not has_custom_repeat:
