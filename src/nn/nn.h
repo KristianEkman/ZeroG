@@ -162,6 +162,7 @@ void nnue_undo_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struc
 
 /**
  * @brief Evaluates the position starting from the cached accumulators.
+ * @details The fixed-point output is in units of 1/8192 pawn.
  */
 int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos);
 

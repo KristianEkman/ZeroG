@@ -246,8 +246,9 @@ float nn_forward(NeuralNetwork *nn, const float *inputs) {
 
             // Activation functions
             if (l < nn->num_layers - 1) {
-                // ReLU for hidden layers
-                act[i] = (sum > 0.0f) ? sum : 0.0f;
+                // Clipped ReLU for hidden layers
+                float val = (sum > 0.0f) ? sum : 0.0f;
+                act[i] = (val < 1.0f) ? val : 1.0f;
             } else {
                 // Linear (Identity) activation for the single output neuron
                 act[i] = sum;
@@ -358,9 +359,9 @@ float nn_train_step(NeuralNetwork *nn, const float *inputs, float target, float 
             }
         }
 
-        // Apply ReLU derivative: delta is 0 if z <= 0
+        // Apply Clipped ReLU derivative: delta is 0 if z <= 0 or z >= 1.0
         for (int i = 0; i < n_curr; i++) {
-            if (z_curr[i] <= 0.0f) {
+            if (z_curr[i] <= 0.0f || z_curr[i] >= 1.0f) {
                 d_curr[i] = 0.0f;
             }
         }
@@ -1030,15 +1031,19 @@ int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
     int i = 0;
 #if defined(__ARM_NEON) || defined(__ARM_NEON__)
     int32x4_t zero_vec_s32 = vdupq_n_s32(0);
+    int32x4_t max_vec_s32 = vdupq_n_s32(127);
     for (; i <= h1_size - 8; i += 8) {
         int32x4_t acc_lo = vld1q_s32(&accum[i]);
         int32x4_t acc_hi = vld1q_s32(&accum[i + 4]);
-        vst1q_s32(&act1[i], vmaxq_s32(acc_lo, zero_vec_s32));
-        vst1q_s32(&act1[i + 4], vmaxq_s32(acc_hi, zero_vec_s32));
+        int32x4_t clamped_lo = vminq_s32(vmaxq_s32(acc_lo, zero_vec_s32), max_vec_s32);
+        int32x4_t clamped_hi = vminq_s32(vmaxq_s32(acc_hi, zero_vec_s32), max_vec_s32);
+        vst1q_s32(&act1[i], clamped_lo);
+        vst1q_s32(&act1[i + 4], clamped_hi);
     }
 #endif
     for (; i < h1_size; i++) {
-        act1[i] = (accum[i] > 0) ? accum[i] : 0;
+        int32_t val = (accum[i] > 0) ? accum[i] : 0;
+        act1[i] = (val < 127) ? val : 127;
     }
     
     for (int l = 2; l < nn->num_layers; l++) {
@@ -1069,7 +1074,8 @@ int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos) {
             }
 
             if (l < nn->num_layers - 1) {
-                act[i] = (sum > 0) ? (sum >> 6) : 0;
+                int32_t val = (sum > 0) ? (sum >> 6) : 0;
+                act[i] = (val < 127) ? val : 127;
             } else {
                 act[i] = sum;
             }

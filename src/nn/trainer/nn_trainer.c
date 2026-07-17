@@ -16,6 +16,7 @@
 typedef struct {
     float inputs[768];
     float target;
+    Position pos;
 } TrainingSample;
 
 // Shuffles dataset using Fisher-Yates algorithm
@@ -160,6 +161,7 @@ int main(int argc, char **argv) {
             // Extract feature mapping
             nn_extract_features(&temp_pos, dataset[parsed_count].inputs);
             dataset[parsed_count].target = target;
+            dataset[parsed_count].pos = temp_pos;
             parsed_count++;
         } else {
             skipped_count++;
@@ -252,13 +254,29 @@ int main(int argc, char **argv) {
         }
         float avg_val_loss = (val_size > 0) ? (total_val_loss / val_size) : 0.0f;
         
-        // Check if this is the best validation loss so far
-        int is_best = (avg_val_loss < best_val_loss);
+        // Quantize the network weights
+        nn_quantize(nn);
+        
+        // Evaluate quantized validation set
+        float total_quant_val_loss = 0.0f;
+        for (int i = 0; i < val_size; i++) {
+            // Refresh accumulators for validation positions using quantized weights
+            nnue_refresh_accumulator(nn, &val_set[i].pos);
+            int32_t output = nnue_evaluate_accumulator(nn, &val_set[i].pos);
+            
+            // Convert to pawn units (raw output is in 1/8192 units)
+            float quant_out = (float)output / 8192.0f;
+            float diff = quant_out - val_set[i].target;
+            total_quant_val_loss += 0.5f * diff * diff;
+        }
+        float avg_quant_val_loss = (val_size > 0) ? (total_quant_val_loss / val_size) : 0.0f;
+        
+        // Check if this is the best quantized validation loss so far
+        int is_best = (avg_quant_val_loss < best_val_loss);
         if (is_best) {
-            best_val_loss = avg_val_loss;
+            best_val_loss = avg_quant_val_loss;
             best_epoch = epoch;
-            // Save best model
-            nn_quantize(nn);
+            // Save best model (already quantized)
             if (!nn_save(nn, output_path)) {
                 fprintf(stderr, "Error: Failed to save model to '%s'\n", output_path);
                 nn_free(nn);
@@ -267,8 +285,8 @@ int main(int argc, char **argv) {
             }
         }
         
-        printf("Epoch %2d/%2d | Train Loss: %.6f | Val Loss: %.6f | LR: %.6f%s\n",
-               epoch, epochs, avg_train_loss, avg_val_loss, current_lr,
+        printf("Epoch %2d/%2d | Train Loss: %.6f | Float Val Loss: %.6f | Quant Val Loss: %.6f | LR: %.6f%s\n",
+               epoch, epochs, avg_train_loss, avg_val_loss, avg_quant_val_loss, current_lr,
                is_best ? " *" : "");
         
         // Learning rate decay schedule: half the learning rate every 10 epochs
