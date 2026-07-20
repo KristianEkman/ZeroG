@@ -129,7 +129,33 @@ int time_control_update(TimeControl *tc,
         }
     }
 
-    // 3. Predict if we will complete the next depth iteration
+    // 3. Score-drop extension: invest more time when score is falling
+    if (depth >= 6) {
+        int baseline = (tc->scores[depth - 1] + tc->scores[depth - 2]) / 2;
+        int score_diff = score - baseline;  // negative = score dropped
+
+        double score_factor = 1.0;
+        if (score_diff < -50) {
+            // Large drop: extend soft limit significantly (up to 2x)
+            score_factor = 1.5 + (double)(-score_diff - 50) / 200.0;
+            if (score_factor > 2.0) score_factor = 2.0;
+        } else if (score_diff < -20) {
+            // Moderate drop: slight extension
+            score_factor = 1.0 + (double)(-score_diff - 20) / 100.0;
+        } else if (score_diff > 30) {
+            // Score improving: save time
+            score_factor = 0.85;
+        }
+
+        tc->soft_limit_ms = (unsigned)(tc->soft_limit_ms * score_factor);
+
+        // Re-cap at hard limit
+        if (tc->soft_limit_ms > (tc->hard_limit_ms * 9) / 10) {
+            tc->soft_limit_ms = (tc->hard_limit_ms * 9) / 10;
+        }
+    }
+
+    // 4. Predict if we will complete the next depth iteration
     double factor = 3.0; // default node branching multiplier
     if (depth >= 2 && tc->nodes[depth - 1] > 0) {
         factor = (double)current_nodes / (double)tc->nodes[depth - 1];
