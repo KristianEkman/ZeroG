@@ -2,6 +2,12 @@
 """
 Texel tuning for ZeroG chess engine.
 Optimizes evaluation weights using L-BFGS-B on quiet training positions.
+
+Features:
+- Hybrid label: y = λ * p_eval + (1-λ) * game_outcome
+- Per-position sample weights from classify_positions.py
+- L2 regularization to prevent parameter drift
+- Train/validation split with early stopping
 """
 import numpy as np
 from scipy.optimize import minimize, minimize_scalar
@@ -117,22 +123,45 @@ def param_to_define(name):
 def load_csv(filename):
     """Load CSV exported by tune_export using chunked reading for memory efficiency.
 
+    Supports both old format (result, const_score, features...) and
+    new format (result, game_outcome, weight, const_score, features...).
+
     Features are stored as float32 (they're small integers, so no precision loss).
     This avoids the ~10 GB peak memory that np.genfromtxt would use.
     """
     print(f"Loading data from {filename}...")
 
-    # Read header and count lines
+    # Read header and detect format
     with open(filename, 'r') as f:
         header = f.readline().strip().split(',')
         num_cols = len(header)
         num_lines = sum(1 for _ in f)
 
-    num_features = num_cols - 2
+    # Detect new vs old format
+    has_weight = 'weight' in header
+    if has_weight:
+        # New format: result, game_outcome, weight, const_score, features...
+        result_col = 0
+        outcome_col = 1
+        weight_col = 2
+        const_col = 3
+        feature_start = 4
+    else:
+        # Old format: result, const_score, features...
+        result_col = 0
+        outcome_col = None
+        weight_col = None
+        const_col = 1
+        feature_start = 2
+
+    num_features = num_cols - feature_start
     print(f"  {num_lines:,} positions, {num_features} features")
+    print(f"  Format: {'extended (with weights)' if has_weight else 'legacy'}")
 
     # Pre-allocate arrays (features as float32 to save ~1.5 GB)
     results = np.empty(num_lines, dtype=np.float64)
+    game_outcomes = np.empty(num_lines, dtype=np.float64)
+    weights = np.ones(num_lines, dtype=np.float64)
     const_scores = np.empty(num_lines, dtype=np.float64)
     features = np.empty((num_lines, num_features), dtype=np.float32)
 
@@ -147,9 +176,15 @@ def load_csv(filename):
             if len(batch) >= chunk_size:
                 chunk = np.genfromtxt(batch, delimiter=',', dtype=np.float64)
                 n = chunk.shape[0]
-                results[row:row+n] = chunk[:, 0]
-                const_scores[row:row+n] = chunk[:, 1]
-                features[row:row+n] = chunk[:, 2:].astype(np.float32)
+                results[row:row+n] = chunk[:, result_col]
+                if outcome_col is not None:
+                    game_outcomes[row:row+n] = chunk[:, outcome_col]
+                else:
+                    game_outcomes[row:row+n] = chunk[:, result_col]
+                if weight_col is not None:
+                    weights[row:row+n] = chunk[:, weight_col]
+                const_scores[row:row+n] = chunk[:, const_col]
+                features[row:row+n] = chunk[:, feature_start:].astype(np.float32)
                 row += n
                 batch = []
                 if row % 100000 < chunk_size:
@@ -163,35 +198,58 @@ def load_csv(filename):
             n = chunk.shape[0] if chunk.ndim > 1 else 1
             if chunk.ndim == 1:
                 chunk = chunk.reshape(1, -1)
-            results[row:row+n] = chunk[:, 0]
-            const_scores[row:row+n] = chunk[:, 1]
-            features[row:row+n] = chunk[:, 2:].astype(np.float32)
+            results[row:row+n] = chunk[:, result_col]
+            if outcome_col is not None:
+                game_outcomes[row:row+n] = chunk[:, outcome_col]
+            else:
+                game_outcomes[row:row+n] = chunk[:, result_col]
+            if weight_col is not None:
+                weights[row:row+n] = chunk[:, weight_col]
+            const_scores[row:row+n] = chunk[:, const_col]
+            features[row:row+n] = chunk[:, feature_start:].astype(np.float32)
             row += n
 
     print(f"  Loaded {row:,} positions, {num_features} features (float32)")
-    return features, const_scores, results
+    return features, const_scores, results, game_outcomes, weights
 
 
-def loss_func(w, features, const_scores, results, K):
-    """Mean squared error between sigmoid(eval) and game result."""
+def compute_targets(results, game_outcomes, lam):
+    """Compute hybrid training targets: y = λ * p_eval + (1-λ) * game_outcome."""
+    return lam * results + (1.0 - lam) * game_outcomes
+
+
+def loss_func(w, features, const_scores, targets, weights, K, l2_lambda=0.0):
+    """Weighted mean squared error between sigmoid(eval) and target, with L2 regularization."""
     scores = const_scores + features @ w
     sig = K * scores / 400.0
     E = 1.0 / (1.0 + 10.0**(-sig))
-    loss = np.mean((results - E)**2)
 
-    # Analytical gradient
-    d = (results - E) * E * (1.0 - E)
-    grad = - (2.0 * np.log(10) * K / (400.0 * len(results))) * (features.T @ d)
+    residuals = targets - E
+    weighted_sq_err = weights * residuals**2
+    loss = np.sum(weighted_sq_err) / np.sum(weights)
+
+    # L2 regularization
+    if l2_lambda > 0:
+        loss += l2_lambda * np.sum(w**2)
+
+    # Analytical gradient (weighted)
+    d = weights * residuals * E * (1.0 - E)
+    grad = - (2.0 * np.log(10) * K / (400.0 * np.sum(weights))) * (features.T @ d)
+
+    # L2 gradient
+    if l2_lambda > 0:
+        grad += 2.0 * l2_lambda * w
+
     return loss, grad
 
 
-def optimal_K(features, const_scores, results, w):
+def optimal_K(features, const_scores, targets, weights, w):
     """Find the optimal K scaling constant."""
     def f(K):
         scores = const_scores + features @ w
         sig = K * scores / 400.0
         E = 1.0 / (1.0 + 10.0**(-sig))
-        return np.mean((results - E)**2)
+        return np.sum(weights * (targets - E)**2) / np.sum(weights)
     res = minimize_scalar(f, bounds=(0.1, 3.0), method='bounded')
     return res.x
 
@@ -324,6 +382,14 @@ def main():
                         help="Output header file (default: src/eval/eval_constants.h)")
     parser.add_argument("--maxiter", type=int, default=500,
                         help="Maximum L-BFGS-B iterations (default: 500)")
+    parser.add_argument("--lambda", type=float, default=1.0, dest="lam",
+                        help="Hybrid label interpolation: y = λ*eval + (1-λ)*game_outcome (default: 1.0 = pure eval)")
+    parser.add_argument("--l2", type=float, default=0.0,
+                        help="L2 regularization strength (default: 0.0 = no regularization)")
+    parser.add_argument("--val-split", type=float, default=0.1,
+                        help="Fraction of data for validation (default: 0.1)")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed for train/val split (default: 42)")
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
@@ -331,21 +397,24 @@ def main():
         print(f"Run './builds/zerog --tune-export <epd_file> {args.input}' first.", file=sys.stderr)
         sys.exit(1)
 
-    features, const_scores, results = load_csv(args.input)
+    features, const_scores, results, game_outcomes, weights = load_csv(args.input)
 
     if features.shape[1] != NUM_PARAMS:
         print(f"Error: CSV has {features.shape[1]} feature columns but expected {NUM_PARAMS}.", file=sys.stderr)
         sys.exit(1)
 
-    # Read initial values from CSV header to determine starting point
-    with open(args.input, 'r') as f:
-        header = f.readline().strip().split(',')
-    csv_names = header[2:]  # skip 'result' and 'const_score'
-    assert len(csv_names) == NUM_PARAMS, f"Header has {len(csv_names)} params, expected {NUM_PARAMS}"
+    # Compute hybrid targets
+    targets = compute_targets(results, game_outcomes, args.lam)
+    if args.lam < 1.0:
+        print(f"\n  Using hybrid label with λ={args.lam}")
+        print(f"  Target range: [{targets.min():.4f}, {targets.max():.4f}]")
+    else:
+        print(f"\n  Using pure search-eval labels (λ=1.0)")
 
-    # Use initial_param_values from the C code (read from features CSV won't have them)
-    # We need to construct the initial values from the existing eval_constants.h
-    # For now, read them from the existing header if available
+    # Weight statistics
+    print(f"  Weight range: [{weights.min():.2f}, {weights.max():.2f}], mean={weights.mean():.2f}")
+
+    # Read initial values from eval_constants.h
     w_initial = np.zeros(NUM_PARAMS)
     try:
         existing_header = args.output
@@ -368,29 +437,78 @@ def main():
     print(f"\nTotal parameters: {NUM_PARAMS}")
     print(f"Initial weight vector: min={w_initial.min():.0f}, max={w_initial.max():.0f}, mean={w_initial.mean():.1f}")
 
+    # ============================================================
+    # Train/Validation Split
+    # ============================================================
+    np.random.seed(args.seed)
+    n_total = len(targets)
+    n_val = int(n_total * args.val_split)
+    n_train = n_total - n_val
+
+    if n_val > 0:
+        indices = np.random.permutation(n_total)
+        train_idx = indices[:n_train]
+        val_idx = indices[n_train:]
+
+        train_features = features[train_idx]
+        train_const = const_scores[train_idx]
+        train_targets = targets[train_idx]
+        train_weights = weights[train_idx]
+
+        val_features = features[val_idx]
+        val_const = const_scores[val_idx]
+        val_targets = targets[val_idx]
+        val_weights = weights[val_idx]
+
+        print(f"\n  Train/Val split: {n_train:,} train, {n_val:,} validation ({args.val_split*100:.0f}%)")
+    else:
+        train_features = features
+        train_const = const_scores
+        train_targets = targets
+        train_weights = weights
+        val_features = None
+        print(f"\n  No validation split (val_split=0)")
+
     # Step 1: Find optimal K
     print("\nStep 1: Finding optimal K...")
-    K = optimal_K(features, const_scores, results, w_initial)
+    K = optimal_K(train_features, train_const, train_targets, train_weights, w_initial)
     print(f"  Optimal K = {K:.6f}")
 
-    initial_loss = loss_func(w_initial, features, const_scores, results, K)[0]
-    print(f"  Initial loss = {initial_loss:.8f}")
+    initial_train_loss = loss_func(w_initial, train_features, train_const, train_targets, train_weights, K, args.l2)[0]
+    print(f"  Initial train loss = {initial_train_loss:.8f}")
+
+    if val_features is not None:
+        initial_val_loss = loss_func(w_initial, val_features, val_const, val_targets, val_weights, K, 0.0)[0]
+        print(f"  Initial val loss   = {initial_val_loss:.8f}")
 
     # Step 2: Run L-BFGS-B
-    print(f"\nStep 2: Running L-BFGS-B (maxiter={args.maxiter})...")
+    print(f"\nStep 2: Running L-BFGS-B (maxiter={args.maxiter}, L2={args.l2})...")
     t0 = time.time()
 
     iter_count = [0]
+    best_val_loss = [float('inf')]
+    best_w = [w_initial.copy()]
+
     def callback(xk):
         iter_count[0] += 1
-        if iter_count[0] % 50 == 0:
-            loss = loss_func(xk, features, const_scores, results, K)[0]
-            print(f"  Iteration {iter_count[0]}: loss = {loss:.8f}")
+        if iter_count[0] % 25 == 0:
+            train_loss = loss_func(xk, train_features, train_const, train_targets, train_weights, K, args.l2)[0]
+            msg = f"  Iteration {iter_count[0]:4d}: train_loss = {train_loss:.8f}"
+
+            if val_features is not None:
+                val_loss = loss_func(xk, val_features, val_const, val_targets, val_weights, K, 0.0)[0]
+                msg += f"  val_loss = {val_loss:.8f}"
+                if val_loss < best_val_loss[0]:
+                    best_val_loss[0] = val_loss
+                    best_w[0] = xk.copy()
+                    msg += " *"
+
+            print(msg)
 
     res = minimize(
         loss_func,
         w_initial,
-        args=(features, const_scores, results, K),
+        args=(train_features, train_const, train_targets, train_weights, K, args.l2),
         method='L-BFGS-B',
         jac=True,
         options={'maxiter': args.maxiter, 'ftol': 1e-12, 'gtol': 1e-8},
@@ -400,23 +518,36 @@ def main():
     elapsed = time.time() - t0
     print(f"\n  Optimization completed in {elapsed:.1f}s")
     print(f"  Status: {res.message}")
-    print(f"  Final loss: {res.fun:.8f} (improved {initial_loss - res.fun:.8f})")
+    print(f"  Final train loss: {res.fun:.8f} (improved {initial_train_loss - res.fun:.8f})")
     print(f"  Iterations: {res.nit}, function evaluations: {res.nfev}")
+
+    # Choose best weights (val-based if split exists, otherwise optimizer result)
+    if val_features is not None:
+        final_val_loss = loss_func(res.x, val_features, val_const, val_targets, val_weights, K, 0.0)[0]
+        print(f"\n  Final val loss:   {final_val_loss:.8f}")
+        print(f"  Best val loss:    {best_val_loss[0]:.8f}")
+        if best_val_loss[0] < final_val_loss:
+            print(f"  Using best-validation weights (from earlier iteration)")
+            final_w = best_w[0]
+        else:
+            final_w = res.x
+    else:
+        final_w = res.x
 
     # Step 3: Re-optimize K with new weights
     print("\nStep 3: Re-optimizing K with tuned weights...")
-    K2 = optimal_K(features, const_scores, results, res.x)
+    K2 = optimal_K(train_features, train_const, train_targets, train_weights, final_w)
     print(f"  New K = {K2:.6f} (was {K:.6f})")
 
-    loss_with_new_K = loss_func(res.x, features, const_scores, results, K2)[0]
+    loss_with_new_K = loss_func(final_w, train_features, train_const, train_targets, train_weights, K2, args.l2)[0]
     print(f"  Loss with new K: {loss_with_new_K:.8f}")
 
     # Step 4: Write results
     print(f"\nStep 4: Writing eval_constants.h...")
-    write_eval_constants_header(res.x, args.output)
+    write_eval_constants_header(final_w, args.output)
 
     # Print notable parameter changes
-    w_final = np.round(res.x).astype(int)
+    w_final = np.round(final_w).astype(int)
     w_init_int = np.round(w_initial).astype(int)
     changes = np.abs(w_final - w_init_int)
     top_changes = np.argsort(changes)[::-1][:20]

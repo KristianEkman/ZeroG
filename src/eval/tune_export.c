@@ -977,7 +977,8 @@ int run_tune_export(const char *input_path, const char *output_path) {
     if (!out) { perror("Failed to open output CSV file"); fclose(in); return 1; }
 
     // Write CSV Headers
-    fprintf(out, "result,const_score");
+    // Extended format: result, game_outcome, weight, const_score, features...
+    fprintf(out, "result,game_outcome,weight,const_score");
     for (int i = 0; i < NUM_PARAMS; i++) {
         fprintf(out, ",%s", param_names[i]);
     }
@@ -999,11 +1000,13 @@ int run_tune_export(const char *input_path, const char *output_path) {
         while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r')) { line[--len] = '\0'; }
         if (len == 0) continue;
 
-        // EPD Format: <FEN> | <simulated_result> | <white_score>
+        // EPD Format: <FEN> | <simulated_result> | <white_score> [| qscore <Q>]
         char line_copy[1024];
         strcpy(line_copy, line);
         char *fen_part = strtok(line_copy, "|");
         char *result_part = strtok(NULL, "|");
+        char *score_part = strtok(NULL, "|");
+        char *extra_part = strtok(NULL, "|");
         if (!fen_part || !result_part) continue;
 
         size_t fen_len = strlen(fen_part);
@@ -1011,6 +1014,15 @@ int run_tune_export(const char *input_path, const char *output_path) {
         while (*fen_part == ' ') fen_part++;
 
         double result_val = atof(result_part);
+
+        // Parse weight from extra_part if present (e.g. "weight 1.5")
+        double weight = 1.0;
+        if (extra_part) {
+            char *weight_ptr = strstr(extra_part, "weight");
+            if (weight_ptr) {
+                sscanf(weight_ptr, "weight %lf", &weight);
+            }
+        }
 
         Position pos;
         memset(&pos, 0, sizeof(Position));
@@ -1037,7 +1049,10 @@ int run_tune_export(const char *input_path, const char *output_path) {
         }
 
         // Write row to CSV
-        fprintf(out, "%g,%d", result_val, const_score);
+        // Format: result, game_outcome, weight, const_score, features...
+        // game_outcome is the same as result for now (pure eval-based).
+        // When actual game results are available, they'll differ.
+        fprintf(out, "%g,%g,%g,%d", result_val, result_val, weight, const_score);
         for (int i = 0; i < NUM_PARAMS; i++) {
             fprintf(out, ",%g", features[i]);
         }
