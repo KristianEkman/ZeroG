@@ -23,6 +23,7 @@ MOVEGEN_TEST_TARGET = $(BUILD_DIR)/movegen_test_runner
 EVAL_TEST_TARGET = $(BUILD_DIR)/eval_test_runner
 SEARCH_TEST_TARGET = $(BUILD_DIR)/search_test_runner
 NN_TEST_TARGET = $(BUILD_DIR)/nn_test_runner
+ONLINE_TRAINER_TEST_TARGET = $(BUILD_DIR)/online_trainer_test_runner
 TUNING_TEST_TARGET = $(BUILD_DIR)/tuning_test_runner
 UCI_TEST_TARGET = $(BUILD_DIR)/uci_test_runner
 PERFT_BENCH_TARGET = $(BUILD_DIR)/perft_bench
@@ -51,6 +52,7 @@ MOVEGEN_TEST_SRCS = $(wildcard $(TEST_DIR)/movegen_tests/*.c) $(TEST_DIR)/unity.
 EVAL_TEST_SRCS = $(TEST_DIR)/eval_test.c $(TEST_DIR)/unity.c
 SEARCH_TEST_SRCS = $(TEST_DIR)/search_test.c $(TEST_DIR)/unity.c
 NN_TEST_SRCS = $(TEST_DIR)/nn_test.c $(TEST_DIR)/unity.c
+ONLINE_TRAINER_TEST_SRCS = $(TEST_DIR)/online_trainer_test.c $(TEST_DIR)/unity.c
 TUNING_TEST_SRCS = $(TEST_DIR)/tuning_test.c $(TEST_DIR)/unity.c
 UCI_TEST_SRCS = $(TEST_DIR)/uci_test.c $(TEST_DIR)/unity.c
 PERFT_BENCH_SRCS = $(TEST_DIR)/perft_bench.c
@@ -144,6 +146,10 @@ test_nn: $(NN_TEST_TARGET)
 	@echo "Running neural network tests..."
 	@$(NN_TEST_TARGET)
 
+test_online_trainer: $(ONLINE_TRAINER_TEST_TARGET)
+	@echo "Running online trainer tests..."
+	@$(ONLINE_TRAINER_TEST_TARGET)
+
 test_tuning: $(TUNING_TEST_TARGET)
 	@echo "Running tuning tests..."
 	@$(TUNING_TEST_TARGET)
@@ -152,7 +158,7 @@ test_uci: $(UCI_TEST_TARGET)
 	@echo "Running UCI tests..."
 	@$(UCI_TEST_TARGET)
 
-test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET) $(SEARCH_TEST_TARGET) $(NN_TEST_TARGET) $(TUNING_TEST_TARGET) $(UCI_TEST_TARGET)
+test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_TARGET) $(SEARCH_TEST_TARGET) $(NN_TEST_TARGET) $(ONLINE_TRAINER_TEST_TARGET) $(TUNING_TEST_TARGET) $(UCI_TEST_TARGET)
 	@echo "Running board tests..." && \
 	$(TEST_TARGET) && \
 	echo "Running FEN tests..." && \
@@ -165,6 +171,8 @@ test_all: $(TEST_TARGET) $(FEN_TEST_TARGET) $(MOVEGEN_TEST_TARGET) $(EVAL_TEST_T
 	$(SEARCH_TEST_TARGET) && \
 	echo "Running neural network tests..." && \
 	$(NN_TEST_TARGET) && \
+	echo "Running online trainer tests..." && \
+	$(ONLINE_TRAINER_TEST_TARGET) && \
 	echo "Running tuning tests..." && \
 	$(TUNING_TEST_TARGET) && \
 	echo "Running UCI tests..." && \
@@ -194,6 +202,9 @@ $(SEARCH_TEST_TARGET): $(LIB_SRCS) $(SEARCH_TEST_SRCS) | $(BUILD_DIR)
 
 $(NN_TEST_TARGET): $(LIB_SRCS) $(NN_TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(NN_TEST_SRCS) $(LDFLAGS) -lm
+
+$(ONLINE_TRAINER_TEST_TARGET): $(LIB_SRCS) $(ONLINE_TRAINER_TEST_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(ONLINE_TRAINER_TEST_SRCS) $(LDFLAGS) -lm
 
 $(TUNING_TEST_TARGET): $(LIB_SRCS) $(TUNING_TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(TEST_DIR) -o $@ $(LIB_SRCS) $(TUNING_TEST_SRCS) $(LDFLAGS) -lm

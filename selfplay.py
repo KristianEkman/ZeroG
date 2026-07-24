@@ -109,9 +109,22 @@ def main():
     parser.add_argument("-tc", "--tc", default="5+0.01", help="Time control for each engine.")
     parser.add_argument("-threads", "--threads", type=int, default=2, help="Number of search threads per engine.")
     parser.add_argument("--cutechess", help="Custom path to the cutechess-cli executable.")
+    parser.add_argument("--online-train", action="store_true", help="Run on-the-fly online NN self-play training directly in ZeroG.")
+    parser.add_argument("--depth", type=int, default=7, help="Search depth for online self-play training.")
+    parser.add_argument("--reset-network", action=argparse.BooleanOptionalAction, default=True, help="Initialize a fresh random neural network (use --no-reset-network to resume from existing weights).")
 
     # Parse known arguments, capture anything else to forward to cutechess-cli
     args, unknown_args = parser.parse_known_args()
+
+    if args.online_train:
+        engine_bin = "./builds/zerog"
+        if not os.path.exists(engine_bin):
+            print("Error: ./builds/zerog not found. Run 'make' first.", file=sys.stderr)
+            sys.exit(1)
+        reset_flag = "1" if args.reset_network else "0"
+        cmd = [engine_bin, "--selfplay-train", str(args.games), str(args.depth), str(args.threads), reset_flag, "nn_weights.bin"]
+        print(f"Running online NN self-play training: {' '.join(cmd)}")
+        return subprocess.call(cmd)
 
     # 1. Locate cutechess-cli
     cutechess_path = find_cutechess(args.cutechess)
