@@ -83,7 +83,7 @@ void online_trainer_record_ply(OnlineTrainer *trainer, const Position *pos,
   int idx = trainer->current_game.num_plies;
   GamePlyRecord *rec = &trainer->current_game.plies[idx];
 
-  nn_extract_features(pos, rec->inputs);
+  rec->pos = *pos;
   rec->score_cp = search_score_cp;
   rec->stm = pos->sideToMove;
 
@@ -114,8 +114,7 @@ void online_trainer_end_game(OnlineTrainer *trainer, NeuralNetwork *nn,
     float target = probability_to_pawns(p_target, trainer->score_scale);
 
     int write_idx = trainer->buffer.write_index;
-    memcpy(trainer->buffer.samples[write_idx].inputs, rec->inputs,
-           NN_INPUT_SIZE * sizeof(float));
+    trainer->buffer.samples[write_idx].pos = position_to_compact(&rec->pos);
     trainer->buffer.samples[write_idx].target = target;
 
     trainer->buffer.write_index = (write_idx + 1) % trainer->buffer.capacity;
@@ -126,25 +125,44 @@ void online_trainer_end_game(OnlineTrainer *trainer, NeuralNetwork *nn,
 
   trainer->games_processed++;
 
-  // 2. Perform mini-batch training steps from replay buffer
+  // 2. Perform parallel mini-batch training steps from replay buffer
   if (trainer->buffer.size > 0) {
     int steps = (trainer->batch_size < trainer->buffer.size)
                     ? trainer->batch_size
                     : trainer->buffer.size;
-    float batch_loss_sum = 0.0f;
-    for (int step = 0; step < steps; step++) {
-      int rand_idx = rand() % trainer->buffer.size;
-      OnlineSample *sample = &trainer->buffer.samples[rand_idx];
 
-      float step_loss =
-          nn_train_step(nn, sample->inputs, sample->target,
-                        trainer->learning_rate, trainer->weight_decay);
-      batch_loss_sum += step_loss;
-      trainer->total_samples_trained++;
+    TrainingSample *batch_samples = (TrainingSample *)malloc(steps * sizeof(TrainingSample));
+    if (batch_samples) {
+      for (int step = 0; step < steps; step++) {
+        int rand_idx = rand() % trainer->buffer.size;
+        OnlineSample *sample = &trainer->buffer.samples[rand_idx];
+        batch_samples[step].pos = sample->pos;
+        batch_samples[step].target = sample->target;
+      }
+
+      NNBatchTrainer *batch_trainer = nn_batch_trainer_init(nn, 4);
+      if (batch_trainer) {
+        float batch_loss = nn_train_batch_parallel(batch_trainer, nn, batch_samples, steps,
+                                                   trainer->learning_rate, trainer->weight_decay);
+        trainer->last_batch_loss = batch_loss / steps;
+        trainer->total_samples_trained += steps;
+        trainer->total_loss_sum += trainer->last_batch_loss;
+        nn_batch_trainer_free(batch_trainer);
+      } else {
+        float batch_loss_sum = 0.0f;
+        for (int step = 0; step < steps; step++) {
+          Position full_pos;
+          compact_to_position(&batch_samples[step].pos, &full_pos);
+          float step_loss = nn_train_step_pos(nn, &full_pos, batch_samples[step].target,
+                                               trainer->learning_rate, trainer->weight_decay);
+          batch_loss_sum += step_loss;
+          trainer->total_samples_trained++;
+        }
+        trainer->last_batch_loss = (steps > 0) ? (batch_loss_sum / steps) : 0.0f;
+        trainer->total_loss_sum += trainer->last_batch_loss;
+      }
+      free(batch_samples);
     }
-
-    trainer->last_batch_loss = (steps > 0) ? (batch_loss_sum / steps) : 0.0f;
-    trainer->total_loss_sum += trainer->last_batch_loss;
 
     // 3. Re-quantize weights for fast search evaluation
     nn_quantize(nn);

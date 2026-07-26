@@ -50,6 +50,7 @@ typedef struct {
     int total_biases;           ///< Total number of biases in the network
     int total_neurons;          ///< Total number of neurons in all layers (including input)
     int total_post_input_neurons; ///< Total number of neurons in hidden + output layers
+    int l2_input_size;          ///< Actual input width for layer 2 (NN_L2_INPUT_SIZE for NNUE, else sizes[1])
 } NeuralNetwork;
 
 /**
@@ -135,15 +136,16 @@ bool nn_load(NeuralNetwork *nn, const char *filename);
  */
 void nn_quantize(NeuralNetwork *nn);
 
-#define NN_INPUT_SIZE 780
-#define NN_ACCUM_SIZE 192
+#define NN_INPUT_SIZE 40972
+#define NN_ACCUM_SIZE 256
 #define NN_HIDDEN_SIZE 32
+#define NN_L2_INPUT_SIZE (NN_ACCUM_SIZE * 2)  /* 512: concatenated [stm_accum | opp_accum] */
 
 /**
- * @brief Extracts features (piece-square, castling rights, en-passant file) from a chess position.
+ * @brief Extracts HalfKA (King-relative piece-square + castling/EP state) features from a chess position.
  * 
- * Maps the 64 squares and 12 piece types to a 768-element piece-square vector,
- * followed by 4 castling features and 8 en-passant file features (total NN_INPUT_SIZE elements).
+ * Maps 64 king squares x 640 non-king piece features to 40,960 elements, followed by 4 castling features
+ * and 8 en-passant file features (total NN_INPUT_SIZE = 40,972 elements).
  * The representation is oriented from the side-to-move's perspective.
  * 
  * @param pos Pointer to the chess Position structure.
@@ -170,5 +172,80 @@ void nnue_undo_accumulator(NeuralNetwork *nn, Position *pos, Move m, const struc
  * @details The fixed-point output is in units of 1/8192 pawn.
  */
 int32_t nnue_evaluate_accumulator(NeuralNetwork *nn, const Position *pos);
+
+/**
+ * @struct TrainingSample
+ * @brief Represents a single chess training position and scalar evaluation target.
+ */
+typedef struct {
+    CompactPosition pos;
+    float target;
+} TrainingSample;
+
+/**
+ * @brief Extracts indices of non-zero (active) HalfKA features for a position.
+ * @param pos Pointer to chess Position.
+ * @param active_indices Output array of at least 64 ints to store feature indices.
+ * @return Number of active features extracted.
+ */
+int nn_extract_active_features(const Position *pos, int *active_indices);
+
+/**
+ * @brief Extracts active features for both side-to-move and opponent perspectives.
+ * @param pos Pointer to chess Position.
+ * @param stm_indices Output array for side-to-move feature indices.
+ * @param stm_count Output: number of STM active features.
+ * @param opp_indices Output array for opponent feature indices.
+ * @param opp_count Output: number of opponent active features.
+ */
+void nn_extract_active_features_dual(const Position *pos, int *stm_indices, int *stm_count, int *opp_indices, int *opp_count);
+void nn_extract_active_features_dual_compact(const CompactPosition *pos, int *stm_indices, int *stm_count, int *opp_indices, int *opp_count);
+
+/**
+ * @brief Trains the network on a single position using dual-perspective features.
+ * @details Extracts features from both perspectives, runs forward/backward, and applies AdamW update.
+ * @param nn Pointer to the NeuralNetwork.
+ * @param pos Pointer to the chess Position.
+ * @param target The target scalar value.
+ * @param learning_rate The learning rate.
+ * @param weight_decay Weight decay coefficient.
+ * @return The loss before the weight update.
+ */
+float nn_train_step_pos(NeuralNetwork *nn, const Position *pos, float target, float learning_rate, float weight_decay);
+
+typedef struct NNBatchTrainer NNBatchTrainer;
+
+/**
+ * @brief Initializes multi-threaded batch trainer contexts.
+ * @param nn Network structure prototype.
+ * @param num_threads Number of worker threads to spawn for training/eval.
+ * @return Pointer to NNBatchTrainer struct, or NULL on failure.
+ */
+NNBatchTrainer* nn_batch_trainer_init(NeuralNetwork *nn, int num_threads);
+
+/**
+ * @brief Frees all memory allocated for NNBatchTrainer.
+ */
+void nn_batch_trainer_free(NNBatchTrainer *trainer);
+
+/**
+ * @brief Performs multi-threaded parallel mini-batch training step.
+ * Computes forward pass, loss, deltas, and sparse gradient accumulation across threads.
+ * Applies AdamW parameter update ONCE for the batch on the main network.
+ * 
+ * @param trainer Pointer to NNBatchTrainer.
+ * @param nn Pointer to NeuralNetwork.
+ * @param samples Array of TrainingSample objects in this batch.
+ * @param batch_size Number of samples in the batch.
+ * @param learning_rate Learning rate for AdamW update step.
+ * @param weight_decay Decoupled weight decay coefficient.
+ * @return Total loss sum for all samples in the batch.
+ */
+float nn_train_batch_parallel(NNBatchTrainer *trainer, NeuralNetwork *nn, const TrainingSample *samples, int batch_size, float learning_rate, float weight_decay);
+
+/**
+ * @brief Performs multi-threaded validation loss evaluation on float network and quantized network.
+ */
+float nn_evaluate_batch_parallel(NNBatchTrainer *trainer, NeuralNetwork *nn, const TrainingSample *samples, int num_samples, float *out_quant_loss);
 
 #endif /* NN_H */

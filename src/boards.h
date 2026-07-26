@@ -2,6 +2,7 @@
 #define BOARDS_H
 
 #include <stdint.h>
+#include <string.h>
 
 /* ── squares (A1=0 … H8=63) ─────────────────────────────────────────────── */
 typedef enum {
@@ -111,7 +112,7 @@ enum {
     MOVE_CASTLE_QS   = 3
 };
 
-#define NNUE_ACCUM_SIZE 192
+#define NNUE_ACCUM_SIZE 256
 
 /* ── board (hybrid bitboard + mailbox) ──────────────────────────────────── */
 typedef struct {
@@ -128,6 +129,47 @@ typedef struct {
     uint64_t hashKey;        /* zobrist hash of the position      */
     int32_t  accum[2][NNUE_ACCUM_SIZE];  /* NNUE cached accumulators [0=White, 1=Black] */
 } Position;
+
+/* ── compact position for NNUE feature extraction / dataset training ───────── */
+typedef struct {
+    Piece    board[64];      /* mailbox helper                   */
+    int      kingSq[2];      /* king square for each colour      */
+    Color    sideToMove;     /* side to move next                */
+    uint8_t  castlingRights; /* castling availability bitmask    */
+    int      enPassantSquare;/* en passant target square or SQ_NONE */
+} CompactPosition;
+
+static inline CompactPosition position_to_compact(const Position *pos) {
+    CompactPosition cp;
+    memcpy(cp.board, pos->board, sizeof(pos->board));
+    cp.kingSq[0] = pos->kingSq[0];
+    cp.kingSq[1] = pos->kingSq[1];
+    cp.sideToMove = pos->sideToMove;
+    cp.castlingRights = pos->castlingRights;
+    cp.enPassantSquare = pos->enPassantSquare;
+    return cp;
+}
+
+static inline void compact_to_position(const CompactPosition *cp, Position *pos) {
+    memset(pos, 0, sizeof(Position));
+    memcpy(pos->board, cp->board, sizeof(cp->board));
+    pos->kingSq[0] = cp->kingSq[0];
+    pos->kingSq[1] = cp->kingSq[1];
+    pos->sideToMove = cp->sideToMove;
+    pos->castlingRights = cp->castlingRights;
+    pos->enPassantSquare = cp->enPassantSquare;
+    for (int sq = 0; sq < 64; sq++) {
+        Piece p = cp->board[sq];
+        if (p != EMPTY) {
+            Color c = PIECE_COLOR(p);
+            PieceType pt = PIECE_TYPE(p);
+            uint64_t bb = 1ULL << sq;
+            pos->pieces[COLOR_IDX(c)][pt] |= bb;
+            pos->occ[COLOR_IDX(c)] |= bb;
+            pos->occAll |= bb;
+        }
+    }
+}
 
 /* ── attack tables (initialised by bitboard_init) ──────────────────────── */
 extern uint64_t knightAttacks[64];

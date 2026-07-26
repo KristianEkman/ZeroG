@@ -9,12 +9,12 @@
 #define GAME_MAX_PLIES 600
 
 typedef struct {
-    float inputs[NN_INPUT_SIZE];
+    CompactPosition pos;
     float target;
 } OnlineSample;
 
 typedef struct {
-    float inputs[NN_INPUT_SIZE];
+    Position pos;
     int score_cp; // Search evaluation in centipawns
     Color stm;    // Side to move
 } GamePlyRecord;

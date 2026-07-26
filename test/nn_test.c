@@ -241,12 +241,12 @@ void test_nn_feature_extraction(void)
     float features[NN_INPUT_SIZE];
     nn_extract_features(&pos, features);
 
-    // Starting position has 32 pieces:
-    // White: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen, 1 king (16 pieces)
-    // Black: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen, 1 king (16 pieces)
+    // Starting position has 30 non-king pieces:
+    // White: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen (15 non-king pieces)
+    // Black: 8 pawns, 2 knights, 2 bishops, 2 rooks, 1 queen (15 non-king pieces)
     // Side to move is White.
     // Plus 4 castling rights.
-    // Active features should be 36 (1.0f values).
+    // Active features should be 34 (1.0f values).
     int active_count = 0;
     for (int i = 0; i < NN_INPUT_SIZE; i++) {
         if (features[i] == 1.0f) {
@@ -255,19 +255,21 @@ void test_nn_feature_extraction(void)
             TEST_ASSERT_EQUAL_FLOAT(0.0f, features[i]);
         }
     }
-    TEST_ASSERT_EQUAL_INT(36, active_count);
+    TEST_ASSERT_EQUAL_INT(34, active_count);
 
-    // Let's verify friendly pieces count is 16 and opponent pieces count is 16
+    // White king is on E1 (sq 4). Oriented king sq = 4.
+    // Piece-square block offset = 4 * 640 = 2560.
+    int k_offset = 4 * 640;
     int friendly_count = 0;
     int opponent_count = 0;
-    for (int i = 0; i < 384; i++) {
+    for (int i = k_offset; i < k_offset + 320; i++) {
         if (features[i] == 1.0f) friendly_count++;
     }
-    for (int i = 384; i < 768; i++) {
+    for (int i = k_offset + 320; i < k_offset + 640; i++) {
         if (features[i] == 1.0f) opponent_count++;
     }
-    TEST_ASSERT_EQUAL_INT(16, friendly_count);
-    TEST_ASSERT_EQUAL_INT(16, opponent_count);
+    TEST_ASSERT_EQUAL_INT(15, friendly_count);
+    TEST_ASSERT_EQUAL_INT(15, opponent_count);
 
     // Change side to move to Black and check perspective change
     pos.sideToMove = BLACK;
@@ -275,24 +277,21 @@ void test_nn_feature_extraction(void)
     nn_extract_features(&pos, black_features);
 
     // Black is now friendly, White is opponent.
-    // Ensure total active count is still 36 (32 pieces + 4 castling rights)
+    // Ensure total active count is still 34 (30 non-king pieces + 4 castling rights)
     active_count = 0;
     for (int i = 0; i < NN_INPUT_SIZE; i++) {
         if (black_features[i] == 1.0f) {
             active_count++;
         }
     }
-    TEST_ASSERT_EQUAL_INT(36, active_count);
+    TEST_ASSERT_EQUAL_INT(34, active_count);
 
-    // Let's make sure that friendly pieces for Black are at the same locations (except mirrored ranks)
-    // For example, friendly pawns for Black on starting board are on A7..H7.
-    // From Black's perspective, they should be on rank 2 (A2..H2, squares 8..15).
-    // Let's check features[8..15] (friendly pawns on rank 2 - should be 8 pawns!).
+    // Black king on E8 (sq 60). Oriented king sq = 60 ^ 56 = 4.
+    // Friendly pawns for Black on starting board are on A7..H7.
+    // From Black's perspective, they should be on rank 2 (A2..H2, sq 8..15).
     int black_friendly_pawn_count_on_rank2 = 0;
     for (int sq = 8; sq < 16; sq++) {
-        // Friendly pawn index: piece_idx=0 (PAWN-1), side_offset=0
-        // feature index = 0 * 64 + sq
-        if (black_features[sq] == 1.0f) {
+        if (black_features[k_offset + sq] == 1.0f) {
             black_friendly_pawn_count_on_rank2++;
         }
     }
@@ -352,6 +351,10 @@ void test_nnue_incremental_correctness(void)
         // Check White and Black accumulators match exactly
         for (int side = 0; side < 2; side++) {
             for (int k = 0; k < NN_ACCUM_SIZE; k++) {
+                if (next_pos_refreshed.accum[side][k] != next_pos_auto.accum[side][k]) {
+                    printf("Mismatch in test_nnue_incremental_correctness: move %d, side %d, k %d: refreshed=%d, auto=%d\n",
+                           i, side, k, next_pos_refreshed.accum[side][k], next_pos_auto.accum[side][k]);
+                }
                 TEST_ASSERT_EQUAL_INT(next_pos_refreshed.accum[side][k], next_pos_auto.accum[side][k]);
             }
         }
@@ -365,7 +368,7 @@ void test_nnue_incremental_correctness(void)
     nn_free(nn);
 }
 
-static void nnue_test_incremental_recursive(NeuralNetwork *nn, Position *pos, int depth) {
+static void nnue_test_incremental_recursive_path(NeuralNetwork *nn, Position *pos, int depth, const char *path) {
     if (depth == 0) return;
     
     Move moves[MAX_MOVES];
@@ -380,19 +383,22 @@ static void nnue_test_incremental_recursive(NeuralNetwork *nn, Position *pos, in
         Position refreshed = next_pos;
         nnue_refresh_accumulator(nn, &refreshed);
         
+        char move_str[6];
+        uci_move_to_string(pos, moves[i], move_str, sizeof(move_str));
+        char new_path[256];
+        snprintf(new_path, sizeof(new_path), "%s %s", path, move_str);
+
         for (int side = 0; side < 2; side++) {
             for (int k = 0; k < NN_ACCUM_SIZE; k++) {
                 if (refreshed.accum[side][k] != next_pos.accum[side][k]) {
-                    char move_str[6];
-                    uci_move_to_string(pos, moves[i], move_str, sizeof(move_str));
-                    printf("Mismatch after move %s at depth %d, side %d, index %d!\n", move_str, depth, side, k);
-                    printf("Refreshed: %d, Incremental: %d\n", refreshed.accum[side][k], next_pos.accum[side][k]);
+                    printf("Mismatch along path [%s] at depth %d, side %d, index %d! Refreshed: %d, Incremental: %d\n",
+                           new_path, depth, side, k, refreshed.accum[side][k], next_pos.accum[side][k]);
                     TEST_FAIL_MESSAGE("Accumulator mismatch during recursive search");
                 }
             }
         }
         
-        nnue_test_incremental_recursive(nn, &next_pos, depth - 1);
+        nnue_test_incremental_recursive_path(nn, &next_pos, depth - 1, new_path);
     }
 }
 
@@ -422,7 +428,7 @@ void test_nnue_incremental_recursive_all_positions(void) {
         TEST_ASSERT_EQUAL_INT(0, fen_parse(fens[i], &pos));
 
         nnue_refresh_accumulator(nn, &pos);
-        nnue_test_incremental_recursive(nn, &pos, depths[i]);
+        nnue_test_incremental_recursive_path(nn, &pos, depths[i], "");
     }
 
     eval_nn = old_eval_nn;
@@ -463,6 +469,8 @@ void test_nnue_accumulator_special_moves(void) {
         
         for (int m_idx = 0; m_idx < count; m_idx++) {
             Move m = moves[m_idx];
+            char move_str[6];
+            uci_move_to_string(&pos, m, move_str, sizeof(move_str));
             
             Position test_pos = pos;
             Undo u;
@@ -477,8 +485,6 @@ void test_nnue_accumulator_special_moves(void) {
             for (int side = 0; side < 2; side++) {
                 for (int k = 0; k < NN_ACCUM_SIZE; k++) {
                     if (refreshed.accum[side][k] != test_pos.accum[side][k]) {
-                        char move_str[6];
-                        uci_move_to_string(&pos, m, move_str, sizeof(move_str));
                         printf("Forward mismatch after move %s (FEN %d), side %d, idx %d!\n", move_str, i, side, k);
                         printf("Refreshed: %d, Incremental: %d\n", refreshed.accum[side][k], test_pos.accum[side][k]);
                         TEST_FAIL_MESSAGE("Forward accumulator mismatch");
@@ -575,13 +581,13 @@ void test_epd_score_perspective(void) {
     TEST_ASSERT_EQUAL_INT(0, parse_epd_line("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1 score -200", &pos, &target));
     
     // If the EPD has white-perspective score -200:
-    // Under STM perspective: target remains -2.0.
-    // Under WHITE perspective: since sideToMove is BLACK, we negate the target: target = -(-2.0) = +2.0.
-    float target_stm_b_white_input = target;
-    float target_white_b_white_input = -target; // negated since sideToMove is BLACK
+    // Under STM perspective: since sideToMove is BLACK, we negate the target: target = -(-2.0) = +2.0.
+    // Under WHITE perspective: target remains -2.0.
+    float target_stm_b_white_input = -target; // negated since sideToMove is BLACK
+    float target_white_b_white_input = target;
     
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, -2.0f, target_stm_b_white_input);
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 2.0f, target_white_b_white_input);
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 2.0f, target_stm_b_white_input);
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, -2.0f, target_white_b_white_input);
 }
 
 void test_nn_features_castling_and_ep(void) {
@@ -595,20 +601,20 @@ void test_nn_features_castling_and_ep(void) {
     nn_extract_features(&pos, features);
     
     // stm is BLACK.
-    // For Black: us_KS = BK (768), us_QS = BQ (769), them_KS = WK (770), them_QS = WQ (771)
-    // Since all castling rights are set, 768..771 should be 1.0f
-    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[768]);
-    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[769]);
-    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[770]);
-    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[771]);
+    // For Black: us_KS = BK (40960), us_QS = BQ (40961), them_KS = WK (40962), them_QS = WQ (40963)
+    // Since all castling rights are set, 40960..40963 should be 1.0f
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[40960]);
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[40961]);
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[40962]);
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, features[40963]);
     
     // EP square is e3 (file 4)
-    // ep_file_4 (772 + 4 = 776) should be 1.0f, others (772..779 except 776) should be 0.0f
+    // ep_file_4 (40964 + 4 = 40968) should be 1.0f, others (40964..40971 except 40968) should be 0.0f
     for (int f = 0; f < 8; f++) {
         if (f == 4) {
-            TEST_ASSERT_EQUAL_FLOAT(1.0f, features[772 + f]);
+            TEST_ASSERT_EQUAL_FLOAT(1.0f, features[40964 + f]);
         } else {
-            TEST_ASSERT_EQUAL_FLOAT(0.0f, features[772 + f]);
+            TEST_ASSERT_EQUAL_FLOAT(0.0f, features[40964 + f]);
         }
     }
 }

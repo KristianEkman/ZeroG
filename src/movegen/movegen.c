@@ -193,7 +193,7 @@ void undo_move(Position *pos, const Undo *u)
     int promo = MOVE_PROMO(m);
 
     if (use_nn && eval_nn) {
-        nnue_undo_accumulator(eval_nn, pos, m, u);
+        memcpy(pos->accum, u->accum, sizeof(pos->accum));
     }
 
     /* sideToMove was flipped by apply_move, so the side that just *moved*

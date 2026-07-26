@@ -7,17 +7,18 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 #include "boards.h"
 #include "fen.h"
 #include "nn.h"
 #include "movegen.h"
 
-typedef struct {
-    float inputs[NN_INPUT_SIZE];
-    float target;
-    Position pos;
-} TrainingSample;
+typedef enum {
+    PERSPECTIVE_STM,
+    PERSPECTIVE_WHITE
+} ScorePerspective;
 
 // Shuffles dataset using Fisher-Yates algorithm
 void shuffle_dataset(TrainingSample *dataset, int n) {
@@ -29,32 +30,101 @@ void shuffle_dataset(TrainingSample *dataset, int n) {
     }
 }
 
+// Single-pass EPD file loader with dynamic memory reallocation
+TrainingSample* load_epd_file(const char *path, int *out_count, ScorePerspective perspective) {
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return NULL;
+    }
+
+    int capacity = 1024;
+    int count = 0;
+    TrainingSample *samples = malloc(capacity * sizeof(TrainingSample));
+    if (!samples) {
+        fclose(f);
+        return NULL;
+    }
+
+    char line[1024];
+    Position temp_pos;
+    float target = 0.0f;
+
+    while (fgets(line, sizeof(line), f)) {
+        if (line[0] == '\n' || line[0] == '\r' || line[0] == '#') {
+            continue;
+        }
+        int res = parse_epd_line(line, &temp_pos, &target);
+        if (res == 0) {
+            if (perspective == PERSPECTIVE_WHITE && temp_pos.sideToMove == BLACK) {
+                target = -target;
+            }
+            if (count >= capacity) {
+                capacity *= 2;
+                TrainingSample *new_samples = realloc(samples, capacity * sizeof(TrainingSample));
+                if (!new_samples) {
+                    fprintf(stderr, "Error: Out of memory reallocating samples for '%s'.\n", path);
+                    free(samples);
+                    fclose(f);
+                    return NULL;
+                }
+                samples = new_samples;
+            }
+            samples[count].target = target;
+            samples[count].pos = position_to_compact(&temp_pos);
+            count++;
+        }
+    }
+    fclose(f);
+
+    if (count == 0) {
+        free(samples);
+        samples = NULL;
+    } else {
+        TrainingSample *shrunk = realloc(samples, count * sizeof(TrainingSample));
+        if (shrunk) {
+            samples = shrunk;
+        }
+    }
+
+    *out_count = count;
+    return samples;
+}
+
+static double get_time_sec(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + tv.tv_usec * 1e-6;
+}
+
 void print_help(const char *prog_name) {
-    printf("ZeroG Neural Network Trainer\n");
+    printf("ZeroG Neural Network Trainer (Multi-Threaded Parallel Mini-Batch)\n");
     printf("Usage: %s [options]\n", prog_name);
     printf("Options:\n");
     printf("  -i, --input <file>     Input EPD file (default: quiet_training_positions_evaluated.epd)\n");
     printf("  -o, --output <file>    Output weights file (default: nn_weights.bin)\n");
     printf("  -w, --weights <file>   Initial weights file to continue training from (optional)\n");
     printf("  -e, --epochs <num>     Number of training epochs (default: 30)\n");
+    printf("  -b, --batch-size <num> Batch size for training (default: 4096)\n");
+    printf("  -t, --threads <num>    Number of worker threads (default: 16 max)\n");
     printf("  -l, --lr <value>       Initial learning rate (default: 0.001)\n");
     printf("  -v, --val-split <val>  Validation split ratio (default: 0.1)\n");
+    printf("  --val-file <file>      Static validation EPD file (disables validation split if provided)\n");
     printf("  -d, --wd <value>       Weight decay coefficient (default: 1e-4)\n");
     printf("  -p, --score-perspective <persp> Score perspective: 'stm' or 'white' (default: stm)\n");
     printf("  -h, --help             Display this help and exit\n");
 }
-
-typedef enum {
-    PERSPECTIVE_STM,
-    PERSPECTIVE_WHITE
-} ScorePerspective;
 
 int main(int argc, char **argv) {
     // 1. Parse command line arguments
     const char *input_path = "quiet_training_positions_evaluated.epd";
     const char *output_path = "nn_weights.bin";
     const char *weights_path = NULL;
+    const char *val_file_path = NULL;
     int epochs = 30;
+    int batch_size = 4096;
+    long sys_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    int default_threads = (sys_cpus > 0 && sys_cpus <= 16) ? (int)sys_cpus : 16;
+    int num_threads = default_threads;
     float initial_lr = 0.001f;
     float val_split = 0.1f;
     float weight_decay = 1e-4f;
@@ -67,8 +137,14 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) output_path = argv[++i];
         } else if (strcmp(argv[i], "-w") == 0 || strcmp(argv[i], "--weights") == 0) {
             if (i + 1 < argc) weights_path = argv[++i];
+        } else if (strcmp(argv[i], "--val-file") == 0 || strcmp(argv[i], "--validation") == 0) {
+            if (i + 1 < argc) val_file_path = argv[++i];
         } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--epochs") == 0) {
             if (i + 1 < argc) epochs = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "--batch-size") == 0) {
+            if (i + 1 < argc) batch_size = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--threads") == 0) {
+            if (i + 1 < argc) num_threads = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-l") == 0 || strcmp(argv[i], "--lr") == 0) {
             if (i + 1 < argc) initial_lr = (float)atof(argv[++i]);
         } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--val-split") == 0) {
@@ -96,7 +172,7 @@ int main(int argc, char **argv) {
         }
     }
     
-    if (epochs <= 0 ||
+    if (epochs <= 0 || batch_size <= 0 || num_threads <= 0 ||
         !isfinite(initial_lr) || initial_lr <= 0.0f ||
         !isfinite(val_split) || val_split <= 0.0f || val_split >= 1.0f ||
         !isfinite(weight_decay) || weight_decay < 0.0f) {
@@ -104,207 +180,247 @@ int main(int argc, char **argv) {
         return 1;
     }
     
+    if (num_threads > 16) num_threads = 16;
     
-    // 2. Initialize engine components (essential for FEN parsing)
+    // 2. Initialize engine components
     printf("Initializing engine bitboards...\n");
     bitboard_init();
     
-    // 3. Count valid positions in EPD file
-    printf("Reading EPD file: %s\n", input_path);
-    FILE *f = fopen(input_path, "r");
-    if (!f) {
-        fprintf(stderr, "Error: Could not open EPD file '%s'\n", input_path);
-        return 1;
-    }
-    
-    char line[1024];
-    int total_lines = 0;
-    while (fgets(line, sizeof(line), f)) {
-        if (line[0] != '\n' && line[0] != '\r' && line[0] != '#') {
-            total_lines++;
+    // 3. Detect if input_path is a list file (ends with .txt or .lst)
+    bool is_list_file = false;
+    size_t input_len = strlen(input_path);
+    if (input_len > 4) {
+        const char *ext = input_path + input_len - 4;
+        if (strcasecmp(ext, ".txt") == 0 || strcasecmp(ext, ".lst") == 0) {
+            is_list_file = true;
         }
     }
-    rewind(f);
-    
-    if (total_lines == 0) {
-        fprintf(stderr, "Error: No lines to parse in EPD file '%s'\n", input_path);
-        fclose(f);
-        return 1;
-    }
-    printf("Found %d raw lines in EPD.\n", total_lines);
-    
-    // Allocate dataset memory
-    TrainingSample *dataset = malloc(total_lines * sizeof(TrainingSample));
-    if (!dataset) {
-        fprintf(stderr, "Error: Out of memory allocating dataset buffer.\n");
-        fclose(f);
-        return 1;
-    }
-    
-    // 4. Parse positions and extract features
-    int parsed_count = 0;
-    int skipped_count = 0;
-    Position temp_pos;
-    float target = 0.0f;
-    
-    printf("Parsing positions and extracting features...\n");
-    while (fgets(line, sizeof(line), f)) {
-        if (line[0] == '\n' || line[0] == '\r' || line[0] == '#') {
-            continue;
+
+    char **file_paths = NULL;
+    int num_files = 0;
+
+    if (is_list_file) {
+        printf("Reading EPD file list: %s\n", input_path);
+        FILE *lf = fopen(input_path, "r");
+        if (!lf) {
+            fprintf(stderr, "Error: Could not open list file '%s'\n", input_path);
+            return 1;
         }
-        
-        int res = parse_epd_line(line, &temp_pos, &target);
-        if (res == 0) {
-            if (perspective == PERSPECTIVE_WHITE && temp_pos.sideToMove == BLACK) {
-                target = -target;
+        char path_line[1024];
+        while (fgets(path_line, sizeof(path_line), lf)) {
+            // Trim trailing spaces and newlines
+            size_t len = strlen(path_line);
+            while (len > 0 && isspace((unsigned char)path_line[len - 1])) {
+                path_line[len - 1] = '\0';
+                len--;
             }
-            // Extract feature mapping
-            nn_extract_features(&temp_pos, dataset[parsed_count].inputs);
-            dataset[parsed_count].target = target;
-            dataset[parsed_count].pos = temp_pos;
-            parsed_count++;
-        } else {
-            skipped_count++;
+            // Skip empty lines and comments
+            if (len == 0 || path_line[0] == '#') {
+                continue;
+            }
+            file_paths = realloc(file_paths, (num_files + 1) * sizeof(char *));
+            file_paths[num_files] = strdup(path_line);
+            num_files++;
         }
+        fclose(lf);
+        if (num_files == 0) {
+            fprintf(stderr, "Error: No EPD files listed in '%s'\n", input_path);
+            return 1;
+        }
+        printf("Found %d EPD files to process.\n", num_files);
+    } else {
+        file_paths = malloc(sizeof(char *));
+        file_paths[0] = strdup(input_path);
+        num_files = 1;
     }
-    fclose(f);
-    
-    printf("Successfully parsed: %d | Skipped (mate/invalid/extreme): %d\n", parsed_count, skipped_count);
-    if (parsed_count == 0) {
-        fprintf(stderr, "Error: Zero valid training samples extracted.\n");
-        free(dataset);
-        return 1;
-    }
-    
-    // 5. Shuffle and split dataset
-    printf("Shuffling and splitting dataset (Validation Split: %.1f%%)...\n", val_split * 100.0f);
-    srand(42); // Seed with fixed number for reproducibility
-    shuffle_dataset(dataset, parsed_count);
-    
-    int val_size = (int)(parsed_count * val_split);
-    int train_size = parsed_count - val_size;
-    
-    if (train_size < 1 || val_size < 1) {
-        fprintf(stderr, "Dataset is too small for the selected validation split\n");
-        free(dataset);
-        return 1;
-    }
-    
-    TrainingSample *train_set = dataset;
-    TrainingSample *val_set = dataset + train_size;
-    
-    printf("Train size: %d | Validation size: %d\n", train_size, val_size);
-    
-    // 6. Initialize Neural Network (NN_INPUT_SIZE -> NN_ACCUM_SIZE -> NN_HIDDEN_SIZE -> 1)
+
+    // 4. Initialize Neural Network
     int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE, 1};
     int num_layers = sizeof(sizes) / sizeof(sizes[0]);
     printf("Initializing neural network with layout: {%d, %d, %d, 1}...\n", NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE);
     NeuralNetwork *nn = nn_init(sizes, num_layers);
     if (!nn) {
         fprintf(stderr, "Error: Neural network initialization failed.\n");
-        free(dataset);
+        for (int i = 0; i < num_files; i++) free(file_paths[i]);
+        free(file_paths);
         return 1;
     }
-    
+
     if (weights_path) {
         printf("Loading existing weights from: %s\n", weights_path);
         if (!nn_load(nn, weights_path)) {
             fprintf(stderr, "Error: Failed to load weights from '%s'\n", weights_path);
             nn_free(nn);
-            free(dataset);
+            for (int i = 0; i < num_files; i++) free(file_paths[i]);
+            free(file_paths);
             return 1;
         }
         printf("Successfully loaded weights. Continuing training...\n");
     }
-    
-    // 7. Training loop
+
+    // Initialize Batch Trainer
+    NNBatchTrainer *batch_trainer = nn_batch_trainer_init(nn, num_threads);
+    if (!batch_trainer) {
+        fprintf(stderr, "Error: Failed to initialize batch trainer.\n");
+        nn_free(nn);
+        for (int i = 0; i < num_files; i++) free(file_paths[i]);
+        free(file_paths);
+        return 1;
+    }
+
+    // 5. Optionally load static validation dataset
+    TrainingSample *global_val_set = NULL;
+    int global_val_size = 0;
+    if (val_file_path) {
+        printf("Loading static validation dataset from: %s\n", val_file_path);
+        global_val_set = load_epd_file(val_file_path, &global_val_size, perspective);
+        if (!global_val_set || global_val_size == 0) {
+            fprintf(stderr, "Error: Failed to load static validation dataset from '%s'\n", val_file_path);
+            nn_batch_trainer_free(batch_trainer);
+            nn_free(nn);
+            for (int i = 0; i < num_files; i++) free(file_paths[i]);
+            free(file_paths);
+            return 1;
+        }
+        printf("Loaded %d validation samples.\n", global_val_size);
+    }
+
+    // 6. Training loop across files
     float current_lr = initial_lr;
     float best_val_loss = 1e30f;
     int best_epoch = 0;
-    printf("\nStarting training (%d epochs, initial lr = %.5f, wd = %.1e)...\n",
+    int global_epoch = 0;
+    double start_time = get_time_sec();
+
+    printf("\nStarting training (%d epochs per file, initial lr = %.5f, wd = %.1e)...\n",
            epochs, current_lr, weight_decay);
-    printf("-------------------------------------------------------------------\n");
-    
-    clock_t start_time = clock();
-    
-    for (int epoch = 1; epoch <= epochs; epoch++) {
-        // Reshuffle train set each epoch
-        shuffle_dataset(train_set, train_size);
-        
-        float total_train_loss = 0.0f;
-        for (int i = 0; i < train_size; i++) {
-            float loss = nn_train_step(nn, train_set[i].inputs, train_set[i].target,
-                                       current_lr, weight_decay);
-            if (!isfinite(loss)) {
-                fprintf(stderr, "Error: Training failed at epoch %d, sample %d\n", epoch, i);
-                nn_free(nn);
+    printf("------------------------------------------------------------------------------------\n");
+
+    for (int file_idx = 0; file_idx < num_files; file_idx++) {
+        const char *cur_file = file_paths[file_idx];
+        printf("\n[File %d/%d] Reading: %s\n", file_idx + 1, num_files, cur_file);
+
+        int parsed_count = 0;
+        TrainingSample *dataset = load_epd_file(cur_file, &parsed_count, perspective);
+        if (!dataset) {
+            fprintf(stderr, "Warning: Could not read or parse EPD file '%s'. Skipping.\n", cur_file);
+            continue;
+        }
+        printf("Successfully parsed: %d positions\n", parsed_count);
+
+        TrainingSample *train_set = NULL;
+        TrainingSample *val_set = NULL;
+        int train_size = 0;
+        int val_size = 0;
+
+        if (global_val_set) {
+            train_size = parsed_count;
+            train_set = dataset;
+            val_size = global_val_size;
+            val_set = global_val_set;
+            // Shuffle whole training set
+            srand(42 + file_idx); // Vary seed per file for diversity
+            shuffle_dataset(train_set, train_size);
+        } else {
+            // Fallback to local train/val split
+            srand(42 + file_idx); // Vary seed per file for diversity
+            shuffle_dataset(dataset, parsed_count);
+
+            val_size = (int)(parsed_count * val_split);
+            train_size = parsed_count - val_size;
+
+            if (train_size < 1 || val_size < 1) {
+                fprintf(stderr, "Dataset is too small for the selected validation split. Skipping.\n");
                 free(dataset);
-                return 1;
+                continue;
             }
-            total_train_loss += loss;
+
+            train_set = dataset;
+            val_set = dataset + train_size;
         }
-        float avg_train_loss = total_train_loss / train_size;
-        
-        // Evaluate validation set
-        float total_val_loss = 0.0f;
-        for (int i = 0; i < val_size; i++) {
-            float out = nn_forward(nn, val_set[i].inputs);
-            float diff = out - val_set[i].target;
-            total_val_loss += 0.5f * diff * diff;
-        }
-        float avg_val_loss = (val_size > 0) ? (total_val_loss / val_size) : 0.0f;
-        
-        // Quantize the network weights
-        nn_quantize(nn);
-        
-        // Evaluate quantized validation set
-        float total_quant_val_loss = 0.0f;
-        for (int i = 0; i < val_size; i++) {
-            // Refresh accumulators for validation positions using quantized weights
-            nnue_refresh_accumulator(nn, &val_set[i].pos);
-            int32_t output = nnue_evaluate_accumulator(nn, &val_set[i].pos);
-            
-            // Convert to pawn units (raw output is in 1/8192 units)
-            float quant_out = (float)output / 8192.0f;
-            float diff = quant_out - val_set[i].target;
-            total_quant_val_loss += 0.5f * diff * diff;
-        }
-        float avg_quant_val_loss = (val_size > 0) ? (total_quant_val_loss / val_size) : 0.0f;
-        
-        // Check if this is the best quantized validation loss so far
-        int is_best = (avg_quant_val_loss < best_val_loss);
-        if (is_best) {
-            best_val_loss = avg_quant_val_loss;
-            best_epoch = epoch;
-            // Save best model (already quantized)
-            if (!nn_save(nn, output_path)) {
-                fprintf(stderr, "Error: Failed to save model to '%s'\n", output_path);
-                nn_free(nn);
-                free(dataset);
-                return 1;
+
+        printf("Train size: %d | Validation size: %d\n", train_size, val_size);
+        printf("Batch size: %d | Threads: %d\n", batch_size, num_threads);
+
+        for (int epoch = 1; epoch <= epochs; epoch++) {
+            global_epoch++;
+            double epoch_start = get_time_sec();
+            shuffle_dataset(train_set, train_size);
+
+            float total_train_loss = 0.0f;
+            for (int i = 0; i < train_size; i += batch_size) {
+                int cur_batch_size = (i + batch_size <= train_size) ? batch_size : (train_size - i);
+                float b_loss = nn_train_batch_parallel(batch_trainer, nn, &train_set[i], cur_batch_size, current_lr, weight_decay);
+                if (!isfinite(b_loss)) {
+                    fprintf(stderr, "Error: Training failed at file %d, epoch %d, sample %d\n", file_idx + 1, epoch, i);
+                    free(dataset);
+                    if (global_val_set) free(global_val_set);
+                    nn_batch_trainer_free(batch_trainer);
+                    nn_free(nn);
+                    for (int k = 0; k < num_files; k++) free(file_paths[k]);
+                    free(file_paths);
+                    return 1;
+                }
+                total_train_loss += b_loss;
+            }
+            float avg_train_loss = total_train_loss / train_size;
+
+            // Quantize network weights
+            nn_quantize(nn);
+
+            // Multi-threaded validation loss evaluation (both float & quantized)
+            float avg_quant_val_loss = 0.0f;
+            float avg_val_loss = nn_evaluate_batch_parallel(batch_trainer, nn, val_set, val_size, &avg_quant_val_loss);
+
+            double epoch_time = get_time_sec() - epoch_start;
+            double kpos_per_sec = (double)train_size / (epoch_time * 1000.0);
+
+            int is_best = (avg_quant_val_loss < best_val_loss);
+            if (is_best) {
+                best_val_loss = avg_quant_val_loss;
+                best_epoch = global_epoch;
+                if (!nn_save(nn, output_path)) {
+                    fprintf(stderr, "Error: Failed to save model to '%s'\n", output_path);
+                    free(dataset);
+                    if (global_val_set) free(global_val_set);
+                    nn_batch_trainer_free(batch_trainer);
+                    nn_free(nn);
+                    for (int k = 0; k < num_files; k++) free(file_paths[k]);
+                    free(file_paths);
+                    return 1;
+                }
+            }
+
+            printf("Epoch %2d (Global %2d) | Train Loss: %.6f | Float Val Loss: %.6f | Quant Val Loss: %.6f | LR: %.6f | Time: %.2fs (%.1fk pos/s)%s\n",
+                   epoch, global_epoch, avg_train_loss, avg_val_loss, avg_quant_val_loss, current_lr,
+                   epoch_time, kpos_per_sec, is_best ? " *" : "");
+
+            int decay_step = (num_files * epochs) / 5;
+            if (decay_step < 10) decay_step = 10;
+            if (global_epoch % decay_step == 0) {
+                current_lr *= 0.5f;
             }
         }
-        
-        printf("Epoch %2d/%2d | Train Loss: %.6f | Float Val Loss: %.6f | Quant Val Loss: %.6f | LR: %.6f%s\n",
-               epoch, epochs, avg_train_loss, avg_val_loss, avg_quant_val_loss, current_lr,
-               is_best ? " *" : "");
-        
-        // Learning rate decay schedule: half the learning rate every 10 epochs
-        if (epoch % 10 == 0) {
-            current_lr *= 0.5f;
-        }
+
+        free(dataset);
     }
-    
-    clock_t end_time = clock();
-    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-    printf("-------------------------------------------------------------------\n");
-    printf("Training completed in %.2f seconds.\n", elapsed_time);
-    printf("Best validation loss: %.6f at epoch %d (saved to %s)\n",
+
+    double elapsed_time = get_time_sec() - start_time;
+    printf("------------------------------------------------------------------------------------\n");
+    printf("Training completed in %.2f seconds (processed %d files).\n", elapsed_time, num_files);
+    printf("Best validation loss: %.6f at global epoch %d (saved to %s)\n",
            best_val_loss, best_epoch, output_path);
-    
-    // 8. Clean up
+
+    // Clean up
+    if (global_val_set) {
+        free(global_val_set);
+    }
+    nn_batch_trainer_free(batch_trainer);
     nn_free(nn);
-    free(dataset);
+    for (int i = 0; i < num_files; i++) {
+        free(file_paths[i]);
+    }
+    free(file_paths);
     printf("Trainer done.\n");
     return 0;
 }

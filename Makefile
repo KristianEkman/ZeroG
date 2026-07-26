@@ -63,7 +63,7 @@ EPD_DEDUP_SRCS = $(SRC_DIR)/nn/trainer/epd_dedup.c
 
 .PHONY: all clean test test_fen test_movegen test_eval test_search test_nn test_tuning test_uci test_all bench_perft bench_search bench_nn release debug profile profile_search profile_nn nn_trainer train_nn epd_dedup dedup coverage coverage_html
 
-all: $(TARGET)
+all: $(TARGET) $(NN_TRAINER_TARGET) $(EPD_DEDUP_TARGET)
 
 release:
 	@$(MAKE) BUILD=release all
