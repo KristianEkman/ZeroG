@@ -24,7 +24,7 @@
 set -e  # Exit on error
 
 # Default configuration
-SELFPLAY_GAMES=3000
+SELFPLAY_GAMES=10000
 SELFPLAY_THREADS=2
 STOCKFISH_DEPTH=14
 CONCURRENCY=$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)

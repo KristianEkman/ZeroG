@@ -23,6 +23,10 @@ const int initial_param_values[NUM_PARAMS] = {
     ROOK_OPEN_FILE_EG_VAL,
     ROOK_SEMI_OPEN_FILE_MG_VAL,
     ROOK_SEMI_OPEN_FILE_EG_VAL,
+    ROOK_ON_7TH_MG_VAL,
+    ROOK_ON_7TH_EG_VAL,
+    CONNECTED_ROOKS_MG_VAL,
+    CONNECTED_ROOKS_EG_VAL,
 
     // Bishop pair
     BISHOP_PAIR_BONUS_VAL,
@@ -32,6 +36,10 @@ const int initial_param_values[NUM_PARAMS] = {
     ISOLATED_PAWN_MG_VAL, ISOLATED_PAWN_EG_VAL,
     ISOLATED_PAWN_SEMI_OPEN_MG_VAL, ISOLATED_PAWN_SEMI_OPEN_EG_VAL,
 
+    // Outposts
+    KNIGHT_OUTPOST_MG_VAL, KNIGHT_OUTPOST_EG_VAL,
+    BISHOP_OUTPOST_MG_VAL, BISHOP_OUTPOST_EG_VAL,
+
     // Passed pawns MG ranks 1..6
     PASSED_PAWN_MG_R1_VAL, PASSED_PAWN_MG_R2_VAL, PASSED_PAWN_MG_R3_VAL,
     PASSED_PAWN_MG_R4_VAL, PASSED_PAWN_MG_R5_VAL, PASSED_PAWN_MG_R6_VAL,
@@ -40,10 +48,10 @@ const int initial_param_values[NUM_PARAMS] = {
     PASSED_PAWN_EG_R4_VAL, PASSED_PAWN_EG_R5_VAL, PASSED_PAWN_EG_R6_VAL,
 
     // Passed pawns extra
+    PASSED_PAWN_CONNECTED_MG_VAL, PASSED_PAWN_CONNECTED_EG_VAL,
     PASSED_PAWN_DEFENDED_MG_VAL, PASSED_PAWN_DEFENDED_EG_VAL,
     PASSED_PAWN_FRIENDLY_BEHIND_MG_VAL, PASSED_PAWN_FRIENDLY_BEHIND_EG_VAL,
     PASSED_PAWN_ENEMY_BEHIND_MG_VAL, PASSED_PAWN_ENEMY_BEHIND_EG_VAL,
-
     // Knight mobility MG
     KNIGHT_MOBILITY_MG_0_VAL, KNIGHT_MOBILITY_MG_1_VAL, KNIGHT_MOBILITY_MG_2_VAL,
     KNIGHT_MOBILITY_MG_3_VAL, KNIGHT_MOBILITY_MG_4_VAL, KNIGHT_MOBILITY_MG_5_VAL,
@@ -178,12 +186,15 @@ const int initial_param_values[NUM_PARAMS] = {
 const char* param_names[NUM_PARAMS] = {
     "piece_pawn", "piece_knight", "piece_bishop", "piece_rook", "piece_queen",
     "rook_open_file_mg", "rook_open_file_eg", "rook_semi_open_file_mg", "rook_semi_open_file_eg",
+    "rook_on_7th_mg", "rook_on_7th_eg", "connected_rooks_mg", "connected_rooks_eg",
     "bishop_pair_bonus",
     "double_pawn_mg", "double_pawn_eg",
     "isolated_pawn_mg", "isolated_pawn_eg",
     "isolated_pawn_semi_open_mg", "isolated_pawn_semi_open_eg",
+    "knight_outpost_mg", "knight_outpost_eg", "bishop_outpost_mg", "bishop_outpost_eg",
     "passed_pawn_mg_r1", "passed_pawn_mg_r2", "passed_pawn_mg_r3", "passed_pawn_mg_r4", "passed_pawn_mg_r5", "passed_pawn_mg_r6",
     "passed_pawn_eg_r1", "passed_pawn_eg_r2", "passed_pawn_eg_r3", "passed_pawn_eg_r4", "passed_pawn_eg_r5", "passed_pawn_eg_r6",
+    "passed_pawn_connected_mg", "passed_pawn_connected_eg",
     "passed_pawn_defended_mg", "passed_pawn_defended_eg",
     "passed_pawn_friendly_behind_mg", "passed_pawn_friendly_behind_eg",
     "passed_pawn_enemy_behind_mg", "passed_pawn_enemy_behind_eg",
@@ -378,6 +389,24 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
     uint64_t w_rooks_queens = pos->pieces[COLOR_IDX(WHITE)][ROOK] | pos->pieces[COLOR_IDX(WHITE)][QUEEN];
     uint64_t b_rooks_queens = pos->pieces[COLOR_IDX(BLACK)][ROOK] | pos->pieces[COLOR_IDX(BLACK)][QUEEN];
 
+    // Precompute passed pawn bitboards
+    uint64_t w_passed = 0ULL;
+    uint64_t temp_w = w_pawns_copy;
+    while (temp_w) {
+        int sq = pop_lsb(&temp_w);
+        if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+            w_passed |= (1ULL << sq);
+        }
+    }
+    uint64_t b_passed = 0ULL;
+    uint64_t temp_b = b_pawns_copy;
+    while (temp_b) {
+        int sq = pop_lsb(&temp_b);
+        if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+            b_passed |= (1ULL << sq);
+        }
+    }
+
     // --- Pawns ---
     uint64_t w_pawns = w_pawns_copy;
     while (w_pawns) {
@@ -394,7 +423,7 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
             features[PARAM_DOUBLE_PAWN_MG] -= mg_scale;
             features[PARAM_DOUBLE_PAWN_EG] -= eg_scale;
         }
-        if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+        if ((1ULL << sq) & w_passed) {
             int rank = RANK_OF(sq);
             int defended = (pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) ? 1 : 0;
             int blocked = (pos->occAll & (1ULL << (sq + 8))) ? 1 : 0;
@@ -403,6 +432,10 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
             double scale = blocked ? 0.7 : 1.0;
             features[PARAM_PASSED_PAWN_MG_R1 + rank - 1] += scale * mg_scale;
             features[PARAM_PASSED_PAWN_EG_R1 + rank - 1] += scale * eg_scale;
+            if (adjacentFilesMask[sq] & w_passed) {
+                features[PARAM_PASSED_PAWN_CONNECTED_MG] += scale * mg_scale;
+                features[PARAM_PASSED_PAWN_CONNECTED_EG] += scale * eg_scale;
+            }
             if (defended) {
                 features[PARAM_PASSED_PAWN_DEFENDED_MG] += scale * mg_scale;
                 features[PARAM_PASSED_PAWN_DEFENDED_EG] += scale * eg_scale;
@@ -433,7 +466,7 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
             features[PARAM_DOUBLE_PAWN_MG] += mg_scale;
             features[PARAM_DOUBLE_PAWN_EG] += eg_scale;
         }
-        if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+        if ((1ULL << sq) & b_passed) {
             int rank = 7 - RANK_OF(sq);
             int defended = (pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) ? 1 : 0;
             int blocked = (pos->occAll & (1ULL << (sq - 8))) ? 1 : 0;
@@ -442,6 +475,10 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
             double scale = blocked ? 0.7 : 1.0;
             features[PARAM_PASSED_PAWN_MG_R1 + rank - 1] -= scale * mg_scale;
             features[PARAM_PASSED_PAWN_EG_R1 + rank - 1] -= scale * eg_scale;
+            if (adjacentFilesMask[sq] & b_passed) {
+                features[PARAM_PASSED_PAWN_CONNECTED_MG] -= scale * mg_scale;
+                features[PARAM_PASSED_PAWN_CONNECTED_EG] -= scale * eg_scale;
+            }
             if (defended) {
                 features[PARAM_PASSED_PAWN_DEFENDED_MG] -= scale * mg_scale;
                 features[PARAM_PASSED_PAWN_DEFENDED_EG] -= scale * eg_scale;
@@ -463,12 +500,28 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
         int sq = pop_lsb(&w_knights);
         features[PARAM_PST_KNIGHT_0 + pst_mirror_idx(sq)] += 1.0;
         features[PARAM_PIECE_KNIGHT] += 1.0;
+        int r = RANK_OF(sq);
+        if (r >= RANK_4 && r <= RANK_6) {
+            if ((pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+                features[PARAM_KNIGHT_OUTPOST_MG] += mg_scale;
+                features[PARAM_KNIGHT_OUTPOST_EG] += eg_scale;
+            }
+        }
     }
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
     while (b_knights) {
         int sq = pop_lsb(&b_knights);
         features[PARAM_PST_KNIGHT_0 + pst_mirror_idx(sq ^ 56)] -= 1.0;
         features[PARAM_PIECE_KNIGHT] -= 1.0;
+        int r = RANK_OF(sq);
+        if (r >= RANK_2 && r <= RANK_4) {
+            if ((pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+                features[PARAM_KNIGHT_OUTPOST_MG] -= mg_scale;
+                features[PARAM_KNIGHT_OUTPOST_EG] -= eg_scale;
+            }
+        }
     }
 
     // --- Bishops ---
@@ -477,12 +530,28 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
         int sq = pop_lsb(&w_bishops);
         features[PARAM_PST_BISHOP_0 + pst_mirror_idx(sq)] += 1.0;
         features[PARAM_PIECE_BISHOP] += 1.0;
+        int r = RANK_OF(sq);
+        if (r >= RANK_4 && r <= RANK_6) {
+            if ((pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+                features[PARAM_BISHOP_OUTPOST_MG] += mg_scale;
+                features[PARAM_BISHOP_OUTPOST_EG] += eg_scale;
+            }
+        }
     }
     uint64_t b_bishops = pos->pieces[COLOR_IDX(BLACK)][BISHOP];
     while (b_bishops) {
         int sq = pop_lsb(&b_bishops);
         features[PARAM_PST_BISHOP_0 + pst_mirror_idx(sq ^ 56)] -= 1.0;
         features[PARAM_PIECE_BISHOP] -= 1.0;
+        int r = RANK_OF(sq);
+        if (r >= RANK_2 && r <= RANK_4) {
+            if ((pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+                features[PARAM_BISHOP_OUTPOST_MG] -= mg_scale;
+                features[PARAM_BISHOP_OUTPOST_EG] -= eg_scale;
+            }
+        }
     }
 
     // --- Rooks ---
@@ -501,6 +570,14 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
                 features[PARAM_ROOK_SEMI_OPEN_FILE_EG] += eg_scale;
             }
         }
+        if (RANK_OF(sq) == RANK_7) {
+            features[PARAM_ROOK_ON_7TH_MG] += mg_scale;
+            features[PARAM_ROOK_ON_7TH_EG] += eg_scale;
+        }
+        if (rookAttacks(sq, pos->occAll) & pos->pieces[COLOR_IDX(WHITE)][ROOK]) {
+            features[PARAM_CONNECTED_ROOKS_MG] += mg_scale;
+            features[PARAM_CONNECTED_ROOKS_EG] += eg_scale;
+        }
     }
     uint64_t b_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
     while (b_rooks) {
@@ -516,6 +593,14 @@ void evaluate_extract_features(const Position *pos, double *features, int *const
                 features[PARAM_ROOK_SEMI_OPEN_FILE_MG] -= mg_scale;
                 features[PARAM_ROOK_SEMI_OPEN_FILE_EG] -= eg_scale;
             }
+        }
+        if (RANK_OF(sq) == RANK_2) {
+            features[PARAM_ROOK_ON_7TH_MG] -= mg_scale;
+            features[PARAM_ROOK_ON_7TH_EG] -= eg_scale;
+        }
+        if (rookAttacks(sq, pos->occAll) & pos->pieces[COLOR_IDX(BLACK)][ROOK]) {
+            features[PARAM_CONNECTED_ROOKS_MG] -= mg_scale;
+            features[PARAM_CONNECTED_ROOKS_EG] -= eg_scale;
         }
     }
 
@@ -689,6 +774,24 @@ int evaluate_replicated(const Position *pos, const int *params) {
     uint64_t w_rooks_queens = pos->pieces[COLOR_IDX(WHITE)][ROOK] | pos->pieces[COLOR_IDX(WHITE)][QUEEN];
     uint64_t b_rooks_queens = pos->pieces[COLOR_IDX(BLACK)][ROOK] | pos->pieces[COLOR_IDX(BLACK)][QUEEN];
 
+    // Precompute passed pawn bitboards
+    uint64_t w_passed = 0ULL;
+    uint64_t temp_w = w_pawns_copy;
+    while (temp_w) {
+        int sq = pop_lsb(&temp_w);
+        if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+            w_passed |= (1ULL << sq);
+        }
+    }
+    uint64_t b_passed = 0ULL;
+    uint64_t temp_b = b_pawns_copy;
+    while (temp_b) {
+        int sq = pop_lsb(&temp_b);
+        if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+            b_passed |= (1ULL << sq);
+        }
+    }
+
     // --- Pawns ---
     uint64_t w_pawns = w_pawns_copy;
     while (w_pawns) {
@@ -704,10 +807,14 @@ int evaluate_replicated(const Position *pos, const int *params) {
             item_mg -= params[PARAM_DOUBLE_PAWN_MG];
             item_eg -= params[PARAM_DOUBLE_PAWN_EG];
         }
-        if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+        if ((1ULL << sq) & w_passed) {
             int rank = RANK_OF(sq);
             int bp_mg = params[PARAM_PASSED_PAWN_MG_R1 + rank - 1];
             int bp_eg = params[PARAM_PASSED_PAWN_EG_R1 + rank - 1];
+            if (adjacentFilesMask[sq] & w_passed) {
+                bp_mg += params[PARAM_PASSED_PAWN_CONNECTED_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_CONNECTED_EG];
+            }
             if (pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) {
                 bp_mg += params[PARAM_PASSED_PAWN_DEFENDED_MG];
                 bp_eg += params[PARAM_PASSED_PAWN_DEFENDED_EG];
@@ -745,10 +852,14 @@ int evaluate_replicated(const Position *pos, const int *params) {
             item_mg -= params[PARAM_DOUBLE_PAWN_MG];
             item_eg -= params[PARAM_DOUBLE_PAWN_EG];
         }
-        if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+        if ((1ULL << sq) & b_passed) {
             int rank = 7 - RANK_OF(sq);
             int bp_mg = params[PARAM_PASSED_PAWN_MG_R1 + rank - 1];
             int bp_eg = params[PARAM_PASSED_PAWN_EG_R1 + rank - 1];
+            if (adjacentFilesMask[sq] & b_passed) {
+                bp_mg += params[PARAM_PASSED_PAWN_CONNECTED_MG];
+                bp_eg += params[PARAM_PASSED_PAWN_CONNECTED_EG];
+            }
             if (pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) {
                 bp_mg += params[PARAM_PASSED_PAWN_DEFENDED_MG];
                 bp_eg += params[PARAM_PASSED_PAWN_DEFENDED_EG];
@@ -778,12 +889,28 @@ int evaluate_replicated(const Position *pos, const int *params) {
         int sq = pop_lsb(&w_knights);
         int val = params[PARAM_PIECE_KNIGHT] + pst_knight[sq];
         mg_score += val; eg_score += val;
+        int r = RANK_OF(sq);
+        if (r >= RANK_4 && r <= RANK_6) {
+            if ((pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+                mg_score += params[PARAM_KNIGHT_OUTPOST_MG];
+                eg_score += params[PARAM_KNIGHT_OUTPOST_EG];
+            }
+        }
     }
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
     while (b_knights) {
         int sq = pop_lsb(&b_knights);
         int val = params[PARAM_PIECE_KNIGHT] + pst_knight[sq ^ 56];
         mg_score -= val; eg_score -= val;
+        int r = RANK_OF(sq);
+        if (r >= RANK_2 && r <= RANK_4) {
+            if ((pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+                mg_score -= params[PARAM_KNIGHT_OUTPOST_MG];
+                eg_score -= params[PARAM_KNIGHT_OUTPOST_EG];
+            }
+        }
     }
 
     // --- Bishops ---
@@ -792,12 +919,28 @@ int evaluate_replicated(const Position *pos, const int *params) {
         int sq = pop_lsb(&w_bishops);
         int val = params[PARAM_PIECE_BISHOP] + pst_bishop[sq];
         mg_score += val; eg_score += val;
+        int r = RANK_OF(sq);
+        if (r >= RANK_4 && r <= RANK_6) {
+            if ((pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+                mg_score += params[PARAM_BISHOP_OUTPOST_MG];
+                eg_score += params[PARAM_BISHOP_OUTPOST_EG];
+            }
+        }
     }
     uint64_t b_bishops = pos->pieces[COLOR_IDX(BLACK)][BISHOP];
     while (b_bishops) {
         int sq = pop_lsb(&b_bishops);
         int val = params[PARAM_PIECE_BISHOP] + pst_bishop[sq ^ 56];
         mg_score -= val; eg_score -= val;
+        int r = RANK_OF(sq);
+        if (r >= RANK_2 && r <= RANK_4) {
+            if ((pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+                mg_score -= params[PARAM_BISHOP_OUTPOST_MG];
+                eg_score -= params[PARAM_BISHOP_OUTPOST_EG];
+            }
+        }
     }
 
     // --- Rooks ---
@@ -814,6 +957,12 @@ int evaluate_replicated(const Position *pos, const int *params) {
                 item_mg += params[PARAM_ROOK_SEMI_OPEN_FILE_MG]; item_eg += params[PARAM_ROOK_SEMI_OPEN_FILE_EG];
             }
         }
+        if (RANK_OF(sq) == RANK_7) {
+            item_mg += params[PARAM_ROOK_ON_7TH_MG]; item_eg += params[PARAM_ROOK_ON_7TH_EG];
+        }
+        if (rookAttacks(sq, pos->occAll) & pos->pieces[COLOR_IDX(WHITE)][ROOK]) {
+            item_mg += params[PARAM_CONNECTED_ROOKS_MG]; item_eg += params[PARAM_CONNECTED_ROOKS_EG];
+        }
         mg_score += item_mg; eg_score += item_eg;
     }
     uint64_t b_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
@@ -828,6 +977,12 @@ int evaluate_replicated(const Position *pos, const int *params) {
             } else {
                 item_mg += params[PARAM_ROOK_SEMI_OPEN_FILE_MG]; item_eg += params[PARAM_ROOK_SEMI_OPEN_FILE_EG];
             }
+        }
+        if (RANK_OF(sq) == RANK_2) {
+            item_mg += params[PARAM_ROOK_ON_7TH_MG]; item_eg += params[PARAM_ROOK_ON_7TH_EG];
+        }
+        if (rookAttacks(sq, pos->occAll) & pos->pieces[COLOR_IDX(BLACK)][ROOK]) {
+            item_mg += params[PARAM_CONNECTED_ROOKS_MG]; item_eg += params[PARAM_CONNECTED_ROOKS_EG];
         }
         mg_score -= item_mg; eg_score -= item_eg;
     }

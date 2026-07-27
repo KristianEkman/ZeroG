@@ -16,14 +16,17 @@ import time
 param_names = [
     "piece_pawn", "piece_knight", "piece_bishop", "piece_rook", "piece_queen",
     "rook_open_file_mg", "rook_open_file_eg", "rook_semi_open_file_mg", "rook_semi_open_file_eg",
+    "rook_on_7th_mg", "rook_on_7th_eg", "connected_rooks_mg", "connected_rooks_eg",
     "bishop_pair_bonus",
     "double_pawn_mg", "double_pawn_eg",
     "isolated_pawn_mg", "isolated_pawn_eg",
     "isolated_pawn_semi_open_mg", "isolated_pawn_semi_open_eg",
+    "knight_outpost_mg", "knight_outpost_eg", "bishop_outpost_mg", "bishop_outpost_eg",
     # Passed pawns MG
     "passed_pawn_mg_r1", "passed_pawn_mg_r2", "passed_pawn_mg_r3", "passed_pawn_mg_r4", "passed_pawn_mg_r5", "passed_pawn_mg_r6",
     # Passed pawns EG
     "passed_pawn_eg_r1", "passed_pawn_eg_r2", "passed_pawn_eg_r3", "passed_pawn_eg_r4", "passed_pawn_eg_r5", "passed_pawn_eg_r6",
+    "passed_pawn_connected_mg", "passed_pawn_connected_eg",
     "passed_pawn_defended_mg", "passed_pawn_defended_eg",
     "passed_pawn_friendly_behind_mg", "passed_pawn_friendly_behind_eg",
     "passed_pawn_enemy_behind_mg", "passed_pawn_enemy_behind_eg",
@@ -70,6 +73,10 @@ def param_to_define(name):
         "rook_open_file_eg": "ROOK_OPEN_FILE_EG_VAL",
         "rook_semi_open_file_mg": "ROOK_SEMI_OPEN_FILE_MG_VAL",
         "rook_semi_open_file_eg": "ROOK_SEMI_OPEN_FILE_EG_VAL",
+        "rook_on_7th_mg": "ROOK_ON_7TH_MG_VAL",
+        "rook_on_7th_eg": "ROOK_ON_7TH_EG_VAL",
+        "connected_rooks_mg": "CONNECTED_ROOKS_MG_VAL",
+        "connected_rooks_eg": "CONNECTED_ROOKS_EG_VAL",
         "bishop_pair_bonus": "BISHOP_PAIR_BONUS_VAL",
         "double_pawn_mg": "DOUBLE_PAWN_MG_VAL",
         "double_pawn_eg": "DOUBLE_PAWN_EG_VAL",
@@ -77,6 +84,12 @@ def param_to_define(name):
         "isolated_pawn_eg": "ISOLATED_PAWN_EG_VAL",
         "isolated_pawn_semi_open_mg": "ISOLATED_PAWN_SEMI_OPEN_MG_VAL",
         "isolated_pawn_semi_open_eg": "ISOLATED_PAWN_SEMI_OPEN_EG_VAL",
+        "knight_outpost_mg": "KNIGHT_OUTPOST_MG_VAL",
+        "knight_outpost_eg": "KNIGHT_OUTPOST_EG_VAL",
+        "bishop_outpost_mg": "BISHOP_OUTPOST_MG_VAL",
+        "bishop_outpost_eg": "BISHOP_OUTPOST_EG_VAL",
+        "passed_pawn_connected_mg": "PASSED_PAWN_CONNECTED_MG_VAL",
+        "passed_pawn_connected_eg": "PASSED_PAWN_CONNECTED_EG_VAL",
         "passed_pawn_defended_mg": "PASSED_PAWN_DEFENDED_MG_VAL",
         "passed_pawn_defended_eg": "PASSED_PAWN_DEFENDED_EG_VAL",
         "passed_pawn_friendly_behind_mg": "PASSED_PAWN_FRIENDLY_BEHIND_MG_VAL",
@@ -114,84 +127,72 @@ def param_to_define(name):
     raise ValueError(f"Unknown parameter name: {name}")
 
 
-def load_csv(filename):
-    """Load CSV exported by tune_export using chunked reading for memory efficiency.
+# Constants for math functions
+LN10_F32 = np.float32(np.log(10.0))
+LN10_F64 = np.log(10.0)
 
-    Features are stored as float32 (they're small integers, so no precision loss).
-    This avoids the ~10 GB peak memory that np.genfromtxt would use.
+
+def load_csv(filename):
+    """Load CSV exported by tune_export using np.loadtxt for high performance.
+
+    Features are stored in contiguous float32 memory to optimize vector math
+    and BLAS matrix-vector products during optimization.
     """
     print(f"Loading data from {filename}...")
+    t0 = time.time()
+    data = np.loadtxt(filename, delimiter=',', skiprows=1, dtype=np.float32)
+    t_load = time.time() - t0
 
-    # Read header and count lines
-    with open(filename, 'r') as f:
-        header = f.readline().strip().split(',')
-        num_cols = len(header)
-        num_lines = sum(1 for _ in f)
-
+    num_lines = data.shape[0]
+    num_cols = data.shape[1]
     num_features = num_cols - 2
-    print(f"  {num_lines:,} positions, {num_features} features")
+    print(f"  Loaded {num_lines:,} positions, {num_features} features (float32) in {t_load:.2f}s")
 
-    # Pre-allocate arrays (features as float32 to save ~1.5 GB)
-    results = np.empty(num_lines, dtype=np.float64)
-    const_scores = np.empty(num_lines, dtype=np.float64)
-    features = np.empty((num_lines, num_features), dtype=np.float32)
+    results = np.ascontiguousarray(data[:, 0])
+    const_scores = np.ascontiguousarray(data[:, 1])
+    features = np.ascontiguousarray(data[:, 2:])
+    del data
 
-    # Read in chunks to avoid massive temporary memory
-    chunk_size = 10000
-    row = 0
-    with open(filename, 'r') as f:
-        f.readline()  # skip header
-        batch = []
-        for line in f:
-            batch.append(line)
-            if len(batch) >= chunk_size:
-                chunk = np.genfromtxt(batch, delimiter=',', dtype=np.float64)
-                n = chunk.shape[0]
-                results[row:row+n] = chunk[:, 0]
-                const_scores[row:row+n] = chunk[:, 1]
-                features[row:row+n] = chunk[:, 2:].astype(np.float32)
-                row += n
-                batch = []
-                if row % 100000 < chunk_size:
-                    pct = row * 100.0 / num_lines
-                    mem_gb = (features.nbytes + results.nbytes + const_scores.nbytes) / (1024**3)
-                    print(f"  Loading: {row:,}/{num_lines:,} ({pct:.0f}%) | ~{mem_gb:.1f} GB", flush=True)
-
-        # Final partial chunk
-        if batch:
-            chunk = np.genfromtxt(batch, delimiter=',', dtype=np.float64)
-            n = chunk.shape[0] if chunk.ndim > 1 else 1
-            if chunk.ndim == 1:
-                chunk = chunk.reshape(1, -1)
-            results[row:row+n] = chunk[:, 0]
-            const_scores[row:row+n] = chunk[:, 1]
-            features[row:row+n] = chunk[:, 2:].astype(np.float32)
-            row += n
-
-    print(f"  Loaded {row:,} positions, {num_features} features (float32)")
+    mem_gb = (features.nbytes + results.nbytes + const_scores.nbytes) / (1024**3)
+    print(f"  Memory footprint: ~{mem_gb:.2f} GB")
     return features, const_scores, results
 
 
-def loss_func(w, features, const_scores, results, K):
-    """Mean squared error between sigmoid(eval) and game result."""
-    scores = const_scores + features @ w
-    sig = K * scores / 400.0
-    E = 1.0 / (1.0 + 10.0**(-sig))
-    loss = np.mean((results - E)**2)
+def loss_func(w, features, const_scores, results, K, latest_w=None):
+    """Mean squared error between sigmoid(eval) and game result.
+
+    Vectorized single-precision computation avoids casting matrix memory.
+    """
+    if latest_w is not None:
+        latest_w[0] = w.copy()
+
+    w_f32 = w.astype(np.float32, copy=False)
+    K_f32 = np.float32(K)
+
+    scores = const_scores + features @ w_f32
+    sig = (K_f32 / 400.0) * scores
+    E = 1.0 / (1.0 + np.exp(-LN10_F32 * sig))
+
+    diff = results - E
+    loss = float(np.mean(diff**2))
 
     # Analytical gradient
-    d = (results - E) * E * (1.0 - E)
-    grad = - (2.0 * np.log(10) * K / (400.0 * len(results))) * (features.T @ d)
+    d = diff * E * (1.0 - E)
+    factor = np.float32(- (2.0 * LN10_F64 * K / (400.0 * len(results))))
+    grad = (factor * (features.T @ d)).astype(np.float64)
     return loss, grad
 
 
 def optimal_K(features, const_scores, results, w):
     """Find the optimal K scaling constant."""
+    w_f32 = w.astype(np.float32, copy=False)
+    scores = const_scores + features @ w_f32
+
     def f(K):
-        scores = const_scores + features @ w
-        sig = K * scores / 400.0
-        E = 1.0 / (1.0 + 10.0**(-sig))
-        return np.mean((results - E)**2)
+        sig = (np.float32(K) / 400.0) * scores
+        E = 1.0 / (1.0 + np.exp(-LN10_F32 * sig))
+        return float(np.mean((results - E)**2))
+
     res = minimize_scalar(f, bounds=(0.1, 3.0), method='bounded')
     return res.x
 
@@ -200,17 +201,29 @@ def write_eval_constants_header(w, output_path):
     """Generate eval_constants.h from tuned weights."""
     w_int = np.round(w).astype(int)
 
+    # Sanity bounds for rook open/semi-open file relationship
+    idx_open_mg = param_names.index("rook_open_file_mg")
+    idx_semi_mg = param_names.index("rook_semi_open_file_mg")
+    if w_int[idx_open_mg] < w_int[idx_semi_mg]:
+        w_int[idx_open_mg] = w_int[idx_semi_mg]
+
+    idx_open_eg = param_names.index("rook_open_file_eg")
+    idx_semi_eg = param_names.index("rook_semi_open_file_eg")
+    if w_int[idx_open_eg] <= w_int[idx_semi_eg]:
+        w_int[idx_open_eg] = w_int[idx_semi_eg] + 1
+
     with open(output_path, 'w') as f:
         f.write("// Generated automatically by tune.py\n")
         f.write("#ifndef EVAL_CONSTANTS_H\n")
         f.write("#define EVAL_CONSTANTS_H\n\n")
 
-        # Group 1: Piece values, rook files, bishop pair, pawn structure, passed pawns, mobility
+        # Group 1: Piece values, rook files, bishop pair, pawn structure, outposts, passed pawns, mobility
         sections = [
             ("Piece values", ["piece_pawn", "piece_knight", "piece_bishop", "piece_rook", "piece_queen"]),
-            ("Rook open file", ["rook_open_file_mg", "rook_open_file_eg", "rook_semi_open_file_mg", "rook_semi_open_file_eg"]),
+            ("Rook open file & activity", ["rook_open_file_mg", "rook_open_file_eg", "rook_semi_open_file_mg", "rook_semi_open_file_eg", "rook_on_7th_mg", "rook_on_7th_eg", "connected_rooks_mg", "connected_rooks_eg"]),
             ("Bishop pair", ["bishop_pair_bonus"]),
             ("Pawn structure", ["double_pawn_mg", "double_pawn_eg", "isolated_pawn_mg", "isolated_pawn_eg", "isolated_pawn_semi_open_mg", "isolated_pawn_semi_open_eg"]),
+            ("Outposts", ["knight_outpost_mg", "knight_outpost_eg", "bishop_outpost_mg", "bishop_outpost_eg"]),
         ]
         for title, names in sections:
             f.write(f"// {title}\n")
@@ -231,7 +244,8 @@ def write_eval_constants_header(w, output_path):
             idx = param_names.index(name)
             f.write(f"#define {param_to_define(name)} {w_int[idx]}\n")
         f.write("\n// Passed pawns extra\n")
-        for name in ["passed_pawn_defended_mg", "passed_pawn_defended_eg",
+        for name in ["passed_pawn_connected_mg", "passed_pawn_connected_eg",
+                      "passed_pawn_defended_mg", "passed_pawn_defended_eg",
                       "passed_pawn_friendly_behind_mg", "passed_pawn_friendly_behind_eg",
                       "passed_pawn_enemy_behind_mg", "passed_pawn_enemy_behind_eg"]:
             idx = param_names.index(name)
@@ -368,55 +382,67 @@ def main():
     print(f"\nTotal parameters: {NUM_PARAMS}")
     print(f"Initial weight vector: min={w_initial.min():.0f}, max={w_initial.max():.0f}, mean={w_initial.mean():.1f}")
 
-    # Step 1: Find optimal K
-    print("\nStep 1: Finding optimal K...")
-    K = optimal_K(features, const_scores, results, w_initial)
-    print(f"  Optimal K = {K:.6f}")
+    latest_w = [w_initial.copy()]
 
-    initial_loss = loss_func(w_initial, features, const_scores, results, K)[0]
-    print(f"  Initial loss = {initial_loss:.8f}")
+    try:
+        # Step 1: Find optimal K
+        print("\nStep 1: Finding optimal K...")
+        K = optimal_K(features, const_scores, results, w_initial)
+        print(f"  Optimal K = {K:.6f}")
 
-    # Step 2: Run L-BFGS-B
-    print(f"\nStep 2: Running L-BFGS-B (maxiter={args.maxiter})...")
-    t0 = time.time()
+        initial_loss = loss_func(w_initial, features, const_scores, results, K, latest_w=latest_w)[0]
+        print(f"  Initial loss = {initial_loss:.8f}")
 
-    iter_count = [0]
-    def callback(xk):
-        iter_count[0] += 1
-        if iter_count[0] % 50 == 0:
-            loss = loss_func(xk, features, const_scores, results, K)[0]
-            print(f"  Iteration {iter_count[0]}: loss = {loss:.8f}")
+        # Step 2: Run L-BFGS-B
+        print(f"\nStep 2: Running L-BFGS-B (maxiter={args.maxiter})... (Press Ctrl+C at any time to interrupt and save)")
+        t0 = time.time()
 
-    res = minimize(
-        loss_func,
-        w_initial,
-        args=(features, const_scores, results, K),
-        method='L-BFGS-B',
-        jac=True,
-        options={'maxiter': args.maxiter, 'ftol': 1e-12, 'gtol': 1e-8},
-        callback=callback
-    )
+        iter_count = [0]
+        def callback(xk):
+            latest_w[0] = xk.copy()
+            iter_count[0] += 1
+            if iter_count[0] % 50 == 0:
+                loss = loss_func(xk, features, const_scores, results, K)[0]
+                print(f"  Iteration {iter_count[0]}: loss = {loss:.8f}")
 
-    elapsed = time.time() - t0
-    print(f"\n  Optimization completed in {elapsed:.1f}s")
-    print(f"  Status: {res.message}")
-    print(f"  Final loss: {res.fun:.8f} (improved {initial_loss - res.fun:.8f})")
-    print(f"  Iterations: {res.nit}, function evaluations: {res.nfev}")
+        res = minimize(
+            loss_func,
+            w_initial,
+            args=(features, const_scores, results, K, latest_w),
+            method='L-BFGS-B',
+            jac=True,
+            options={'maxiter': args.maxiter, 'ftol': 1e-12, 'gtol': 1e-8},
+            callback=callback
+        )
 
-    # Step 3: Re-optimize K with new weights
-    print("\nStep 3: Re-optimizing K with tuned weights...")
-    K2 = optimal_K(features, const_scores, results, res.x)
-    print(f"  New K = {K2:.6f} (was {K:.6f})")
+        elapsed = time.time() - t0
+        print(f"\n  Optimization completed in {elapsed:.1f}s")
+        print(f"  Status: {res.message}")
+        print(f"  Final loss: {res.fun:.8f} (improved {initial_loss - res.fun:.8f})")
+        print(f"  Iterations: {res.nit}, function evaluations: {res.nfev}")
 
-    loss_with_new_K = loss_func(res.x, features, const_scores, results, K2)[0]
-    print(f"  Loss with new K: {loss_with_new_K:.8f}")
+        # Step 3: Re-optimize K with new weights
+        print("\nStep 3: Re-optimizing K with tuned weights...")
+        K2 = optimal_K(features, const_scores, results, res.x)
+        print(f"  New K = {K2:.6f} (was {K:.6f})")
+
+        loss_with_new_K = loss_func(res.x, features, const_scores, results, K2)[0]
+        print(f"  Loss with new K: {loss_with_new_K:.8f}")
+
+        w_best = res.x
+
+    except KeyboardInterrupt:
+        print("\n\n" + "="*60)
+        print("  [Ctrl+C DETECTED] Optimization interrupted by user!")
+        print("="*60)
+        w_best = latest_w[0]
 
     # Step 4: Write results
     print(f"\nStep 4: Writing eval_constants.h...")
-    write_eval_constants_header(res.x, args.output)
+    write_eval_constants_header(w_best, args.output)
 
     # Print notable parameter changes
-    w_final = np.round(res.x).astype(int)
+    w_final = np.round(w_best).astype(int)
     w_init_int = np.round(w_initial).astype(int)
     changes = np.abs(w_final - w_init_int)
     top_changes = np.argsort(changes)[::-1][:20]

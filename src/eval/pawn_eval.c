@@ -54,6 +54,24 @@ int evaluate_pawns(const Position *pos, int phase) {
     uint64_t w_rooks_queens = pos->pieces[COLOR_IDX(WHITE)][ROOK] | pos->pieces[COLOR_IDX(WHITE)][QUEEN];
     uint64_t b_rooks_queens = pos->pieces[COLOR_IDX(BLACK)][ROOK] | pos->pieces[COLOR_IDX(BLACK)][QUEEN];
 
+    // Precompute passed pawn bitboards for connected passed pawn evaluation
+    uint64_t w_passed = 0ULL;
+    uint64_t temp_w = w_pawns_copy;
+    while (temp_w) {
+        int sq = pop_lsb(&temp_w);
+        if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+            w_passed |= (1ULL << sq);
+        }
+    }
+    uint64_t b_passed = 0ULL;
+    uint64_t temp_b = b_pawns_copy;
+    while (temp_b) {
+        int sq = pop_lsb(&temp_b);
+        if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+            b_passed |= (1ULL << sq);
+        }
+    }
+
     // Evaluate White pawns
     uint64_t w_pawns = w_pawns_copy;
     while (w_pawns) {
@@ -75,10 +93,16 @@ int evaluate_pawns(const Position *pos, int phase) {
         }
 
         // Passed pawn evaluation
-        if (!(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+        if ((1ULL << sq) & w_passed) {
             int rank = RANK_OF(sq);
             int bp_mg = passed_pawn_mg[rank];
             int bp_eg = passed_pawn_eg[rank];
+
+            // Connected passed pawn
+            if (adjacentFilesMask[sq] & w_passed) {
+                bp_mg += PASSED_PAWN_CONNECTED_MG_VAL;
+                bp_eg += PASSED_PAWN_CONNECTED_EG_VAL;
+            }
 
             // Defended/Protected by friendly pawn
             if (pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) {
@@ -133,10 +157,16 @@ int evaluate_pawns(const Position *pos, int phase) {
         }
 
         // Passed pawn evaluation
-        if (!(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+        if ((1ULL << sq) & b_passed) {
             int rank = 7 - RANK_OF(sq);
             int bp_mg = passed_pawn_mg[rank];
             int bp_eg = passed_pawn_eg[rank];
+
+            // Connected passed pawn
+            if (adjacentFilesMask[sq] & b_passed) {
+                bp_mg += PASSED_PAWN_CONNECTED_MG_VAL;
+                bp_eg += PASSED_PAWN_CONNECTED_EG_VAL;
+            }
 
             // Defended/Protected by friendly pawn
             if (pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) {

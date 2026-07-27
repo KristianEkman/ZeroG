@@ -15,8 +15,8 @@ void eval_init(void) {
     eval_nn = nn_init(sizes, 4);
     if (eval_nn) {
         if (nn_load(eval_nn, "nn_weights.bin")) {
-            use_nn = true; // Keep default on!
-            printf("info string Loaded NN weights from nn_weights.bin (default on)\n");
+            use_nn = false; // Default off
+            printf("info string Loaded NN weights from nn_weights.bin (default off)\n");
             fflush(stdout);
         } else {
             use_nn = false; // Disable if load failed
@@ -91,12 +91,28 @@ int evaluate(const Position *pos) {
     uint64_t w_knights = pos->pieces[COLOR_IDX(WHITE)][KNIGHT];
     while (w_knights) {
         int sq = pop_lsb(&w_knights);
-        score += PIECE_KNIGHT_VAL + knight_table[sq];
+        int item_score = PIECE_KNIGHT_VAL + knight_table[sq];
+        int r = RANK_OF(sq);
+        if (r >= RANK_4 && r <= RANK_6) {
+            if ((pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+                item_score += (KNIGHT_OUTPOST_MG_VAL * phase + KNIGHT_OUTPOST_EG_VAL * (24 - phase)) / 24;
+            }
+        }
+        score += item_score;
     }
     uint64_t w_bishops = pos->pieces[COLOR_IDX(WHITE)][BISHOP];
     while (w_bishops) {
         int sq = pop_lsb(&w_bishops);
-        score += PIECE_BISHOP_VAL + bishop_table[sq];
+        int item_score = PIECE_BISHOP_VAL + bishop_table[sq];
+        int r = RANK_OF(sq);
+        if (r >= RANK_4 && r <= RANK_6) {
+            if ((pawnAttacks[COLOR_IDX(BLACK)][sq] & w_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(WHITE)][sq] & b_pawns_copy)) {
+                item_score += (BISHOP_OUTPOST_MG_VAL * phase + BISHOP_OUTPOST_EG_VAL * (24 - phase)) / 24;
+            }
+        }
+        score += item_score;
     }
     uint64_t w_rooks = pos->pieces[COLOR_IDX(WHITE)][ROOK];
     while (w_rooks) {
@@ -111,6 +127,16 @@ int evaluate(const Position *pos) {
             } else {
                 item_score += (rook_semi_open_file_mg * phase + rook_semi_open_file_eg * (24 - phase)) / 24;
             }
+        }
+
+        // Rook on 7th rank
+        if (RANK_OF(sq) == RANK_7) {
+            item_score += (ROOK_ON_7TH_MG_VAL * phase + ROOK_ON_7TH_EG_VAL * (24 - phase)) / 24;
+        }
+
+        // Connected rooks
+        if (rookAttacks(sq, pos->occAll) & pos->pieces[COLOR_IDX(WHITE)][ROOK]) {
+            item_score += (CONNECTED_ROOKS_MG_VAL * phase + CONNECTED_ROOKS_EG_VAL * (24 - phase)) / 24;
         }
 
         score += item_score;
@@ -128,12 +154,28 @@ int evaluate(const Position *pos) {
     uint64_t b_knights = pos->pieces[COLOR_IDX(BLACK)][KNIGHT];
     while (b_knights) {
         int sq = pop_lsb(&b_knights);
-        score -= PIECE_KNIGHT_VAL + knight_table[sq ^ 56];
+        int item_score = PIECE_KNIGHT_VAL + knight_table[sq ^ 56];
+        int r = RANK_OF(sq);
+        if (r >= RANK_2 && r <= RANK_4) {
+            if ((pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+                item_score += (KNIGHT_OUTPOST_MG_VAL * phase + KNIGHT_OUTPOST_EG_VAL * (24 - phase)) / 24;
+            }
+        }
+        score -= item_score;
     }
     uint64_t b_bishops = pos->pieces[COLOR_IDX(BLACK)][BISHOP];
     while (b_bishops) {
         int sq = pop_lsb(&b_bishops);
-        score -= PIECE_BISHOP_VAL + bishop_table[sq ^ 56];
+        int item_score = PIECE_BISHOP_VAL + bishop_table[sq ^ 56];
+        int r = RANK_OF(sq);
+        if (r >= RANK_2 && r <= RANK_4) {
+            if ((pawnAttacks[COLOR_IDX(WHITE)][sq] & b_pawns_copy) &&
+                !(passedPawnMasks[COLOR_IDX(BLACK)][sq] & w_pawns_copy)) {
+                item_score += (BISHOP_OUTPOST_MG_VAL * phase + BISHOP_OUTPOST_EG_VAL * (24 - phase)) / 24;
+            }
+        }
+        score -= item_score;
     }
     uint64_t b_rooks = pos->pieces[COLOR_IDX(BLACK)][ROOK];
     while (b_rooks) {
@@ -148,6 +190,16 @@ int evaluate(const Position *pos) {
             } else {
                 item_score += (rook_semi_open_file_mg * phase + rook_semi_open_file_eg * (24 - phase)) / 24;
             }
+        }
+
+        // Rook on 7th rank
+        if (RANK_OF(sq) == RANK_2) {
+            item_score += (ROOK_ON_7TH_MG_VAL * phase + ROOK_ON_7TH_EG_VAL * (24 - phase)) / 24;
+        }
+
+        // Connected rooks
+        if (rookAttacks(sq, pos->occAll) & pos->pieces[COLOR_IDX(BLACK)][ROOK]) {
+            item_score += (CONNECTED_ROOKS_MG_VAL * phase + CONNECTED_ROOKS_EG_VAL * (24 - phase)) / 24;
         }
 
         score -= item_score;
