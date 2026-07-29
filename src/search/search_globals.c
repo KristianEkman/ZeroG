@@ -5,14 +5,14 @@ FILE *search_log_output = NULL;
 atomic_int stop_requested = 0;
 unsigned hash_size = 16; /* default 16MB */
 int lmr_base = 2;
-int futility_margin = 113;
-int rfp_margin_base = 111;
+int futility_margin = 116;
+int rfp_margin_base = 101;
 int nmp_min_depth = 2;
 int singular_margin = 2;
-int aspiration_window = 35;
+int aspiration_window = 36;
 int lmr_min_depth = 2;
-int futility_max_depth = 3;
-int lmr_history_divisor = 2000;
+int futility_max_depth = 4;
+int lmr_history_divisor = 2837;
 
 /* Per-thread state has moved into SearchThread (threads.h).
  * The globals below are no longer defined here:
