@@ -187,7 +187,7 @@ void test_fen_serialize_null(void)
     TEST_ASSERT_EQUAL_INT(-1, fen_serialize(NULL, NULL));
     char buf[10];
     TEST_ASSERT_EQUAL_INT(-1, fen_serialize(NULL, buf));
-    Position pos;
+    Position pos = {0};
     TEST_ASSERT_EQUAL_INT(-1, fen_serialize(&pos, NULL));
 }
 
