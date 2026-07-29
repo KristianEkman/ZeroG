@@ -1,3 +1,10 @@
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +15,28 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/time.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
+
+static int get_logical_cpu_count(void) {
+#if defined(_WIN32)
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return (int)sysinfo.dwNumberOfProcessors;
+#elif defined(_SC_NPROCESSORS_ONLN)
+    long cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    return cpus > 0 ? (int)cpus : 4;
+#elif defined(_SC_NPROCESSORS_CONF)
+    long cpus = sysconf(_SC_NPROCESSORS_CONF);
+    return cpus > 0 ? (int)cpus : 4;
+#else
+    return 4;
+#endif
+}
 
 #include "boards.h"
 #include "fen.h"
@@ -122,7 +150,7 @@ int main(int argc, char **argv) {
     const char *val_file_path = NULL;
     int epochs = 30;
     int batch_size = 4096;
-    long sys_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    long sys_cpus = get_logical_cpu_count();
     int default_threads = (sys_cpus > 0 && sys_cpus <= 16) ? (int)sys_cpus : 16;
     int num_threads = default_threads;
     float initial_lr = 0.001f;
