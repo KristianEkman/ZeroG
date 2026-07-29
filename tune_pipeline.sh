@@ -24,8 +24,9 @@
 set -e  # Exit on error
 
 # Default configuration
-SELFPLAY_GAMES=10000
+SELFPLAY_GAMES=5000
 SELFPLAY_THREADS=2
+SELFPLAY_TC="15+0.01"
 STOCKFISH_DEPTH=14
 CONCURRENCY=$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 POSITIONS_FILE="selfplay_positions.epd"
@@ -38,6 +39,15 @@ SKIP_STOCKFISH=false
 SKIP_REGRESSION=false
 REGRESSION_GAMES=200
 TUNE_MAXITER=500
+FIX_PIECE_VALUES=false
+FIX_MOBILITY_BASE=false
+UNFIX_PAWN=false
+TUNE_PASSES=3
+SOFT_LABELS=true
+KEEP_INITIAL_MATERIAL=true
+PAWN_VALUE=90
+FTOL="1e-15"
+GTOL="1e-12"
 
 # Colors for output
 RED='\033[0;31m'
@@ -70,9 +80,17 @@ usage() {
     echo "Options:"
     echo "  --games N           Number of selfplay games (default: $SELFPLAY_GAMES)"
     echo "  --threads N         Number of search threads per engine (default: $SELFPLAY_THREADS)"
+    echo "  --tc STR            Time control for selfplay (default: $SELFPLAY_TC)"
     echo "  --depth N           Stockfish evaluation depth (default: $STOCKFISH_DEPTH)"
     echo "  --concurrency N     Parallel Stockfish processes (default: $CONCURRENCY)"
-    echo "  --maxiter N         L-BFGS-B max iterations (default: $TUNE_MAXITER)"
+    echo "  --maxiter N         L-BFGS-B max iterations per pass (default: $TUNE_MAXITER)"
+    echo "  --passes N          Number of tuning passes (default: $TUNE_PASSES)"
+    echo "  --pawn-value N      Anchor pawn value (default: $PAWN_VALUE)"
+    echo "  --no-soft-labels    Use discrete game outcomes (0/0.5/1) instead of probabilities"
+    echo "  --reset-material    Reset piece starting values to standard defaults"
+    echo "  --fix-piece-values  Freeze piece values at initial values"
+    echo "  --fix-mobility-base Freeze mobility index 0 at initial values"
+    echo "  --unfix-pawn        Allow pawn piece value to float"
     echo "  --positions FILE    Use existing positions file (skip selfplay)"
     echo "  --evaluated FILE    Use existing evaluated file (skip Stockfish)"
     echo "  --skip-regression   Skip the regression selfplay match"
@@ -86,9 +104,17 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --games) SELFPLAY_GAMES="$2"; shift 2 ;;
         --threads) SELFPLAY_THREADS="$2"; shift 2 ;;
+        --tc) SELFPLAY_TC="$2"; shift 2 ;;
         --depth) STOCKFISH_DEPTH="$2"; shift 2 ;;
         --concurrency) CONCURRENCY="$2"; shift 2 ;;
         --maxiter) TUNE_MAXITER="$2"; shift 2 ;;
+        --passes) TUNE_PASSES="$2"; shift 2 ;;
+        --pawn-value) PAWN_VALUE="$2"; shift 2 ;;
+        --no-soft-labels) SOFT_LABELS=false; shift ;;
+        --reset-material) KEEP_INITIAL_MATERIAL=false; shift ;;
+        --fix-piece-values) FIX_PIECE_VALUES=true; shift ;;
+        --fix-mobility-base) FIX_MOBILITY_BASE=true; shift ;;
+        --unfix-pawn) UNFIX_PAWN=true; shift ;;
         --positions) POSITIONS_FILE="$2"; SKIP_SELFPLAY=true; shift 2 ;;
         --evaluated) EVALUATED_FILE="$2"; SKIP_STOCKFISH=true; SKIP_SELFPLAY=true; shift 2 ;;
         --skip-regression) SKIP_REGRESSION=true; shift ;;
@@ -109,6 +135,7 @@ echo -e "${NC}"
 echo "Configuration:"
 echo "  Selfplay games:      $SELFPLAY_GAMES"
 echo "  Selfplay threads:    $SELFPLAY_THREADS"
+echo "  Selfplay TC:         $SELFPLAY_TC"
 echo "  Stockfish depth:     $STOCKFISH_DEPTH"
 echo "  Concurrency:         $CONCURRENCY"
 echo "  L-BFGS-B max iter:   $TUNE_MAXITER"
@@ -139,7 +166,7 @@ if [ "$SKIP_SELFPLAY" = false ]; then
     print_step 2 "Generating selfplay positions"
 
     if [ -f "selfplay.py" ]; then
-        python3 selfplay.py --games "$SELFPLAY_GAMES" --savefen "$POSITIONS_FILE" --threads "$SELFPLAY_THREADS"
+        python3 selfplay.py --games "$SELFPLAY_GAMES" --savefen "$POSITIONS_FILE" --threads "$SELFPLAY_THREADS" --tc "$SELFPLAY_TC"
         print_ok "Generated positions from $SELFPLAY_GAMES games -> $POSITIONS_FILE"
     else
         print_warn "selfplay.py not found. Checking for existing positions..."
@@ -204,10 +231,20 @@ print_ok "Exported features -> $FEATURES_CSV"
 # ============================================================
 # Step 6: Run L-BFGS-B optimization
 # ============================================================
-print_step 6 "Running Texel tuning (L-BFGS-B)"
+TUNE_FLAGS=""
+if [ "$FIX_PIECE_VALUES" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --fix-piece-values"; fi
+if [ "$FIX_MOBILITY_BASE" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --freeze-mobility-zero-buckets"; fi
+if [ "$UNFIX_PAWN" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --unfix-pawn"; fi
+if [ "$SOFT_LABELS" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --soft-labels"; fi
+if [ "$KEEP_INITIAL_MATERIAL" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --keep-initial-material"; fi
+TUNE_FLAGS="$TUNE_FLAGS --pawn-value $PAWN_VALUE --ftol $FTOL --gtol $GTOL"
 
-python3 tune.py -i "$FEATURES_CSV" -o "$EVAL_CONSTANTS" --maxiter "$TUNE_MAXITER"
-print_ok "Optimization complete"
+for (( pass=1; pass<=TUNE_PASSES; pass++ )); do
+    print_step 6 "Running Texel tuning pass $pass of $TUNE_PASSES (L-BFGS-B)"
+    python3 tune.py -i "$FEATURES_CSV" -o "$EVAL_CONSTANTS" --initial-header "$EVAL_CONSTANTS" --maxiter "$TUNE_MAXITER" $TUNE_FLAGS
+    print_ok "Pass $pass of $TUNE_PASSES complete"
+done
+print_ok "Optimization complete ($TUNE_PASSES passes)"
 
 # ============================================================
 # Step 7: Rebuild with new constants

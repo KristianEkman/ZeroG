@@ -24,6 +24,7 @@ book.bin
 lichess.txt
 *.epd
 tune_features.csv
+gauntlet_results.pgn
 
 # CMake & VS Build Folders
 build_win/
