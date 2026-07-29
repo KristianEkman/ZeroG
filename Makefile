@@ -4,8 +4,8 @@ BUILD ?= release
 LDFLAGS += -pthread
 
 ifeq ($(BUILD),release)
-	CFLAGS_OPT = -O3 -DNDEBUG -march=native -flto
-	LDFLAGS += -flto
+	CFLAGS_OPT = -O3 -DNDEBUG -march=native -flto=auto
+	LDFLAGS += -flto=auto
 else ifeq ($(BUILD),debug)
 	CFLAGS_OPT = -O0 -g3
 else
@@ -82,7 +82,7 @@ bench_search: $(SEARCH_BENCH_TARGET)
 	@$(SEARCH_BENCH_TARGET)
 
 profile:
-	$(MAKE) BUILD_DIR=$(PROFILE_BUILD_DIR) CFLAGS_OPT="-O3 -g -DNDEBUG -march=native -flto" $(PROFILE_BUILD_DIR)/perft_bench
+	$(MAKE) BUILD_DIR=$(PROFILE_BUILD_DIR) CFLAGS_OPT="-O3 -g -DNDEBUG -march=native -flto=auto" $(PROFILE_BUILD_DIR)/perft_bench
 	@if command -v valgrind >/dev/null 2>&1 && command -v callgrind_annotate >/dev/null 2>&1; then \
 		echo "Running Callgrind on perft_bench (depth $(PROFILE_DEPTH)) ..."; \
 		valgrind --tool=callgrind \
@@ -103,7 +103,7 @@ profile:
 	fi
 
 profile_search:
-	$(MAKE) BUILD_DIR=$(PROFILE_BUILD_DIR) CFLAGS_OPT="-O3 -g -DNDEBUG -march=native -flto" $(PROFILE_BUILD_DIR)/search_bench
+	$(MAKE) BUILD_DIR=$(PROFILE_BUILD_DIR) CFLAGS_OPT="-O3 -g -DNDEBUG -march=native -flto=auto" $(PROFILE_BUILD_DIR)/search_bench
 	@if command -v valgrind >/dev/null 2>&1 && command -v callgrind_annotate >/dev/null 2>&1; then \
 		echo "Running Callgrind on search_bench (depth $(PROFILE_DEPTH)) ..."; \
 		valgrind --tool=callgrind \
@@ -245,7 +245,7 @@ bench_nn: $(NN_BENCH_TARGET)
 
 PROFILE_NN_ITERATIONS ?= 200000
 profile_nn:
-	$(MAKE) BUILD_DIR=$(PROFILE_BUILD_DIR) CFLAGS_OPT="-O3 -g -DNDEBUG -march=native -flto" $(PROFILE_BUILD_DIR)/nn_bench
+	$(MAKE) BUILD_DIR=$(PROFILE_BUILD_DIR) CFLAGS_OPT="-O3 -g -DNDEBUG -march=native -flto=auto" $(PROFILE_BUILD_DIR)/nn_bench
 	@if command -v valgrind >/dev/null 2>&1 && command -v callgrind_annotate >/dev/null 2>&1; then \
 		echo "Running Callgrind on nn_bench ..."; \
 		valgrind --tool=callgrind \
