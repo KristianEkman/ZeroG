@@ -17,6 +17,16 @@ static inline int msvc_ctzll(unsigned __int64 mask) {
 }
 #define __builtin_ctzll msvc_ctzll
 
+#ifndef strcasecmp
+#define strcasecmp _stricmp
+#endif
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif
+#ifndef strdup
+#define strdup _strdup
+#endif
+
 #endif
 
 #endif /* MSVC_COMPAT_H */
