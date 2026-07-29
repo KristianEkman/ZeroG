@@ -15,6 +15,7 @@ SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 # Default settings
 ENGINES_DIR="/home/kristian/engines"
+ENGINES_FILE="tested_engines.txt"
 MASTER_ENGINE="./builds/zerog"
 MASTER_NAME="ZeroG"
 GAMES=100
@@ -22,12 +23,13 @@ CONCURRENCY=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4
 TC="10+0.1"
 OPENINGS="games/top_engine_games.pgn"
 PGN_OUT="gauntlet_results.pgn"
+FRESH_PGN=false
 CUTECHESS_CLI=""
 
 # Ordo settings
 RUN_ORDO=true
-ORDO_ANCHOR_NAME=""
-ORDO_ANCHOR_RATING="2600"
+ORDO_ANCHOR_NAME="Aurora"
+ORDO_ANCHOR_RATING="2763"
 
 # Colors for premium console output
 RED='\033[0;31m'
@@ -68,13 +70,15 @@ show_help() {
     echo "  -m, --master PATH       Path to the master engine executable (default: $MASTER_ENGINE)"
     echo "  -mn, --master-name NAME  Name of the master engine (default: $MASTER_NAME)"
     echo "  -d, --engines-dir DIR   Directory containing opponent engines (default: $ENGINES_DIR)"
+    echo "  -ef, --engines-file FILE Text file containing list of opponent engines (default: $ENGINES_FILE)"
     echo "  -g, --games N           Number of games to play per opponent encounter (default: $GAMES)"
     echo "  -c, --concurrency N     Number of concurrent games (default: $CONCURRENCY)"
     echo "  -t, --tc TC             Time control (default: $TC)"
     echo "  -o, --openings FILE     Path to the openings PGN file (default: $OPENINGS)"
     echo "  -p, --pgnout FILE       Path to save PGN games output (default: $PGN_OUT)"
-    echo "  -an, --anchor-name NAME Anchor player/engine name for Ordo Elo calculation (default: $MASTER_NAME)"
+    echo "  -an, --anchor-name NAME Anchor player/engine name for Ordo Elo calculation (default: $ORDO_ANCHOR_NAME)"
     echo "  -ar, --anchor-rating R  Rating for the anchor player (default: $ORDO_ANCHOR_RATING)"
+    echo "  -fr, --fresh            Delete existing PGN output file before starting for a fresh run"
     echo "  --no-ordo               Disable Ordo Elo calculation at the end"
     echo "  -h, --help              Show this help message"
     echo ""
@@ -94,6 +98,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -d|--engines-dir)
             ENGINES_DIR="$2"
+            shift 2
+            ;;
+        -ef|--engines-file)
+            ENGINES_FILE="$2"
             shift 2
             ;;
         -g|--games)
@@ -123,6 +131,10 @@ while [[ $# -gt 0 ]]; do
         -ar|--anchor-rating)
             ORDO_ANCHOR_RATING="$2"
             shift 2
+            ;;
+        -fr|--fresh)
+            FRESH_PGN=true
+            shift 1
             ;;
         --no-ordo)
             RUN_ORDO=false
@@ -203,6 +215,18 @@ get_clean_name() {
         toad)
             echo "Toad"
             ;;
+        zerog_prev)
+            echo "ZeroG-Prev"
+            ;;
+        zerog-1.0.0)
+            echo "ZeroG-1.0.0"
+            ;;
+        zerog-1.0.2)
+            echo "ZeroG-1.0.2"
+            ;;
+        zerog)
+            echo "ZeroG"
+            ;;
         *)
             # Strip common suffixes and capitalize
             local clean=$(echo "$base" | sed -E 's/[-_]?(linux|x64|x86|v[0-9.]+|time-hotfix)//gi')
@@ -262,11 +286,43 @@ find_or_build_ordo() {
 }
 
 # 6. Find opponent engines
-print_info "Scanning '$ENGINES_DIR' for opponent engines..."
-mapfile -t OPPOSE_FILES < <(find "$ENGINES_DIR" -type f -executable 2>/dev/null)
+OPPOSE_FILES=()
+
+# Resolve engines file path relative to SCRIPT_DIR if not absolute
+if [[ "$ENGINES_FILE" != /* ]] && [ ! -f "$ENGINES_FILE" ]; then
+    ENGINES_FILE_RESOLVED="$SCRIPT_DIR/$ENGINES_FILE"
+else
+    ENGINES_FILE_RESOLVED="$ENGINES_FILE"
+fi
+
+if [ -f "$ENGINES_FILE_RESOLVED" ]; then
+    print_info "Loading opponent engines list from '$ENGINES_FILE_RESOLVED'..."
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Trim leading and trailing whitespace
+        line=$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        
+        # Resolve path
+        if [[ "$line" == /* || "$line" == ./* ]]; then
+            engine_path="$line"
+        else
+            engine_path="$ENGINES_DIR/$line"
+        fi
+        
+        if [ -x "$engine_path" ]; then
+            OPPOSE_FILES+=("$engine_path")
+        else
+            print_warning "Engine not found or not executable: $engine_path (from $ENGINES_FILE_RESOLVED)"
+        fi
+    done < "$ENGINES_FILE_RESOLVED"
+else
+    print_info "Engine list file '$ENGINES_FILE_RESOLVED' not found. Scanning '$ENGINES_DIR'..."
+    mapfile -t OPPOSE_FILES < <(find "$ENGINES_DIR" -type f -executable 2>/dev/null)
+fi
 
 if [ ${#OPPOSE_FILES[@]} -eq 0 ]; then
-    print_error "No executable chess engines found in '$ENGINES_DIR'."
+    print_error "No executable opponent engines found."
     exit 1
 fi
 
@@ -319,6 +375,10 @@ if [ -n "$OPENINGS" ]; then
 fi
 
 if [ -n "$PGN_OUT" ]; then
+    if [ "$FRESH_PGN" = true ] && [ -f "$PGN_OUT" ]; then
+        print_info "Removing existing PGN output file '$PGN_OUT' for a fresh run..."
+        rm -f "$PGN_OUT"
+    fi
     CMD+=("-pgnout" "$PGN_OUT")
 fi
 

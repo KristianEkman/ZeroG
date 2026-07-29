@@ -1,0 +1,15 @@
+# Opponent engines list for cutechess gauntlet tournament (gauntlet.sh)
+# Specify engine file names inside ENGINES_DIR (/home/kristian/engines) or absolute paths.
+# Comment out lines with '#' to exclude an engine from the tournament.
+
+# Non-ZeroG opponent engines (commented out)
+Wilted-1-0-0-0-Linux-x86-64-v3
+aurora-v1.27.0-time-hotfix-linux
+casanchess
+reyna-1.0-linux
+toad
+
+# ZeroG engine versions to run
+zerog_prev
+# zerog-1.0.0
+# zerog-1.0.2

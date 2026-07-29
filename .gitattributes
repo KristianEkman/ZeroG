@@ -1,0 +1,3 @@
+# Auto-detect text files and normalize their line endings to LF across all operating systems.
+# Git automatically identifies binary files (e.g. executables, images, compiled weights) and leaves them untouched.
+* text=auto eol=lf
