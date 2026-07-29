@@ -259,13 +259,21 @@ int online_trainer_run_selfplay(NeuralNetwork **nn_io, int num_games, int depth,
 
   // Load opening positions for game diversity
   static char epd_fens[30000][256];
-  const char *epd_file = "games/top-openings.epd";
-  int epd_count = load_epd_openings(epd_file, epd_fens, 30000);
+  const char *epd_files[] = {"games/top-openings.epd", "quiet_training_positions.epd", "selfplay_positions.epd"};
+  int epd_count = 0;
+  const char *loaded_file = NULL;
+  for (size_t i = 0; i < sizeof(epd_files) / sizeof(epd_files[0]); i++) {
+    epd_count = load_epd_openings(epd_files[i], epd_fens, 30000);
+    if (epd_count > 0) {
+      loaded_file = epd_files[i];
+      break;
+    }
+  }
 
   if (epd_count == 0) {
-    fprintf(stderr, "Error: Failed to load opening positions from %s\n",
-            epd_file);
-    return 1;
+    strcpy(epd_fens[0], "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    epd_count = 1;
+    loaded_file = "startpos (default)";
   }
 
   // 2. Initialize Online Trainer
@@ -284,7 +292,7 @@ int online_trainer_run_selfplay(NeuralNetwork **nn_io, int num_games, int depth,
   printf("  Lambda (Outcome Blend): %.2f\n", trainer->lambda_blend);
   if (epd_count > 0) {
     printf("  Opening Diversity: %d positions loaded from %s\n", epd_count,
-           epd_file);
+           loaded_file);
   }
   printf("  Saving to: %s\n", save_path);
   printf("--------------------------------------------------\n");

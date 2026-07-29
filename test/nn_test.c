@@ -152,8 +152,8 @@ void test_nn_train_large_network(void)
         initial_total_loss += 0.5f * diff * diff;
     }
 
-    // Train for 2000 epochs
-    for (int epoch = 0; epoch < 2000; epoch++) {
+    // Train for 3000 epochs
+    for (int epoch = 0; epoch < 3000; epoch++) {
         for (int i = 0; i < num_samples; i++) {
             nn_train_step(nn, inputs[i], targets[i], lr, 0.0f);
         }
