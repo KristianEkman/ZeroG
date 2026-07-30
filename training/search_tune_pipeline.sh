@@ -26,6 +26,9 @@
 
 set -e  # Exit on error
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Default configuration
 SPSA_ITERATIONS=50
 SPSA_GAMES=100
@@ -33,8 +36,8 @@ CONCURRENCY=$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4
 TC="10+0.01"
 LR_FACTOR=1.0
 C_FACTOR=1.0
-STATE_FILE="spsa_state.json"
-SEARCH_GLOBALS="src/search/search_globals.c"
+STATE_FILE="$SCRIPT_DIR/data/spsa_state.json"
+SEARCH_GLOBALS="$PROJECT_ROOT/src/search/search_globals.c"
 RESUME=false
 SKIP_BUILD=false
 SKIP_VERIFY=false
@@ -162,22 +165,22 @@ fi
 print_ok "Python 3 found"
 
 # Check for spsa.py
-if [ ! -f "spsa.py" ]; then
-    print_err "spsa.py not found in current directory."
+if [ ! -f "$SCRIPT_DIR/spsa.py" ]; then
+    print_err "spsa.py not found in $SCRIPT_DIR."
     exit 1
 fi
 print_ok "spsa.py found"
 
 # Check for opening book
-if [ ! -f "games/top_engine_games.pgn" ]; then
-    print_err "Opening book 'games/top_engine_games.pgn' not found."
+if [ ! -f "$PROJECT_ROOT/games/top_engine_games.pgn" ]; then
+    print_err "Opening book '$PROJECT_ROOT/games/top_engine_games.pgn' not found."
     exit 1
 fi
 print_ok "Opening book found"
 
 # Check for cutechess-cli
 CUTECHESS_FOUND=false
-if [ -x "../cutechess/cutechess/build/cutechess-cli" ]; then
+if [ -x "$PROJECT_ROOT/../cutechess/cutechess/build/cutechess-cli" ]; then
     CUTECHESS_FOUND=true
     print_ok "cutechess-cli found at ../cutechess/cutechess/build/cutechess-cli"
 elif command -v cutechess-cli &> /dev/null; then
@@ -203,7 +206,7 @@ grep -E "^int (lmr_base|futility_margin|rfp_margin_base|nmp_min_depth|singular_m
 # ============================================================
 print_step 3 "Running SPSA optimization ($SPSA_ITERATIONS iterations × $SPSA_GAMES games)"
 
-SPSA_CMD="python3 spsa.py \
+SPSA_CMD="python3 \"$SCRIPT_DIR/spsa.py\" \
     --iterations $SPSA_ITERATIONS \
     --games $SPSA_GAMES \
     --concurrency $CONCURRENCY \
@@ -319,13 +322,13 @@ if [ "$SKIP_VERIFY" = false ]; then
     # Copy the backed-up binary as reference
     if [ -f "zerog_prev" ]; then
         print_ok "Using ./zerog_prev as baseline"
-        python3 selfplay.py \
+        python3 "$SCRIPT_DIR/selfplay.py" \
             --games "$VERIFY_GAMES" \
             --concurrency "$CONCURRENCY" \
             --tc "$TC"
     else
         print_warn "No zerog_prev found for verification match."
-        print_warn "Copy the old engine as zerog_prev and run selfplay.py manually."
+        print_warn "Copy the old engine as zerog_prev and run training/selfplay.py manually."
     fi
 else
     print_step 6 "Skipping verification match"

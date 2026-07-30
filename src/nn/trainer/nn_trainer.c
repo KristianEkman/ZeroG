@@ -151,7 +151,7 @@ void print_help(const char *prog_name) {
 
 int main(int argc, char **argv) {
   // 1. Parse command line arguments
-  const char *input_path = "quiet_training_positions_evaluated.epd";
+  const char *input_path = "training/data/quiet_training_positions_evaluated.epd";
   const char *output_path = "nn_weights.bin";
   const char *weights_path = NULL;
   const char *val_file_path = NULL;

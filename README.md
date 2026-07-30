@@ -6,9 +6,17 @@ ZeroG is a high-performance chess engine written in C99, featuring a hybrid boar
 
 ## Project Structure
 
-- `src/` — Core implementation source files.
+- `src/` — Core implementation source files in C99.
 - `test/` — Comprehensive Unity-based unit test suites.
-- `builds/` — Output directory for compiled targets and test runners.
+- `builds/` — Output directory for compiled binaries and test runners.
+- `training/` — Training, tuning, self-play, and EPD position processing scripts.
+  - `training/data/` — Training position datasets (`.epd`), evaluated position sets, and tuning state.
+- `scripts/` — Tournament gauntlet (`gauntlet.sh`) and STS rating evaluation scripts (`sts-rating.sh`).
+- `data/` — Benchmark results and engine test records (`bench_search_result.txt`, `tested_engines.txt`).
+- `docs/` — Design documentation, engine analysis notes, and task lists.
+- `book.bin` — Polyglot opening book binary (kept in project root).
+- `nn_weights.bin` — Neural network binary weights (kept in project root).
+- `build.ps1` & `test.ps1` — Cross-platform PowerShell build and test entry points (kept in project root).
 
 ---
 
@@ -213,22 +221,22 @@ The evaluation feature space includes 413 parameters (all piece values, mobility
 #### Automated End-to-End Tuning Pipeline:
 You can run the entire workflow (building, filtering, Stockfish labeling, feature exporting, and L-BFGS-B optimization) using the automated pipeline script:
 ```bash
-./tune_pipeline.sh --games 5000 --depth 12 --concurrency 4
+./training/tune_pipeline.sh --games 5000 --depth 12 --concurrency 4
 ```
 The script backs up your existing `src/eval/eval_constants.h`, processes positions, runs the optimizer, and rebuilds the engine with tuned parameters.
 
 #### Manual Step-by-Step Workflow:
 1. **Filter Quiet Positions & Generate Labels**: Run a quiescence search (Q-search) to filter out tactical positions. Instead of hard thresholds, positions are labeled with a continuous sigmoid win probability based on white score:
    ```bash
-   ./builds/zerog --tune-filter traindata.epd quiet_traindata.epd
+   ./builds/zerog --tune-filter training/data/traindata.epd training/data/quiet_traindata.epd
    ```
 2. **Export Features**: Extract evaluation counts/coefficients (piece values, mobility, PST entries, and king safety features) to a CSV for fast matrix operations:
    ```bash
-   ./builds/zerog --tune-export quiet_traindata.epd quiet_traindata_features.csv
+   ./builds/zerog --tune-export training/data/quiet_traindata.epd training/data/quiet_traindata_features.csv
    ```
 3. **Run L-BFGS-B Optimization**: Optimize coefficients using SciPy's L-BFGS-B optimizer:
    ```bash
-   python3 tune.py -i quiet_traindata_features.csv -o src/eval/eval_constants.h
+   python3 training/tune.py -i training/data/quiet_traindata_features.csv -o src/eval/eval_constants.h
    ```
    This script:
    - Reads initial values from the current `src/eval/eval_constants.h` to use as starting points.
@@ -246,15 +254,15 @@ Simultaneous Perturbation Stochastic Approximation (SPSA) is used to tune search
 #### Workflow:
 1. **Run SPSA Script**: Execute SPSA optimization, which runs matches of candidate configurations using `cutechess-cli`:
    ```bash
-   python3 spsa.py --games 100 --iterations 50 --concurrency 4 --tc 10+0.01
+   python3 training/spsa.py --games 100 --iterations 50 --concurrency 4 --tc 10+0.01
    ```
    - **Perturbations**: The script perturbs parameters by $\pm c_k$ to test Candidate A vs Candidate B.
    - **Hyperparameters**: Automatically decays perturbation step size ($c_k$) and learning rate ($a_k$) across iterations.
 2. **Resumption**: In case of interruption, resume SPSA by passing the `--resume` flag:
    ```bash
-   python3 spsa.py --resume --games 100 --iterations 50 --concurrency 4
+   python3 training/spsa.py --resume --games 100 --iterations 50 --concurrency 4
    ```
-   State is stored in `spsa_state.json`.
+   State is stored in `training/data/spsa_state.json`.
 3. **Apply Tuned Parameters**:
    - Update the static variables at the top of [search.c](src/search/search.c).
    - Update the reported option defaults in [uci_command.c](src/uci/uci_command.c).
@@ -316,7 +324,7 @@ The `selfplay.sh` script acts as an entry point for `selfplay.py`, which manages
 
 Run the self-play script with the `--savefen` flag pointing to the output EPD file:
 ```bash
-./selfplay.sh --savefen quiet_training_positions.epd
+./training/selfplay.sh --savefen training/data/quiet_training_positions.epd
 ```
 This launches a match of `NEW` vs `OLD` using `cutechess-cli`, appending valid quiet positions to the specified file with the engine's original search score.
 
@@ -328,11 +336,11 @@ This launches a match of `NEW` vs `OLD` using `cutechess-cli`, appending valid q
 * `-tc`, `--tc <str>`: Time control configuration (default: `3+0.01`).
 
 ### Step 2: Concatenating and Deduplicating Positions
-If you have harvested training positions across multiple runs (e.g., `quiet_training_positions.epd` and `quiet_training_positions_2.epd`), you can concatenate them and remove duplicate positions.
+If you have harvested training positions across multiple runs (e.g., `training/data/quiet_training_positions.epd` and `training/data/quiet_training_positions_2.epd`), you can concatenate them and remove duplicate positions.
 
 1. **Concatenate EPD files**:
    ```bash
-   cat quiet_training_positions.epd quiet_training_positions_2.epd > quiet_training_positions_combined.epd
+   cat training/data/quiet_training_positions.epd training/data/quiet_training_positions_2.epd > training/data/quiet_training_positions_combined.epd
    ```
 
 2. **Deduplicate the combined positions** (requires compiling `epd_dedup` first):
@@ -341,7 +349,7 @@ If you have harvested training positions across multiple runs (e.g., `quiet_trai
    make epd_dedup
 
    # Run deduplication
-   ./builds/epd_dedup -i quiet_training_positions_combined.epd -o traindata.epd
+   ./builds/epd_dedup -i training/data/quiet_training_positions_combined.epd -o training/data/traindata.epd
    ```
    *Alternatively, you can run the default Makefile rule:*
    ```bash
@@ -349,19 +357,19 @@ If you have harvested training positions across multiple runs (e.g., `quiet_trai
    ```
 
 #### Deduplication CLI Options:
-* `-i`, `--input <file>`: Input EPD file (default: `quiet_training_positions_evaluated.epd`).
-* `-o`, `--output <file>`: Output deduplicated EPD file (default: `quiet_training_positions_evaluated_dedup.epd`).
+* `-i`, `--input <file>`: Input EPD file (default: `training/data/quiet_training_positions_evaluated.epd`).
+* `-o`, `--output <file>`: Output deduplicated EPD file (default: `training/data/quiet_training_positions_evaluated_dedup.epd`).
 
 ### Step 3: Labeling Positions with Stockfish
-Once you have generated/deduplicated an EPD file (e.g. `traindata.epd`), run the `evaluate_epd.py` script to evaluate and label all positions using Stockfish. This runs multiple Stockfish processes in parallel to process the file rapidly:
+Once you have generated/deduplicated an EPD file (e.g. `training/data/traindata.epd`), run the `evaluate_epd.py` script to evaluate and label all positions using Stockfish. This runs multiple Stockfish processes in parallel to process the file rapidly:
 
 ```bash
-./evaluate_epd.py -i traindata.epd -o traindata_evaluated.epd -d 10 -c 4
+python3 training/evaluate_epd.py -i training/data/traindata.epd -o training/data/traindata_evaluated.epd -d 10 -c 4
 ```
 
 #### Key Script Options:
-* `-i`, `--input`: Path to the input harvested EPD file (default: `quiet_training_positions.epd`).
-* `-o`, `--output`: Path to save the labeled EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-i`, `--input`: Path to the input harvested EPD file (default: `training/data/quiet_training_positions.epd`).
+* `-o`, `--output`: Path to save the labeled EPD file (default: `training/data/quiet_training_positions_evaluated.epd`).
 * `-d`, `--depth`: Target search depth for Stockfish (default: `10`).
 * `-t`, `--movetime`: Search time limit in milliseconds per position (optional, overrides depth).
 * `-c`, `--concurrency`: Number of concurrent Stockfish instances to run (default: number of CPU cores).
@@ -378,7 +386,7 @@ Once positions are harvested and labeled, train the custom feedforward neural ne
 
 2. **Run the training process on the labeled EPD file**:
    ```bash
-   ./builds/nn_trainer -i traindata_evaluated.epd -o nn_weights.bin -e 30
+   ./builds/nn_trainer -i training/data/traindata_evaluated.epd -o nn_weights.bin -e 30
    ```
    *Alternatively, run the default training rule (uses default filenames):*
    ```bash
@@ -386,7 +394,7 @@ Once positions are harvested and labeled, train the custom feedforward neural ne
    ```
 
 #### Trainer CLI Options:
-* `-i`, `--input <file>`: Path to the centipawn-labeled EPD file (default: `quiet_training_positions_evaluated.epd`).
+* `-i`, `--input <file>`: Path to the centipawn-labeled EPD file (default: `training/data/quiet_training_positions_evaluated.epd`).
 * `-o`, `--output <file>`: Destination path for the trained binary weights file (default: `nn_weights.bin`).
 * `-w`, `--weights <file>`: Initial binary weights file to continue training from (optional).
 * `-e`, `--epochs <num>`: Total training epochs (default: `30`).
@@ -403,7 +411,7 @@ ZeroG can generate its own Polyglot-compatible `.bin` opening books from any sta
 1. **Prepare a PGN file**: Ensure you have a standard chess PGN file (e.g. `games/top_engine_games.pgn`).
 2. **Run the generator utility**: Run the provided python compiler to parse games up to a maximum ply depth (defaults to 20 plies / 10 full moves) and compile the entries:
    ```bash
-   ./venv/bin/python3 generate_book.py
+   python3 training/generate_book.py
    ```
    This reads games, tracks positions and move counts, sorts the keys in ascending order (as required by the Polyglot spec), and writes `book.bin`.
 

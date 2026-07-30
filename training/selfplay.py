@@ -104,6 +104,7 @@ def main():
     )
     parser.add_argument("--pgnout", help="Path to write the PGN output file.")
     parser.add_argument("--savefen", help="Path to save quiet training positions in EPD format.")
+    parser.add_argument("--append", action="store_true", help="Append to existing savefen position file instead of clearing it before selfplay.")
     parser.add_argument("-games", "--games", type=int, default=300, help="Total number of games to play.")
     parser.add_argument("-concurrency", "--concurrency", type=int, default=4, help="Number of concurrent games.")
     parser.add_argument("-tc", "--tc", default="5+0.01", help="Time control for each engine.")
@@ -202,7 +203,17 @@ def main():
     print(f"Command: {' '.join(cmd)}")
     print(f"Total Games: {args.games} | Concurrency: {args.concurrency} | TC: {args.tc}")
     if args.savefen:
-        print(f"Quiet FENs will be saved to: {os.path.abspath(args.savefen)}")
+        abs_savefen = os.path.abspath(args.savefen)
+        out_dir = os.path.dirname(abs_savefen)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        if not args.append:
+            with open(abs_savefen, "w") as f:
+                pass
+            print(f"Cleared existing position file: {abs_savefen}")
+        else:
+            print(f"Appending to existing position file: {abs_savefen}")
+        print(f"Quiet FENs will be saved to: {abs_savefen}")
     if args.pgnout:
         print(f"PGN games will be saved to: {os.path.abspath(args.pgnout)}")
     print("-" * 80)

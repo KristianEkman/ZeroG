@@ -30,3 +30,4 @@ gauntlet_results.pgn
 build_win/
 .vs/
 out/
+training/data/spsa_state.json

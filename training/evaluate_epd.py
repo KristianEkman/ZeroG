@@ -226,8 +226,8 @@ def extract_fen_and_extra(line):
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate chess FEN positions in an EPD file using Stockfish.")
-    parser.add_argument("-i", "--input", default="quiet_training_positions.epd", help="Input EPD file (default: quiet_training_positions.epd)")
-    parser.add_argument("-o", "--output", default="quiet_training_positions_evaluated.epd", help="Output EPD file (default: quiet_training_positions_evaluated.epd)")
+    parser.add_argument("-i", "--input", default="training/data/quiet_training_positions.epd", help="Input EPD file (default: training/data/quiet_training_positions.epd)")
+    parser.add_argument("-o", "--output", default="training/data/quiet_training_positions_evaluated.epd", help="Output EPD file (default: training/data/quiet_training_positions_evaluated.epd)")
     parser.add_argument("-s", "--stockfish", help="Path to Stockfish executable (default: search in PATH or common macOS Homebrew paths)")
     parser.add_argument("-d", "--depth", type=int, default=10, help="Search depth for Stockfish (default: 10)")
     parser.add_argument("-t", "--movetime", type=int, help="Search time in milliseconds (optional, overrides depth)")

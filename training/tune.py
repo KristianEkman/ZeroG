@@ -991,6 +991,19 @@ def main():
 
     free_mask = free_parameter_mask(bounds)
     free_count = int(np.count_nonzero(free_mask))
+    if free_count == 0 and args.min_feature_count > 1:
+        fallback_min = max(1, len(train["features"]) // 20)
+        print(f"\nWarning: --min-feature-count {args.min_feature_count} locked all parameters on dataset with {len(train['features'])} positions.")
+        print(f"Automatically adjusting --min-feature-count to {fallback_min}.")
+        args.min_feature_count = fallback_min
+        w_initial, bounds = build_start_and_bounds(
+            header_weights,
+            nonzero_count,
+            args,
+        )
+        free_mask = free_parameter_mask(bounds)
+        free_count = int(np.count_nonzero(free_mask))
+
     if free_count == 0:
         raise ValueError("All parameters are locked; nothing can be tuned")
 

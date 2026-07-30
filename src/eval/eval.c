@@ -14,13 +14,13 @@ void eval_init(void) {
     int sizes[] = {NN_INPUT_SIZE, NN_ACCUM_SIZE, NN_HIDDEN_SIZE, 1};
     eval_nn = nn_init(sizes, 4);
     if (eval_nn) {
-        if (nn_load(eval_nn, "nn_weights.bin")) {
+        if (nn_load(eval_nn, "nn_weights.bin") || nn_load(eval_nn, "training/data/nn_weights.bin")) {
             use_nn = false; // Default off
-            printf("info string Loaded NN weights from nn_weights.bin (default off)\n");
+            printf("info string Loaded NN weights (default off)\n");
             fflush(stdout);
         } else {
             use_nn = false; // Disable if load failed
-            printf("info string Warning: Could not load nn_weights.bin, using classical evaluation\n");
+            printf("info string Warning: Could not load NN weights, using classical evaluation\n");
             fflush(stdout);
         }
     } else {

@@ -115,8 +115,8 @@ static void print_help(const char *prog_name) {
 }
 
 int main(int argc, char **argv) {
-    const char *input_path = "quiet_training_positions_evaluated.epd";
-    const char *output_path = "quiet_training_positions_evaluated_dedup.epd";
+    const char *input_path = "training/data/quiet_training_positions_evaluated.epd";
+    const char *output_path = "training/data/quiet_training_positions_evaluated_dedup.epd";
     
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--input") == 0) {

@@ -105,6 +105,9 @@ Move book_probe(const Position *board) {
     }
 
     FILE *file = fopen(book_path, "rb");
+    if (!file && strcmp(book_path, "book.bin") == 0) {
+        file = fopen("training/data/book.bin", "rb");
+    }
     if (!file) {
         fprintf(stderr, "Error: OwnBook option is enabled but book file could not be opened: %s\n", book_path);
         printf("info string Error: OwnBook enabled but book file could not be opened: %s\n", book_path);

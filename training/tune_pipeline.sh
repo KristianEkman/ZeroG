@@ -23,17 +23,20 @@
 
 set -e  # Exit on error
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Default configuration
 SELFPLAY_GAMES=5000
 SELFPLAY_THREADS=2
 SELFPLAY_TC="15+0.01"
 STOCKFISH_DEPTH=14
 CONCURRENCY=$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)
-POSITIONS_FILE="selfplay_positions.epd"
-QUIET_FILE="quiet_training_positions.epd"
-EVALUATED_FILE="quiet_training_positions_evaluated.epd"
-FEATURES_CSV="tune_features.csv"
-EVAL_CONSTANTS="src/eval/eval_constants.h"
+POSITIONS_FILE="$SCRIPT_DIR/data/selfplay_positions.epd"
+QUIET_FILE="$SCRIPT_DIR/data/quiet_training_positions.epd"
+EVALUATED_FILE="$SCRIPT_DIR/data/quiet_training_positions_evaluated.epd"
+FEATURES_CSV="$SCRIPT_DIR/data/tune_features.csv"
+EVAL_CONSTANTS="$PROJECT_ROOT/src/eval/eval_constants.h"
 SKIP_SELFPLAY=false
 SKIP_STOCKFISH=false
 SKIP_REGRESSION=false
@@ -48,6 +51,7 @@ KEEP_INITIAL_MATERIAL=true
 PAWN_VALUE=90
 FTOL="1e-15"
 GTOL="1e-12"
+MIN_FEATURE_COUNT=100
 
 # Colors for output
 RED='\033[0;31m'
@@ -115,6 +119,7 @@ while [[ $# -gt 0 ]]; do
         --fix-piece-values) FIX_PIECE_VALUES=true; shift ;;
         --fix-mobility-base) FIX_MOBILITY_BASE=true; shift ;;
         --unfix-pawn) UNFIX_PAWN=true; shift ;;
+        --min-feature-count) MIN_FEATURE_COUNT="$2"; shift 2 ;;
         --positions) POSITIONS_FILE="$2"; SKIP_SELFPLAY=true; shift 2 ;;
         --evaluated) EVALUATED_FILE="$2"; SKIP_STOCKFISH=true; SKIP_SELFPLAY=true; shift 2 ;;
         --skip-regression) SKIP_REGRESSION=true; shift ;;
@@ -165,8 +170,8 @@ print_ok "Engine built successfully"
 if [ "$SKIP_SELFPLAY" = false ]; then
     print_step 2 "Generating selfplay positions"
 
-    if [ -f "selfplay.py" ]; then
-        python3 selfplay.py --games "$SELFPLAY_GAMES" --savefen "$POSITIONS_FILE" --threads "$SELFPLAY_THREADS" --tc "$SELFPLAY_TC"
+    if [ -f "$SCRIPT_DIR/selfplay.py" ]; then
+        python3 "$SCRIPT_DIR/selfplay.py" --games "$SELFPLAY_GAMES" --savefen "$POSITIONS_FILE" --threads "$SELFPLAY_THREADS" --tc "$SELFPLAY_TC"
         print_ok "Generated positions from $SELFPLAY_GAMES games -> $POSITIONS_FILE"
     else
         print_warn "selfplay.py not found. Checking for existing positions..."
@@ -192,7 +197,7 @@ print_ok "Positions file: $POSITIONS_FILE ($POSITION_COUNT positions)"
 if [ "$SKIP_STOCKFISH" = false ]; then
     print_step 3 "Filtering quiet positions"
 
-    ./builds/zerog --tune-filter "$POSITIONS_FILE" "$QUIET_FILE"
+    "$PROJECT_ROOT/builds/zerog" --tune-filter "$POSITIONS_FILE" "$QUIET_FILE"
     QUIET_COUNT=$(wc -l < "$QUIET_FILE" | tr -d ' ')
     print_ok "Filtered to $QUIET_COUNT quiet positions -> $QUIET_FILE"
 fi
@@ -203,7 +208,7 @@ fi
 if [ "$SKIP_STOCKFISH" = false ]; then
     print_step 4 "Evaluating positions with Stockfish (depth $STOCKFISH_DEPTH)"
 
-    python3 evaluate_epd.py \
+    python3 "$SCRIPT_DIR/evaluate_epd.py" \
         -i "$QUIET_FILE" \
         -o "$EVALUATED_FILE" \
         -d "$STOCKFISH_DEPTH" \
@@ -225,7 +230,7 @@ fi
 # ============================================================
 print_step 5 "Exporting features to CSV"
 
-./builds/zerog --tune-export "$EVALUATED_FILE" "$FEATURES_CSV"
+"$PROJECT_ROOT/builds/zerog" --tune-export "$EVALUATED_FILE" "$FEATURES_CSV"
 print_ok "Exported features -> $FEATURES_CSV"
 
 # ============================================================
@@ -237,11 +242,11 @@ if [ "$FIX_MOBILITY_BASE" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --freeze-mobili
 if [ "$UNFIX_PAWN" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --unfix-pawn"; fi
 if [ "$SOFT_LABELS" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --soft-labels"; fi
 if [ "$KEEP_INITIAL_MATERIAL" = true ]; then TUNE_FLAGS="$TUNE_FLAGS --keep-initial-material"; fi
-TUNE_FLAGS="$TUNE_FLAGS --pawn-value $PAWN_VALUE --ftol $FTOL --gtol $GTOL"
+TUNE_FLAGS="$TUNE_FLAGS --pawn-value $PAWN_VALUE --ftol $FTOL --gtol $GTOL --min-feature-count $MIN_FEATURE_COUNT"
 
 for (( pass=1; pass<=TUNE_PASSES; pass++ )); do
     print_step 6 "Running Texel tuning pass $pass of $TUNE_PASSES (L-BFGS-B)"
-    python3 tune.py -i "$FEATURES_CSV" -o "$EVAL_CONSTANTS" --initial-header "$EVAL_CONSTANTS" --maxiter "$TUNE_MAXITER" $TUNE_FLAGS
+    python3 "$SCRIPT_DIR/tune.py" -i "$FEATURES_CSV" -o "$EVAL_CONSTANTS" --initial-header "$EVAL_CONSTANTS" --maxiter "$TUNE_MAXITER" $TUNE_FLAGS
     print_ok "Pass $pass of $TUNE_PASSES complete"
 done
 print_ok "Optimization complete ($TUNE_PASSES passes)"
@@ -258,10 +263,15 @@ print_ok "Engine rebuilt with new constants"
 # ============================================================
 # Step 8: Regression selfplay match (optional)
 # ============================================================
-if [ "$SKIP_REGRESSION" = false ] && [ -f "selfplay.py" ]; then
+if [ "$SKIP_REGRESSION" = false ] && [ -f "$SCRIPT_DIR/selfplay.py" ]; then
     print_step 8 "Running regression selfplay match ($REGRESSION_GAMES games)"
-    print_warn "Compare the new engine against the previous version manually."
-    print_warn "The old constants are saved in ${EVAL_CONSTANTS}.bak"
+    if [ -f "zerog_prev" ]; then
+        print_ok "Using ./zerog_prev as baseline"
+        python3 "$SCRIPT_DIR/selfplay.py" --games "$REGRESSION_GAMES" --concurrency "$CONCURRENCY" --tc "$SELFPLAY_TC"
+    else
+        print_warn "No zerog_prev baseline found for regression match."
+        print_warn "Copy the previous engine to ./zerog_prev to run verification match automatically."
+    fi
 else
     print_step 8 "Skipping regression match"
 fi

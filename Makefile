@@ -15,7 +15,7 @@ endif
 SRC_DIR = src
 TEST_DIR = test
 BUILD_DIR = builds
-CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_OPT) -I$(SRC_DIR) -I$(SRC_DIR)/movegen -I$(SRC_DIR)/hashing -I$(SRC_DIR)/uci -I$(SRC_DIR)/search -I$(SRC_DIR)/eval -I$(SRC_DIR)/nn
+CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_OPT) -I$(SRC_DIR) -I$(SRC_DIR)/movegen -I$(SRC_DIR)/hashing -I$(SRC_DIR)/uci -I$(SRC_DIR)/search -I$(SRC_DIR)/eval -I$(SRC_DIR)/nn -I$(SRC_DIR)/nn/trainer
 TARGET = $(BUILD_DIR)/zerog
 TEST_TARGET = $(BUILD_DIR)/test_runner
 FEN_TEST_TARGET = $(BUILD_DIR)/fen_test_runner
@@ -233,11 +233,11 @@ epd_dedup: $(EPD_DEDUP_TARGET)
 
 dedup: $(EPD_DEDUP_TARGET)
 	@echo "Running EPD Deduplication..."
-	@$(EPD_DEDUP_TARGET) -i quiet_training_positions_evaluated.epd -o quiet_training_positions_evaluated_dedup.epd
+	@$(EPD_DEDUP_TARGET) -i training/data/quiet_training_positions_evaluated.epd -o training/data/quiet_training_positions_evaluated_dedup.epd
 
 train_nn: $(NN_TRAINER_TARGET)
 	@echo "Running NN Trainer..."
-	@$(NN_TRAINER_TARGET) -i quiet_training_positions_evaluated.epd -o nn_weights.bin
+	@$(NN_TRAINER_TARGET) -i training/data/quiet_training_positions_evaluated.epd -o nn_weights.bin
 
 bench_nn: $(NN_BENCH_TARGET)
 	@echo "Running neural network benchmark..."

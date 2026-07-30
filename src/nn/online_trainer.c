@@ -259,7 +259,7 @@ int online_trainer_run_selfplay(NeuralNetwork **nn_io, int num_games, int depth,
 
   // Load opening positions for game diversity
   static char epd_fens[30000][256];
-  const char *epd_files[] = {"games/top-openings.epd", "quiet_training_positions.epd", "selfplay_positions.epd"};
+  const char *epd_files[] = {"training/data/top-openings.epd", "training/data/quiet_training_positions.epd", "training/data/selfplay_positions.epd", "games/top-openings.epd", "quiet_training_positions.epd", "selfplay_positions.epd"};
   int epd_count = 0;
   const char *loaded_file = NULL;
   for (size_t i = 0; i < sizeof(epd_files) / sizeof(epd_files[0]); i++) {
