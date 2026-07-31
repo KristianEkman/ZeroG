@@ -283,8 +283,8 @@ float nn_forward(NeuralNetwork *nn, const float *inputs) {
         float val = (sum > 0.0f) ? sum : 0.0f;
         act[i] = (val < 1.0f) ? val : 1.0f;
       } else {
-        // Linear (Identity) activation for the single output neuron
-        act[i] = sum;
+        // Sigmoid activation for the single output neuron (WDL probability)
+        act[i] = 1.0f / (1.0f + expf(-sum));
       }
     }
 
@@ -349,9 +349,9 @@ float nn_train_step(NeuralNetwork *nn, const float *inputs, float target,
   // 2. Backward Propagation (Compute Deltas)
   int L = nn->num_layers - 1;
 
-  // Output Layer delta: derivative of loss * derivative of linear output
-  // activation (1.0)
-  nn->deltas[L][0] = error;
+  // Output Layer delta: derivative of MSE loss * derivative of Sigmoid output
+  // activation (output * (1.0 - output))
+  nn->deltas[L][0] = error * output * (1.0f - output);
 
   // Backpropagate deltas through hidden layers
   for (int l = L - 1; l >= 1; l--) {
@@ -1631,7 +1631,7 @@ static void *train_worker_routine(void *arg) {
           float val = (sum > 0.0f) ? sum : 0.0f;
           act[i] = (val < 1.0f) ? val : 1.0f;
         } else {
-          act[i] = sum;
+          act[i] = 1.0f / (1.0f + expf(-sum));
         }
       }
     }
@@ -1641,7 +1641,7 @@ static void *train_worker_routine(void *arg) {
     float output = ctx->activations[L][0];
     float error = output - target;
     ctx->loss_sum += 0.5f * error * error;
-    ctx->deltas[L][0] = error;
+    ctx->deltas[L][0] = error * output * (1.0f - output);
 
     // Backpropagate deltas through hidden layers
     for (int l = L - 1; l >= 1; l--) {
@@ -1946,7 +1946,7 @@ static void *eval_worker_routine(void *arg) {
           float val = (sum > 0.0f) ? sum : 0.0f;
           act[i] = (val < 1.0f) ? val : 1.0f;
         } else {
-          act[i] = sum;
+          act[i] = 1.0f / (1.0f + expf(-sum));
         }
       }
     }
@@ -1960,7 +1960,7 @@ static void *eval_worker_routine(void *arg) {
     compact_to_position(cpos, &pos);
     nnue_refresh_accumulator(nn, &pos);
     int32_t quant_raw = nnue_evaluate_accumulator(nn, &pos);
-    float quant_out = (float)quant_raw / 8192.0f;
+    float quant_out = 1.0f / (1.0f + expf(-(float)quant_raw / 8192.0f));
     float diff_quant = quant_out - target;
     ctx->quant_loss_sum += 0.5f * diff_quant * diff_quant;
   }

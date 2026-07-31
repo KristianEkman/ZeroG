@@ -15,8 +15,8 @@ void eval_init(void) {
     eval_nn = nn_init(sizes, 4);
     if (eval_nn) {
         if (nn_load(eval_nn, "nn_weights.bin") || nn_load(eval_nn, "training/data/nn_weights.bin")) {
-            use_nn = false; // Default off
-            printf("info string Loaded NN weights (default off)\n");
+            use_nn = true; // Default on when weights are loaded
+            printf("info string Loaded NN weights (NNUE enabled)\n");
             fflush(stdout);
         } else {
             use_nn = false; // Disable if load failed
@@ -66,7 +66,7 @@ static const int king_end_table[64] = PST_KING_EG_TABLE;
 int evaluate(const Position *pos) {
     if (use_nn && eval_nn) {
         int32_t output = nnue_evaluate_accumulator(eval_nn, pos);
-        int32_t val = output * 100;
+        int32_t val = output * 400;
         int score = (val + (val >= 0 ? 4096 : -4096)) / 8192;
         
         // The network evaluates from the side-to-move's perspective.

@@ -46,7 +46,7 @@ static int write_uci_handshake(FILE *output) {
           0 ||
       fprintf(output, "option name LMR_History_Divisor type spin default 2000 min 100 max 100000\n") < 0 ||
       fprintf(output, "option name SaveQuietPositionsFile type string default <empty>\n") < 0 ||
-      fprintf(output, "option name UseNN type check default false\n") < 0 ||
+      fprintf(output, "option name UseNN type check default true\n") < 0 ||
       fprintf(output, "option name OwnBook type check default false\n") < 0 ||
       fprintf(output, "option name BookFile type string default book.bin\n") < 0 ||
       fprintf(output, "uciok\n") < 0) {

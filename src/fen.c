@@ -2,6 +2,7 @@
 #include "boards.h"
 #include "zobrist.h"
 #include "movegen.h"
+#include <math.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -250,6 +251,44 @@ static bool is_number_token(const char *s, const char *end) {
 }
 
 int parse_epd_line(const char *line, Position *pos, float *target) {
+    if (!line || !pos || !target) return -1;
+
+    // Check for pipe-delimited line format: <FEN> | <target/result> [| <score_white>]
+    const char *pipe_ptr = strchr(line, '|');
+    if (pipe_ptr) {
+        char fen_buf[512];
+        size_t fen_len = (size_t)(pipe_ptr - line);
+        if (fen_len >= sizeof(fen_buf)) fen_len = sizeof(fen_buf) - 1;
+        strncpy(fen_buf, line, fen_len);
+        fen_buf[fen_len] = '\0';
+
+        // Trim trailing whitespace from FEN string
+        while (fen_len > 0 && isspace((unsigned char)fen_buf[fen_len - 1])) {
+            fen_buf[--fen_len] = '\0';
+        }
+
+        if (fen_parse(fen_buf, pos) != 0) {
+            return -4; // FEN parse error
+        }
+
+        // Read target float after '|'
+        char *val_end = NULL;
+        float val = strtof(pipe_ptr + 1, &val_end);
+        if (val_end == pipe_ptr + 1) {
+            return -1; // Missing or invalid float score
+        }
+
+        // If target is already in WDL probability range [0, 1], use directly.
+        // Otherwise, convert centipawns to Sigmoid WDL probability.
+        if (val >= 0.0f && val <= 1.0f) {
+            *target = val;
+        } else {
+            *target = 1.0f / (1.0f + expf(-val / 400.0f));
+        }
+
+        return 0;
+    }
+
     char line_copy[1024];
     strncpy(line_copy, line, sizeof(line_copy) - 1);
     line_copy[sizeof(line_copy) - 1] = '\0';
@@ -402,8 +441,8 @@ int parse_epd_line(const char *line, Position *pos, float *target) {
         return -3;
     }
     
-    // Target is scaled from centipawns to pawn units
-    *target = (float)score_val / 100.0f;
+    // Target is converted from centipawns to Sigmoid WDL probability (0.0 to 1.0)
+    *target = 1.0f / (1.0f + expf(-(float)score_val / 400.0f));
     
     // Prepare the FEN part for parsing
     // FEN part is line_copy up to fen_len
