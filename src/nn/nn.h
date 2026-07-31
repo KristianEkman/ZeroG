@@ -141,6 +141,23 @@ void nn_quantize(NeuralNetwork *nn);
 #define NN_HIDDEN_SIZE 32
 #define NN_L2_INPUT_SIZE (NN_ACCUM_SIZE * 2)  /* 512: concatenated [stm_accum | opp_accum] */
 
+static inline int nnue_feature_index(Color perspective, Piece p, int sq, int ksq) {
+    PieceType p_type = PIECE_TYPE(p);
+    if (p_type == NONE || p_type == KING || p_type >= PIECE_TYPE_NB)
+        return -1;
+
+    Color p_color = PIECE_COLOR(p);
+    int is_opponent = (p_color != perspective);
+    int side_offset = is_opponent ? 5 : 0;
+    int piece_idx = (int)p_type - 1; // 0..4 (PAWN..QUEEN)
+
+    int oriented_sq = (perspective == WHITE) ? sq : (sq ^ 56);
+    int oriented_ksq = (perspective == WHITE) ? ksq : (ksq ^ 56);
+
+    int piece_sq_idx = (side_offset + piece_idx) * 64 + oriented_sq; // 0..639
+    return oriented_ksq * 640 + piece_sq_idx;                        // 0..40959
+}
+
 /**
  * @brief Extracts HalfKA (King-relative piece-square + castling/EP state) features from a chess position.
  * 
@@ -182,23 +199,6 @@ typedef struct {
     float target;
 } TrainingSample;
 
-/**
- * @brief Extracts indices of non-zero (active) HalfKA features for a position.
- * @param pos Pointer to chess Position.
- * @param active_indices Output array of at least 64 ints to store feature indices.
- * @return Number of active features extracted.
- */
-int nn_extract_active_features(const Position *pos, int *active_indices);
-
-/**
- * @brief Extracts active features for both side-to-move and opponent perspectives.
- * @param pos Pointer to chess Position.
- * @param stm_indices Output array for side-to-move feature indices.
- * @param stm_count Output: number of STM active features.
- * @param opp_indices Output array for opponent feature indices.
- * @param opp_count Output: number of opponent active features.
- */
-void nn_extract_active_features_dual(const Position *pos, int *stm_indices, int *stm_count, int *opp_indices, int *opp_count);
 void nn_extract_active_features_dual_compact(const CompactPosition *pos, int *stm_indices, int *stm_count, int *opp_indices, int *opp_count);
 
 /**
